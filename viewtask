@@ -1,0 +1,19 @@
+#!/bin/csh
+
+cd ${QSUBM_WORK_HOME}
+
+set run = $1
+set task = $2
+set phase = $3
+
+## ls -Flah run${run}/flags/task-${task}-${phase}.*
+## cat run${run}/flags/task-${task}-${phase}.*
+## ls -Flah run${run}/output/task-${task}-${phase}.out
+## cat run${run}/output/task-${task}-${phase}.out
+
+run${run}/flags/task-${task}-${phase}.*
+if ( -r run${run}/output/task-${task}-${phase}.out ) then
+  cat run${run}/flags/task-${task}-${phase}.* run${run}/output/task-${task}-${phase}.out | more 
+else
+  cat run${run}/flags/task-${task}-${phase}.* | more
+endif

@@ -1,0 +1,14 @@
+#!/bin/csh
+
+# CAVEAT: to fix...  untars in current directory, not subdirectory
+
+# make sure execute permission is not erroneously set on py files
+# (just for neatness, compensates for Cygwin issues on mc's laptop)
+chmod -x *.py *.csh *.txt
+
+set project_name = mcscript
+set tag = `date +%y%m%d`
+set tarball = ${project_name}-${tag}.tgz
+
+cd ..
+tar zcvf mcscript/${tarball} --exclude="*_local.py" --exclude="*_scratch.py" mcscript/{*.py,wrapper.csh,readme.txt,makedist,viewtask,local,examples}
