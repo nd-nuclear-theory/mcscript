@@ -35,9 +35,11 @@
         # obdme parameters
         "obdme_twice_multipolarity" : twice maximum multipolarity for calculation of densities
         "obdme_reference_state_list" : list of reference states (J,g,i) for density calculation, or "all2all"
+        "keep_obdme" : optional, whether or not to save obdme files in archive
 
         # two-body observable parameters
-        "obs-R20K20" : optional, whether or not to include center-of-mass diagnostic observables
+        "obs-R20K20" : optional, whether or not to include center-of-mass diagnostic observables (default: False)
+        "obs-am-sqr" : optional, whether or not to include squared angular momentum (default: False)
         
         # version parameters
         "mfdn_executable" : mfdn executable name
@@ -73,8 +75,10 @@
     form_cutoff_coul independent of from nuclear interaction cutoff, eliminate input of Coulomb file 
     if Coulomb off).
   5/13/15 (mac): Insert "future" statements for Python 2 legacy support.
+  5/23/15 (mac): Add task parameter "keep_obdme".
+  5/25/15 (mac): Add squared angular momentum two-body observables support (task parameter "obs-am-sqr").
 
-  Last modified 5/12/15 (mac).
+  Last modified 5/25/15 (mac).
 
 """
 
@@ -270,6 +274,17 @@ def task_descriptor_format_5(current_task):
         )
 
     return descriptor
+
+################################################################
+# observable definitions
+################################################################
+
+angular_momentum_operator_list = [ 
+    "Lp", "Ln", "L", 
+    "Sp", "Sn", "S", 
+    "Jp", "Jn", "J"
+]
+
 
 ################################################################
 # h2 production -- h2gen
@@ -709,18 +724,29 @@ def task_handler_h2mixer(current_task):
         )
 
     # output stream -- CM observables R20 & K20
-    h2mixer_params["output_streams"].append(
-        {
-        "basename" : "tbme-R20",
-        "components" : [ ("R20",) ]
-        }
+    if (current_task.get("obs-R20K20",False)):
+        h2mixer_params["output_streams"].append(
+            {
+                "basename" : "tbme-R20",
+                "components" : [ ("R20",) ]
+            }
         )
-    h2mixer_params["output_streams"].append(
-        {
-        "basename" : "tbme-K20",
-        "components" : [ ("K20",) ]
-        }
+        h2mixer_params["output_streams"].append(
+            {
+                "basename" : "tbme-K20",
+                "components" : [ ("K20",) ]
+            }
         )
+
+    # output stream -- squared angular momentum observables
+    if (current_task.get("obs-am-sqr",False)):
+        for op in angular_momentum_operator_list:
+            h2mixer_params["output_streams"].append(
+                {
+                    "basename" : "tbme-{}".format(op),
+                    "components" : [ ("am-sqr", op) ]
+                }
+            )
 
     # output streams -- tbme for H components (debugging)
     ## h2mixer_params["output_streams"].append(
@@ -768,8 +794,13 @@ def task_handler_mfdn_h2(current_task):
     # optional dictionary keys
     if ("obs-R20K20" not in current_task):
         current_task["obs-R20K20"] = False
+    if ("obs-am-sqr" not in current_task):
+        current_task["obs-am-sqr"] = False
     if ("em_multipolarity_list" not in current_task):
         current_task["em_multipolarity_list"] = []
+    if ("keep_obdme" not in current_task):
+        current_task["keep_obdme"] = True
+
 
     # set up code parameters
     Nv = current_task["Nv"]
@@ -783,6 +814,9 @@ def task_handler_mfdn_h2(current_task):
     obs_basename_list = [ "tbme-rrel2", "tbme-NCM" ]
     if (current_task["obs-R20K20"]):
         obs_basename_list += [ "tbme-R20", "tbme-K20" ]
+    if (current_task["obs-am-sqr"]):
+        for op in angular_momentum_operator_list:
+            obs_basename_list.append("tbme-{}".format(op))
 
     # import partitioning file
     partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh"+str(Nshell))
@@ -816,7 +850,9 @@ def task_handler_mfdn_h2(current_task):
     # including unfiltered mfdn.res
     archive_filename = "%s-mfdn-%s.tgz" % (mcscript.run.name, current_task["descriptor"])
     print ("Archiving output files...")
-    obdme_file_list = ["mfdn.out", "mfdn.dat", "mfdn.res", "mfdn_spstates.info"] + glob.glob("*obdme*") 
+    obdme_file_list = ["mfdn.out", "mfdn.dat", "mfdn.res", "mfdn_spstates.info"]
+    if (current_task["keep_obdme"]):
+        obdme_file_list += glob.glob("*obdme*") 
     print ("obdme files:", obdme_file_list)
     mcscript.call(["tar", "zcvf", archive_filename] + obdme_file_list)
 
