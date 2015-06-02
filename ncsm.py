@@ -77,6 +77,7 @@
   5/13/15 (mac): Insert "future" statements for Python 2 legacy support.
   5/23/15 (mac): Add task parameter "keep_obdme".
   5/25/15 (mac): Add squared angular momentum two-body observables support (task parameter "obs-am-sqr").
+  6/2/15 (mac): Update filename for squared angular momentum two-body observables.
 
   Last modified 5/25/15 (mac).
 
@@ -280,9 +281,10 @@ def task_descriptor_format_5(current_task):
 ################################################################
 
 angular_momentum_operator_list = [ 
-    "Lp", "Ln", "L", 
-    "Sp", "Sn", "S", 
-    "Jp", "Jn", "J"
+##    "Lp", "Ln", "L", 
+##    "Sp", "Sn", "S", 
+##    "Jp", "Jn", "J"
+    "L", "Sp", "Sn", "S", "J"
 ]
 
 
@@ -816,7 +818,7 @@ def task_handler_mfdn_h2(current_task):
         obs_basename_list += [ "tbme-R20", "tbme-K20" ]
     if (current_task["obs-am-sqr"]):
         for op in angular_momentum_operator_list:
-            obs_basename_list.append("tbme-{}".format(op))
+            obs_basename_list.append("tbme-{}2".format(op))
 
     # import partitioning file
     partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh"+str(Nshell))

@@ -24,7 +24,7 @@ must break up as ["-q", "queue"].
       -- Insert "future" statements for Python 2 legacy support.
       -- Add --noredirect switch.
       -- Mandatory environment variable QSUBM_PYTHON.
-  Last modified 5/14/15 (mac).
+  Last modified 6/2/15 (mac).
 
 """
 
@@ -351,11 +351,11 @@ sys.stdout.flush()
 if (run_mode == "batch"):
     
     # set local qsub arguments
-    (submission_args, submission_string) = qsubm_local.submission(job_name,job_file,qsubm_path,environment_definitions,args)
+    (submission_args, submission_input_string) = qsubm_local.submission(job_name,job_file,qsubm_path,environment_definitions,args)
     
     # notes: options must come before command on some platforms (e.g., Univa)
     print (" ".join(submission_args))
-    print (submission_string)
+    print (submission_input_string)
     print ()
     print ("-"*64)
     for i in range(repetitions):
@@ -365,7 +365,7 @@ if (run_mode == "batch"):
             stdout=subprocess.PIPE,    # to send output to communicate -- default merged stderr
             cwd=launch_dir
             )
-        stdout_bytes = process.communicate(input=submission_string)[0]
+        stdout_bytes = process.communicate(input=submission_input_string)[0]
         stdout_string = stdout_bytes.decode("utf-8")
         print (stdout_string)
 
