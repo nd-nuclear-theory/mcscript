@@ -23,7 +23,8 @@
     5/14/15 (mac): Insert "future" statements and convert print to write
         for Python 2 legacy support.  Upgrade string formatting to
         Python 2.7 format method.
-    Last modified 5/14/15 (mac).
+    6/4/15 (mac): Add check for locking clashes.
+    Last modified 6/4/15 (mac).
 
 """
 
@@ -295,12 +296,31 @@ def do_task ():
     # store corresponding task dictionary
     task = task_list[task_index]
 
+
     # lock task
     flag_base = task_flag_base(task_index, phase)
+    # preliminary lock
+    lock_stream = open(flag_base+".lock", "w")
+    lock_stream.write(mcscript.run.job_id)
+    lock_stream.close()
+    # make sure lock was successful
+    if (mcscript.run.batch_mode):
+        # only need to worry about locking clash when jobs start simultaneously in batch mode
+        wait_time = 3
+        time.sleep(wait_time)
+    lock_stream = open(flag_base+".lock", "r")
+    line = lock_stream.readline()
+    lock_stream.close()
+    if (line == mcscript.run.job_id):
+        print("Lock was apparently successful...")
+    else:
+        print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(mcscript.run.job_id,line))
+        raise mcscript.ScriptError("Yielding lock to other instance")
+    # full lock
     lock_stream = open(flag_base+".lock", "w")
     lock_stream.write("{}\n".format(flag_base))
-    lock_stream.write("{} {}\n".format(task["pool"],task["descriptor"]))
-    lock_stream.write("{} {}\n".format(mcscript.run.job_id,mcscript.run.epar_rank))
+    lock_stream.write("pool {} descriptor {}\n".format(task["pool"],task["descriptor"]))
+    lock_stream.write("job_id {} epar_rank {}\n".format(mcscript.run.job_id,mcscript.run.epar_rank))
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
 

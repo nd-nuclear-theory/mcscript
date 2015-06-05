@@ -249,6 +249,8 @@ def task_descriptor_format_5(current_task):
     Upgrade code to use new-style string format method.
     
     Abbreviate name for traditional ho run.
+
+    TODO: incorporate vc's FCI flag
     """
 
     if(current_task["traditional_ho"]):
@@ -820,6 +822,14 @@ def task_handler_mfdn_h2(current_task):
         for op in angular_momentum_operator_list:
             obs_basename_list.append("tbme-{}2".format(op))
 
+    # guard against pathetically common mistakes
+    reference_state_list = current_task["obdme_reference_state_list"]
+    for (twice_J,g,i) in reference_state_list:
+        if ((twice_J%2) != (sum(current_task["nuclide"])%2)):
+            raise ValueError("reference state angular momentum")
+        # TODO: check on parity
+
+       
     # import partitioning file
     partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh"+str(Nshell))
     print ("Checking for partition file %s..." % partitioning_filename)
@@ -827,7 +837,7 @@ def task_handler_mfdn_h2(current_task):
         mcscript.call(["cp", partitioning_filename, "mfdn_partitioning.info"])
     else:
         print ("Not found.")
-        
+
     # invoke mfdn
     current_task.update(
         {
