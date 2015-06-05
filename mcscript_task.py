@@ -308,14 +308,14 @@ def do_task ():
         # only need to worry about locking clash when jobs start simultaneously in batch mode
         wait_time = 3
         time.sleep(wait_time)
-    lock_stream = open(flag_base+".lock", "r")
-    line = lock_stream.readline()
-    lock_stream.close()
-    if (line == mcscript.run.job_id):
-        print("Lock was apparently successful...")
-    else:
-        print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(mcscript.run.job_id,line))
-        raise mcscript.ScriptError("Yielding lock to other instance")
+        lock_stream = open(flag_base+".lock", "r")
+        line = lock_stream.readline()
+        lock_stream.close()
+        if (line == mcscript.run.job_id):
+            print("Lock was apparently successful...")
+        else:
+            print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(mcscript.run.job_id,line))
+            raise mcscript.ScriptError("Yielding lock to other instance")
     # full lock
     lock_stream = open(flag_base+".lock", "w")
     lock_stream.write("{}\n".format(flag_base))

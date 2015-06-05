@@ -747,7 +747,7 @@ def task_handler_h2mixer(current_task):
         for op in angular_momentum_operator_list:
             h2mixer_params["output_streams"].append(
                 {
-                    "basename" : "tbme-{}".format(op),
+                    "basename" : "tbme-{}2".format(op),
                     "components" : [ ("am-sqr", op) ]
                 }
             )
@@ -827,7 +827,7 @@ def task_handler_mfdn_h2(current_task):
     for (twice_J,g,i) in reference_state_list:
         if ((twice_J%2) != (sum(current_task["nuclide"])%2)):
             raise ValueError("reference state angular momentum")
-        # TODO: check on parity
+        # TODO: check on parity matching Nmax
 
        
     # import partitioning file
