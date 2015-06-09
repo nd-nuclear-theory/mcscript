@@ -78,8 +78,9 @@
   5/23/15 (mac): Add task parameter "keep_obdme".
   5/25/15 (mac): Add squared angular momentum two-body observables support (task parameter "obs-am-sqr").
   6/2/15 (mac): Update filename for squared angular momentum two-body observables.
+  6/9/15 (mac): Sanity check on reference state parity.
 
-  Last modified 5/25/15 (mac).
+  Last modified 6/9/15 (mac).
 
 """
 
@@ -826,8 +827,9 @@ def task_handler_mfdn_h2(current_task):
     reference_state_list = current_task["obdme_reference_state_list"]
     for (twice_J,g,i) in reference_state_list:
         if ((twice_J%2) != (sum(current_task["nuclide"])%2)):
-            raise ValueError("reference state angular momentum")
-        # TODO: check on parity matching Nmax
+            raise ValueError("invalid angular momentum for reference state")
+        if ((g != (current_task["Nmax"]%2)) and (current_task["Nstep"] != 1)):
+            raise ValueError("invalid parity for reference state")
 
        
     # import partitioning file
