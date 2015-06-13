@@ -7,7 +7,7 @@
     University of Notre Dame
     Written ~7/13 (mac).
     5/13/15 (mac): Insert "future" statements for Python 2 legacy support.
-    Last modified 5/13/15 (mac).
+    Last modified 6/13/15 (mac).
 
 """
 
@@ -71,7 +71,7 @@ def parallel_prefix(run):
         "-d%d" % run.parallel_depth
     ]
     if (run.parallel_depth != 1):
-        parallel_config +=[
+        args +=[
             "-N%d" % (run.parallel_nodesize // run.parallel_depth),
             "-S%d" % 1,  # ad hoc for hopper
             "-ss"

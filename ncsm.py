@@ -252,6 +252,7 @@ def task_descriptor_format_5(current_task):
     Abbreviate name for traditional ho run.
 
     TODO: incorporate vc's FCI flag
+    FUTURE FORMAT: always pad MM to 2 digits
     """
 
     if(current_task["traditional_ho"]):
