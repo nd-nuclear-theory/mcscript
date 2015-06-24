@@ -251,8 +251,7 @@ def task_descriptor_format_5(current_task):
     
     Abbreviate name for traditional ho run.
 
-    TODO: incorporate vc's FCI flag
-    FUTURE FORMAT: always pad MM to 2 digits
+    Incorporate vc's FCI flag.
     """
 
     if(current_task["traditional_ho"]):
@@ -260,21 +259,53 @@ def task_descriptor_format_5(current_task):
             "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}"
             "-hw{hw:.3f}"
             "-aL{aLawson:g}"
-            "-Nmax{Nmax:02d}{mixed_parity_flag}-MM{2mj:d}"
+            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-MM{2mj:d}"
             "-lan{lanczos:d}"
             )
     else:
         template_string =(
             "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}-{basis_string_pn}-hw{hw:.3f}"
             "-aL{aLawson:g}-hwL{hwLawson:.3f}"
-            "-Nmax{Nmax:02d}{mixed_parity_flag}-MM{2mj:d}"
+            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-MM{2mj:d}"
             "-hwint{hw_int:g}-{xform_cutoff_name:s}-lan{lanczos:d}"
             )
 
     descriptor = template_string.format(
         basis_string_pn=basis_string_pn(current_task["basis"]),
         mixed_parity_flag=mcscript.ifelse(current_task["Nstep"]==1,"x",""),
+        fci_flag = mcscript.ifelse(current_task.get("fci",False),"-fci",""),
         xform_cutoff_name=mcscript.dashify(current_task["xform_cutoff"]),
+        **current_task
+        )
+
+    return descriptor
+
+def task_descriptor_format_6(current_task):
+    """ run0373  -- replace MM (integer) with Mj (float)
+    """
+
+    if(current_task["traditional_ho"]):
+        template_string = (
+            "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}"
+            "-hw{hw:.3f}"
+            "-aL{aLawson:g}"
+            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-Mj{Mj:03.1f}"
+            "-lan{lanczos:d}"
+            )
+    else:
+        template_string =(
+            "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}-{basis_string_pn}-hw{hw:.3f}"
+            "-aL{aLawson:g}-hwL{hwLawson:.3f}"
+            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-Mj{Mj:03.1f}"
+            "-hwint{hw_int:g}-{xform_cutoff_name:s}-lan{lanczos:d}"
+            )
+
+    descriptor = template_string.format(
+        basis_string_pn=basis_string_pn(current_task["basis"]),
+        mixed_parity_flag=mcscript.ifelse(current_task["Nstep"]==1,"x",""),
+        fci_flag = mcscript.ifelse(current_task.get("fci",False),"-fci",""),
+        xform_cutoff_name=mcscript.dashify(current_task["xform_cutoff"]),
+        Mj=current_task["2mj"]/2,
         **current_task
         )
 
