@@ -59,7 +59,7 @@ parser = argparse.ArgumentParser(
     QSUBM_WORK_HOME should specify the parent directory in which
     run scratch directories should be made.
 
-    QSUBM_LAUNCH_HOME (optional) may specify should specify the parent directory
+    QSUBM_LAUNCH_HOME (optional) should specify the parent directory
     in which run subdirectories for qsub invocation and output logging
     should be made.  Otherwise, this will default to QSUBM_WORK_HOME.
 
@@ -299,7 +299,7 @@ if (args.archive):
     launch_dir = os.path.join(launch_home,run,"archive")
 else:
     # standard run mode
-    launch_dir = os.path.join(launch_home,run,"launch")
+    launch_dir = os.path.join(launch_home,run,"batch")
 if ( not os.path.exists(launch_dir)):
     os.mkdir(launch_dir)
 environment_definitions.append("QSUBM_LAUNCH_DIR=%s" % launch_dir)

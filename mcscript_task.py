@@ -174,11 +174,11 @@ def archive_handler_generic ():
 
     Known issue: The tar call is *still* liable to failure with exit code 1, e.g.: 
 
-       tar: run0318/launch/1957945.edique02.ER: file changed as we read it
+       tar: run0318/batch/1957945.edique02.ER: file changed as we read it
 
     if run in batch mode, since batch system may update output in
-    launch directory.  A solution would be to run archive phase from
-    archive subdiretory rather than launch subdirectory.
+    batch directory.  A solution would be to run archive phase from
+    archive subdiretory rather than batch subdirectory.
 
 
     Returns archive filename.  For convenience of calling function if
@@ -199,7 +199,7 @@ def archive_handler_generic ():
         os.path.join(mcscript.run.name,toc_filename),
         os.path.join(mcscript.run.name,"flags"),
         os.path.join(mcscript.run.name,"output"),
-        os.path.join(mcscript.run.name,"launch"),
+        os.path.join(mcscript.run.name,"batch"),
         os.path.join(mcscript.run.name,"results")
         ]
     mcscript.call(
