@@ -1098,8 +1098,8 @@ def archive_handler_mfdn_archive ():
     archive_filename = mcscript.task.archive_handler_generic ()
    
     # put to hsi
-    hsi_subdir = "2014"
-    hsi_arg = "lcd %s; cd %s; put %s" % (os.path.dirname(archive_filename), hsi_subdir, os.path.basename(archive_filename))
+    hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
+    hsi_arg = "lcd %s; mkdir %s; cd %s; put %s" % (os.path.dirname(archive_filename), hsi_subdir, hsi_subdir, os.path.basename(archive_filename))
     mcscript.call(["hsi",hsi_arg])
 
 
