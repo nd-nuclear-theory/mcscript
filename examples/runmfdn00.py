@@ -90,7 +90,7 @@
     to run (well, to keep the example data files small, only example
     input files for Nmax02 have been provided):
 
-        qsubm mfdn00 --pool=Nmax02
+        qsubm mfdn00 --pool=Nmax02 --phase=0
 
     This should run phase 0 of both tasks in the pool "Nmax02" (these two tasks
     are for hw=20 and hw=25, respectively).  You should see output
@@ -167,8 +167,14 @@
 
     Alternatively, you might want to run the setup phase in a queue
     for serial jobs.  Here is an example for NERSC:
+ 
+        module load serial
+        qsubm mfdn00 serial 10 --pool=Nmax02 --phase=0
+        module unload serial
 
-        qsubm mfdn00 serial 10 --pool=Nmax02
+    Or on the "short" queue on Notre Dame's cluster
+
+        qsubm mfdn00 short 10 --pool=Nmax02 --phase=0
 
     ----------------------------------------------------------------
 
@@ -176,16 +182,17 @@
 
     This is where we run MFDn.
 
-    Here are some attempted diagonalization runs on the compute nodes
-    at the ND CRC (not sure if these actually ran -- to check and update):
+    Here is an example run on NERSC:
+
+        qsubm mfdn00 debug 10 --pool=Nmax02 --phase=1 --width=15 --opt="-m ae"
+
+    Here are some example runs at higher Nmax on the compute nodes at
+    the ND CRC:
 
         qsubm mfdn00 short 60              --pool=Nmax04 --phase=1 --width=6 --nodesize=8 --start=0 --limit=1 --opt="-m ae"
         qsubm mfdn00 "*@@dqcneh_253GHz" 60 --pool=Nmax06 --phase=1 --width=6 --nodesize=8 --start=0 --limit=1 --opt="-m ae"
         qsubm mfdn00 "*@@ivybridge" 60     --pool=Nmax08 --phase=1 --width=15 --nodesize=16 --start=0 --limit=1 --opt="-m ae"
  
-    Here are example runs on NERSC on Edison:
-
-        qsubm mfdn00 debug 10 --pool=Nmax04 --phase=1 --width=15 --opt="-m ae"
 
     ----------------------------------------------------------------
 

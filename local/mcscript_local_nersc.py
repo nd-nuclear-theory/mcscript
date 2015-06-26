@@ -44,6 +44,8 @@ def serial_prefix(mode):
     "batch" for invocation in batch run
     
     "epar" for invocation in epar run
+
+    TODO: to add "serial" mode for special run on serial queue
     
     """
 
