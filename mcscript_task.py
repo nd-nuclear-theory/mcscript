@@ -24,7 +24,8 @@
         for Python 2 legacy support.  Upgrade string formatting to
         Python 2.7 format method.
     6/4/15 (mac): Add check for locking clashes.
-    Last modified 6/4/15 (mac).
+    6/25/15 (mac): Simplify task interface to single init() function.
+    Last modified 6/25/15 (mac).
 
 """
 
@@ -61,7 +62,12 @@ output_dir = None
 results_dir = None
 archive_dir = None
 
-def init():
+
+################################################################
+# bookkeeping initialization
+################################################################
+
+def task_read_env():
     """ Read environment variables for task settings.
     """
 
@@ -98,44 +104,118 @@ def init():
     task_root_dir = mcscript.run.work_dir
 
 ################################################################
-# registration functions
+# directory setup
 ################################################################
 
-def set_task_list (
-    tasks,
-    task_descriptor=(lambda task : None),
-    task_pool=(lambda task : None),
-    task_mask=(lambda task : True)
-    ):
-    """ Stores the given list of tasks and postprocesses it, adding
-    fields with values given by the given functions.
+def make_task_dirs ():
+    """ make_task_dirs () ensures the existence of special subdirectories for task processing
 
-    The task "descriptor", "pool", and "mask" fields are set by invoking the given
-    functions task_descriptor, task_pool, and task_mask, respectively, on each task.
+    TODO: since existence check is not robust against multiple scripts
+    attempting in close succession, replace this with a try/except.
     """
 
-    global task_list, phases
+    if ( not os.path.exists(flag_dir)):
+        os.mkdir(flag_dir)
+
+    if ( not os.path.exists(output_dir)):
+        os.mkdir(output_dir)
+
+    if ( not os.path.exists(results_dir)):
+        os.mkdir(results_dir)
+
+    if ( not os.path.exists(archive_dir)):
+        os.mkdir(archive_dir)
+
+################################################################
+# generic archiving support
+################################################################
+
+
+def write_current_toc ():
+    """ Write current table of contents to file runxxxx.toc.
+
+    Returns filename, sans path, as convenience to caller.
+    """
     
-    # store tasks
-    task_list = tasks
+    # write current toc
+    toc_relative_filename = "{}.toc".format(mcscript.run.name)
+    toc_filename = os.path.join(task_root_dir,toc_relative_filename)
+    toc_stream = open(toc_filename, "w")
+    toc_stream.write(task_toc())
+    toc_stream.close()
 
-    # postprocess tasks
-    for index in range(len(task_list)):
-        task_list[index]["descriptor"] = task_descriptor(task_list[index])
-        task_list[index]["pool"] = task_pool(task_list[index])
-        task_list[index]["mask"] = task_mask(task_list[index])
+    # return filename 
+    return toc_relative_filename
 
-def set_phase_handlers (phase_handler_list,archive_handler_list=[]):
-    """ set_phase_handlers(function_list) sets the phase handlers to the given functions.
 
-    The number of phases is also set from the length of this list.
+def archive_handler_generic ():
+    """Make generic archive of all metadata and results directories,
+    to the run's archive directory.
+
+    A fresh TOC file is generated before archiving.
+    
+    That is, the archive contains everything except the archive
+    directory and task work directories.  The result is placed in the
+    archive directory.  This is just a local archive in scratch, so
+    subsequent intervention is required to transfer the archive more
+    permanently to, e.g., a home directory or tape storage.
+
+    The files in the archive are of the form runxxxx/results/*, etc.
+    
+    Known issue: The tar call is liable to failure with exit code 1, e.g.: 
+
+       tar: run0235/flags: file changed as we read it
+
+    The problem arises since since the archive phase produces lock and
+    redirected output files.  One could ignore the error, but this is
+    clearly perilous.  The problem is usually avoided by avoiding
+    running archive phases in parallel with each other or, of course,
+    runs of regular tasks.
+
+    Known issue: The tar call is *still* liable to failure with exit code 1, e.g.: 
+
+       tar: run0318/launch/1957945.edique02.ER: file changed as we read it
+
+    if run in batch mode, since batch system may update output in
+    launch directory.  A solution would be to run archive phase from
+    archive subdiretory rather than launch subdirectory.
+
+
+    Returns archive filename.  For convenience of calling function if
+    wrapped in larger task handler.
+
     """
+    
+    # write current toc
+    toc_filename = write_current_toc()
 
-    global phase_handlers, phases, archive_phase_handlers, archive_phases
-    phase_handlers = phase_handler_list
-    phases = len(phase_handlers)
-    archive_phase_handlers = archive_handler_list
-    archive_phases = len(archive_phase_handlers)
+    # make archive -- whole dir
+    work_dir_parent = os.path.join(task_root_dir,"..")
+    archive_filename = os.path.join(
+        mcscript.task.archive_dir,
+        "{:s}-archive-{:s}.tgz".format(mcscript.run.name, mcscript.date_tag())
+        )
+    filename_list = [
+        os.path.join(mcscript.run.name,toc_filename),
+        os.path.join(mcscript.run.name,"flags"),
+        os.path.join(mcscript.run.name,"output"),
+        os.path.join(mcscript.run.name,"launch"),
+        os.path.join(mcscript.run.name,"results")
+        ]
+    mcscript.call(
+        ["tar", "zcvf", archive_filename ] + filename_list,
+        cwd=work_dir_parent,check_return=True
+        )
+
+    # copy archive out to home results archive directory
+    ## mcscript.call(["cp","-v",archive_filename,"-t",ncsm_config.data_dir_results_archive], cwd=mcscript.task.results_dir)
+
+    ## # put to hsi
+    ## hsi_subdir = "2013"
+    ## hsi_arg = "lcd %s; cd %s; put %s" % (os.path.dirname(archive_filename), hsi_subdir, os.path.basename(archive_filename))
+    ## subprocess.call(["hsi",hsi_arg])
+
+    return archive_filename
 
 ################################################################
 # recall functions
@@ -435,40 +515,18 @@ def do_archive ():
 
     return task_time
 
-################################################################
-# directory setup
-################################################################
-
-def make_task_dirs ():
-    """ make_task_dirs () ensures the existence of special subdirectories for task processing
-
-    TODO: since existence check is not robust against multiple scripts
-    attempting in close succession, replace this with a try/except.
-    """
-
-    if ( not os.path.exists(flag_dir)):
-        os.mkdir(flag_dir)
-
-    if ( not os.path.exists(output_dir)):
-        os.mkdir(output_dir)
-
-    if ( not os.path.exists(results_dir)):
-        os.mkdir(results_dir)
-
-    if ( not os.path.exists(archive_dir)):
-        os.mkdir(archive_dir)
 
 ################################################################
 # task master function
 ################################################################
 
-def task_master ():
+def task_master():
     """ task_master() performs a master task execution loop, acting on the given phase and pool.
     """
     global task_index
 
     # task general initialization
-    init()
+    task_read_env()
     
     # task directory setup
     make_task_dirs()
@@ -547,93 +605,45 @@ def task_master ():
         task_count += 1
 
 
+
 ################################################################
-# generic archiving support
+# caller interface
 ################################################################
 
+def init(
+        tasks,
+        task_descriptor=(lambda task : None),
+        task_pool=(lambda task : None),
+        task_mask=(lambda task : True),
+        phase_handler_list=[],
+        archive_handler_list=[]
+):
+    """Stores the given list of tasks and postprocesses it, adding
+    fields with values given by the given functions.
 
-def write_current_toc ():
-    """ Write current table of contents to file runxxxx.toc.
+    The task "descriptor", "pool", and "mask" fields are set by invoking the given
+    functions task_descriptor, task_pool, and task_mask, respectively, on each task.
 
-    Returns filename, sans path, as convenience to caller.
+    Also registers the phase handlers.  The number of phases is also
+    set from the length of the phase handler list.
+
+    Finally, invokes master task handling loop.
     """
-    
-    # write current toc
-    toc_relative_filename = "{}.toc".format(mcscript.run.name)
-    toc_filename = os.path.join(task_root_dir,toc_relative_filename)
-    toc_stream = open(toc_filename, "w")
-    toc_stream.write(task_toc())
-    toc_stream.close()
 
-    # return filename 
-    return toc_relative_filename
+    # process task list
+    global task_list, phases
+    task_list = tasks
+    for index in range(len(task_list)):
+        task_list[index]["descriptor"] = task_descriptor(task_list[index])
+        task_list[index]["pool"] = task_pool(task_list[index])
+        task_list[index]["mask"] = task_mask(task_list[index])
 
+    # register phase handlers
+    global phase_handlers, phases, archive_phase_handlers, archive_phases
+    phase_handlers = phase_handler_list
+    phases = len(phase_handlers)
+    archive_phase_handlers = archive_handler_list
+    archive_phases = len(archive_phase_handlers)
 
-def archive_handler_generic ():
-    """Make generic archive of all metadata and results directories,
-    to the run's archive directory.
-
-    A fresh TOC file is generated before archiving.
-    
-    That is, the archive contains everything except the archive
-    directory and task work directories.  The result is placed in the
-    archive directory.  This is just a local archive in scratch, so
-    subsequent intervention is required to transfer the archive more
-    permanently to, e.g., a home directory or tape storage.
-
-    The files in the archive are of the form runxxxx/results/*, etc.
-    
-    Known issue: The tar call is liable to failure with exit code 1, e.g.: 
-
-       tar: run0235/flags: file changed as we read it
-
-    The problem arises since since the archive phase produces lock and
-    redirected output files.  One could ignore the error, but this is
-    clearly perilous.  The problem is usually avoided by avoiding
-    running archive phases in parallel with each other or, of course,
-    runs of regular tasks.
-
-    Known issue: The tar call is *still* liable to failure with exit code 1, e.g.: 
-
-       tar: run0318/launch/1957945.edique02.ER: file changed as we read it
-
-    if run in batch mode, since batch system may update output in
-    launch directory.  A solution would be to run archive phase from
-    archive subdiretory rather than launch subdirectory.
-
-
-    Returns archive filename.  For convenience of calling function if
-    wrapped in larger task handler.
-
-    """
-    
-    # write current toc
-    toc_filename = write_current_toc()
-
-    # make archive -- whole dir
-    work_dir_parent = os.path.join(task_root_dir,"..")
-    archive_filename = os.path.join(
-        mcscript.task.archive_dir,
-        "{:s}-archive-{:s}.tgz".format(mcscript.run.name, mcscript.date_tag())
-        )
-    filename_list = [
-        os.path.join(mcscript.run.name,toc_filename),
-        os.path.join(mcscript.run.name,"flags"),
-        os.path.join(mcscript.run.name,"output"),
-        os.path.join(mcscript.run.name,"launch"),
-        os.path.join(mcscript.run.name,"results")
-        ]
-    mcscript.call(
-        ["tar", "zcvf", archive_filename ] + filename_list,
-        cwd=work_dir_parent,check_return=True
-        )
-
-    # copy archive out to home results archive directory
-    ## mcscript.call(["cp","-v",archive_filename,"-t",ncsm_config.data_dir_results_archive], cwd=mcscript.task.results_dir)
-
-    ## # put to hsi
-    ## hsi_subdir = "2013"
-    ## hsi_arg = "lcd %s; cd %s; put %s" % (os.path.dirname(archive_filename), hsi_subdir, os.path.basename(archive_filename))
-    ## subprocess.call(["hsi",hsi_arg])
-
-    return archive_filename
+    # invoke master loop
+    task_master()

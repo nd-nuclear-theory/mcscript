@@ -3,66 +3,61 @@
   Expected dictionary keys for h2mixer + mfdn-h2 run:
 
         # nuclide parameters
-        "nuclide" : (Z,N) tuple
-        "Nv" : N of valence shell (for use in truncation)
+        "nuclide" (tuple of int) : (Z,N) tuple
+        "Nv" (int) : N of valence shell (for use in truncation)
         
         # Hamiltonian parameters
-        "interaction" : name for interaction (for use in descriptor and filenames)
-        "coulomb" : logical value whether or not to include Coulomb
-        "aLawson" : aLawson
-        "hwLawson" : hwLawson (typically hw of basis)
+        "interaction" (string) : name for interaction (for use in descriptor and filenames)
+        "coulomb" (bool) : logical value whether or not to include Coulomb
+        "aLawson" (float) : aLawson
+        "hwLawson" (float) : hwLawson (typically hw of basis)
 
         # basis parameters
-        "hw_int" : hw of source interaction
-        "hw_int_coul" : hw for Coulomb interaction
-        "hw" : hw of basis
-        "basis" : logical basis (radial_basis_p,1.,radial_basis_n,beta_n), to be scaled by hw
-        "scaled_basis" : deduced basis used in task descriptor, etc.
-        "xform_cutoff" : transform cutoff, as tuple ("ob"|"tb",N) 
-        "xform_cutoff_coul" : transform cutoff for Coulomb interaction, as tuple ("ob"|"tb",N) 
-        "Nmax" : Nmax
-        "Nstep" : Nstep (2 for single parity, 1 for mixed parity)
-        "traditional_ho" : whether or not to assume traditional HO-basis run
-            (for abbreviated task descriptor and for MFDn transition calculation)  
+        "hw_int" (float) : hw of source interaction
+        "hw_int_coul" (float) : hw for Coulomb interaction
+        "hw" (float) : hw of basis
+        "basis" (tuple) : logical basis (radial_basis_p,1.,radial_basis_n,beta_n), to be scaled by hw
+        "scaled_basis" (tuple) : deduced basis used in task descriptor, etc.
+        "xform_cutoff" (tuple) : transform cutoff, as tuple ("ob"|"tb",N) 
+        "xform_cutoff_coul" (tuple) : transform cutoff for Coulomb interaction, as tuple ("ob"|"tb",N) 
+        "Nmax" (int) : Nmax
+        "Nstep" (int) : Nstep (2 for single parity, 1 for mixed parity)
+        "traditional_ho" (bool) : whether or not to assume traditional HO-basis run
+            (a value of True switches to an abbreviated task descriptor and enable transition calculation in MFDn)  
 
         # diagonalization parameters
-        "2mj" : twice the M-scheme M value
-        "eigenvectors" : number of eigenvectors to calculate
-        "initial_vector" : initial vector code for mfdn
-        "lanczos" : lanczos iterations
-        "tolerance" : diagonalization tolerance parameter
+        "Mj" (float) : M-scheme Mj value
+        "eigenvectors" (int) : number of eigenvectors to calculate
+        "initial_vector" (int) : initial vector code for mfdn
+        "lanczos" (int) : lanczos iterations
+        "tolerance" (float) : diagonalization tolerance parameter
 
         # obdme parameters
-        "obdme_twice_multipolarity" : twice maximum multipolarity for calculation of densities
-        "obdme_reference_state_list" : list of reference states (J,g,i) for density calculation, or "all2all"
-        "keep_obdme" : optional, whether or not to save obdme files in archive
+        "obdme_multipolarity" (int) : maximum multipolarity for calculation of densities
+        "obdme_reference_state_list" (list) : list of reference states (J,g,i) for density calculation, or "all2all"
+        "keep_obdme" (bool) : optional, whether or not to save obdme files in archive
 
         # two-body observable parameters
-        "obs-R20K20" : optional, whether or not to include center-of-mass diagnostic observables (default: False)
-        "obs-am-sqr" : optional, whether or not to include squared angular momentum (default: False)
+        "obs-R20K20" (bool, optional) : whether or not to include center-of-mass diagnostic observables (default: False)
+        "obs-am-sqr" (bool, optional) : whether or not to include squared angular momentum (default: False)
         
         # version parameters
-        "mfdn_executable" : mfdn executable name
-        "mfdn_wrapper" : wrapper code for given MFDn version
+        "mfdn_executable" (string) : mfdn executable name
+        "mfdn_wrapper" (string) : wrapper code for given MFDn version
 
         # emcalc postprocessing parameters
-        "em_multipolarity_list" : optional, list of multipolarities ("E"|"M",lambda) 
+        "em_multipolarity_list" (list, optional) : list of multipolarities ("E"|"M",lambda) 
 
   Expected dictionary keys for tbme to h2 conversion run:
 
         # interaction result naming
-        "interaction" : name for interaction (for use in descriptor and filenames)
-        "truncation" : truncation (for use in descriptor and filenames)
-        "hw" : hw of basis
+        "interaction" (string) : name for interaction (for use in descriptor and filenames)
+        "truncation" (tuple) : truncation (for use in descriptor and filenames)
+        "hw" (float) : hw of basis
 
         # interaction file parameters
-        "int_dir" : directory containing compressed interaction file
-        "int_basename" : base file name for interaction file
-
-        # version parameters
-        "mfdn_executable" : mfdn executable name
-        "mfdn_wrapper" : wrapper code for given MFDn version
-
+        "int_dir" (string) : directory containing compressed interaction file
+        "int_basename" (string) : base file name for interaction file
 
 
   Created by M. A. Caprio, University of Notre Dame.
@@ -79,6 +74,7 @@
   5/25/15 (mac): Add squared angular momentum two-body observables support (task parameter "obs-am-sqr").
   6/2/15 (mac): Update filename for squared angular momentum two-body observables.
   6/9/15 (mac): Sanity check on reference state parity.
+  6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
 
   Last modified 6/9/15 (mac).
 
@@ -259,14 +255,14 @@ def task_descriptor_format_5(current_task):
             "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}"
             "-hw{hw:.3f}"
             "-aL{aLawson:g}"
-            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-MM{2mj:d}"
+            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-MM{twice_mj:d}"
             "-lan{lanczos:d}"
             )
     else:
         template_string =(
             "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}-{basis_string_pn}-hw{hw:.3f}"
             "-aL{aLawson:g}-hwL{hwLawson:.3f}"
-            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-MM{2mj:d}"
+            "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-MM{twice_mj:d}"
             "-hwint{hw_int:g}-{xform_cutoff_name:s}-lan{lanczos:d}"
             )
 
@@ -275,6 +271,7 @@ def task_descriptor_format_5(current_task):
         mixed_parity_flag=mcscript.ifelse(current_task["Nstep"]==1,"x",""),
         fci_flag = mcscript.ifelse(current_task.get("fci",False),"-fci",""),
         xform_cutoff_name=mcscript.dashify(current_task["xform_cutoff"]),
+        twice_mj = int(2*current_task["Mj"]),
         **current_task
         )
 
@@ -305,7 +302,7 @@ def task_descriptor_format_6(current_task):
         mixed_parity_flag=mcscript.ifelse(current_task["Nstep"]==1,"x",""),
         fci_flag = mcscript.ifelse(current_task.get("fci",False),"-fci",""),
         xform_cutoff_name=mcscript.dashify(current_task["xform_cutoff"]),
-        Mj=current_task["2mj"]/2,
+        ## Mj=current_task["2mj"]/2,
         **current_task
         )
 
@@ -953,7 +950,9 @@ def task_handler_mfdn_h2_salvage(current_task):
 ##################################################################
 
 def task_handler_emcalc(current_task):
-
+    """
+    TODO: replace 2mj parameter with Mj
+    """
     # Performance note on NERSC: When run as a normal job, this
     # scripting involves many aprun call, each of which carries
     # considerable overhead (at least ~1 sec on hopper), so total execution

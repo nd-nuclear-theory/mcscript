@@ -129,13 +129,10 @@ def task_pool (current_task):
 # master loop
 ##################################################################
 
-mcscript.task.set_task_list(
-    tasks=tasks,
+mcscript.task.init(
+    tasks,
     task_descriptor=task_descriptor_hello,
-    task_pool=task_pool
-    ##task_mask=task_mask
-    )
-mcscript.task.set_phase_handlers(
+    task_pool=task_pool,
     phase_handler_list=[task_handler_hello]
     )
 mcscript.task.task_master()

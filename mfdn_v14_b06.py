@@ -3,7 +3,9 @@
   Created by M. A. Caprio, University of Notre Dame.
   8/2/14 (mac): Originated, based on old wrappers in ncsm.py.
   5/13/15 (mac): Insert "future" statements for Python 2 legacy support.
-  Last modified 5/22/15 (mac).
+  6/25/15 (mac): Replace all "twice angular momentum" parameters with true values.
+
+  Last modified 6/25/15 (mac).
 
 """
 from __future__ import print_function, division
@@ -38,6 +40,7 @@ def call_mfdn_h2 (current_task):
     # set hw value for transition operator oscillator length
     #    value 0 disables transition calculation, e.g., for non-oscillator bases
     hw_for_trans = mcscript.ifelse(current_task["traditional_ho"],current_task["hw"],0)
+    twice_Mj = int(2*current_task["Mj"])
     mfdn_base_parameters = [
         "%d" % ( 0, ), #IFLAGMBSI
         "%d" % ( 0, ), # ndiag (0: no spares, automatic ndiag)
@@ -47,7 +50,7 @@ def call_mfdn_h2 (current_task):
         "%d, %d" % ( 1, current_task["Nshell"]),  # min, max # S.P. shells for class 1 particles
         "%d, %d" % ( 1, current_task["Nshell"]),  # min, max # S.P. shells for class 2 particles
         "%d, %d, %d" % ( current_task["Nmin"], current_task["Nmax"], current_task["Nstep"] ),  # N_min, N_max, delta_N 
-        "%d" % ( current_task["2mj"], ), # Total 2 M_j
+        "%d" % ( twice_Mj, ), # Total 2 M_j
         "%d, %d, %d, %d" % ( current_task["eigenvectors"], current_task["lanczos"], current_task["initial_vector"], 0 ),  # number of eigenvalues/vectors, max number of its, starting number of its
         "%d, %d" % ( 2, 2),  # rank of input Hamiltonian/interaction
         "%.3f, %s" % (hw_for_trans,"938.92") # h-bar*omega, Nucleon mass (MeV) 
@@ -61,14 +64,17 @@ def call_mfdn_h2 (current_task):
     mfdn_tbo_parameters += current_task["obs_basename_list"]
         
     # obdme parameters
-    twice_multipolarity = current_task["obdme_twice_multipolarity"]
+    twice_multipolarity = 2*current_task["obdme_multipolarity"]
     twice_max_delta_J = twice_multipolarity  # hard-coded choice for this script
     if (current_task["obdme_reference_state_list"] == "all2all"):
         num_reference_states = -1
         reference_state_list = []
     else:
         num_reference_states = len(current_task["obdme_reference_state_list"])
-        reference_state_list = current_task["obdme_reference_state_list"]
+        reference_state_list = [
+            (int(2*J),g,i)
+            for (J,g,i) in current_task["obdme_reference_state_list"]
+        ]
     mfdn_obdme_parameters = [
         "%d, %d" % (1, twice_multipolarity), # static one-body density matrix elements (0: no one-body densities), twice multipolarity
         "%d, %d" % ( num_reference_states, twice_max_delta_J) #number of reference states for transitions (0: no transitions, -1: all2all), max delta2J (?)
