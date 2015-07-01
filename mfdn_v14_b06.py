@@ -51,7 +51,7 @@ def call_mfdn_h2 (current_task):
         "%d, %d" % ( 1, current_task["Nshell"]),  # min, max # S.P. shells for class 2 particles
         "%d, %d, %d" % ( current_task["Nmin"], current_task["Nmax"], current_task["Nstep"] ),  # N_min, N_max, delta_N 
         "%d" % ( twice_Mj, ), # Total 2 M_j
-        "%d, %d, %d, %d" % ( current_task["eigenvectors"], current_task["lanczos"], current_task["initial_vector"], 0 ),  # number of eigenvalues/vectors, max number of its, starting number of its
+        "%d, %d, %d, %e" % ( current_task["eigenvectors"], current_task["lanczos"], current_task["initial_vector"], current_task["tolerance"] ),  # number of eigenvalues/vectors, max number of its, starting number of its
         "%d, %d" % ( 2, 2),  # rank of input Hamiltonian/interaction
         "%.3f, %s" % (hw_for_trans,"938.92") # h-bar*omega, Nucleon mass (MeV) 
         ]
