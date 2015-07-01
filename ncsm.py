@@ -907,7 +907,7 @@ def task_handler_mfdn_h2(current_task):
 
     # move results out
     ##mcscript.call(["mv run* -t "+mcscript.task.results_dir],shell=True)
-    mcscript.call(["mv", result_filename, archive_filename, "--target-directory="+mcscript.task.results_dir])
+    mcscript.call(["mv", result_filename, out_filename, archive_filename, "--target-directory="+mcscript.task.results_dir])
 
     # cleanup of wave function files
     scratch_file_list = glob.glob("mfdn_smwf*") + glob.glob("mfdn_MBgroups0*")
