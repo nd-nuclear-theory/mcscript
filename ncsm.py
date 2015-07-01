@@ -75,6 +75,7 @@
   6/2/15 (mac): Update filename for squared angular momentum two-body observables.
   6/9/15 (mac): Sanity check on reference state parity.
   6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
+  6/30/15 (mac): Save mfdn.out with results.
 
   Last modified 6/30/15 (mac).
 
@@ -884,11 +885,15 @@ def task_handler_mfdn_h2(current_task):
 
     # process results file
     result_filename = "%s-mfdn-%s.res" % (mcscript.run.name, current_task["descriptor"])
+    out_filename = "%s-mfdn-%s.out" % (mcscript.run.name, current_task["descriptor"])
     # remove detailed occupation listing
     # TO NEATEN: replace with shell-free subprocess call and pipes
     ## print ("Filtering mfdn.res...") 
     ## mcscript.call(["sed '/More/,$d' < mfdn.res > " + result_filename],shell=True) 
-    mcscript.call(["cat < mfdn.res > " + result_filename],shell=True) 
+    ## mcscript.call(["cat < mfdn.res > " + result_filename],shell=True) 
+    ## mcscript.call(["cat < mfdn.out > " + out_filename],shell=True) 
+    mcscript.call(["cp","mfdn.res",result_filename]) 
+    mcscript.call(["cp","mfdn.out",out_filename]) 
 
     # archive obdme and other data files
     # including unfiltered mfdn.res
