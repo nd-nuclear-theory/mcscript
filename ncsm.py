@@ -76,7 +76,7 @@
   6/9/15 (mac): Sanity check on reference state parity.
   6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
 
-  Last modified 6/9/15 (mac).
+  Last modified 6/30/15 (mac).
 
 """
 
@@ -854,7 +854,8 @@ def task_handler_mfdn_h2(current_task):
 
     # guard against pathetically common mistakes
     reference_state_list = current_task["obdme_reference_state_list"]
-    for (twice_J,g,i) in reference_state_list:
+    for (J,g,i) in reference_state_list:
+        twice_J = int(2*J)
         if ((twice_J%2) != (sum(current_task["nuclide"])%2)):
             raise ValueError("invalid angular momentum for reference state")
         if ((g != (current_task["Nmax"]%2)) and (current_task["Nstep"] != 1)):

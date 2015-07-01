@@ -231,7 +231,7 @@
 
     ----------------------------------------------------------------
 
-    Last modified 5/13/15 (mac).
+    Last modified 6/30/15 (mac).
 
 """
 
@@ -315,7 +315,7 @@ tolerance = 0
 
 # obdme parameters
 obdme_reference_state_list = [(0.0,0,1)]
-obdme_multipolarity = 2
+obdme_multipolarity = 2 # WARNING: reducing below 2 (on HO runs) crashes MFDn
 
 # version parameters
 mfdn_executable = "version14-beta06-newmake/xmfdn-h2-lan"
