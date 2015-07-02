@@ -77,7 +77,7 @@
   6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
   6/30/15 (mac): Save mfdn.out with results.
 
-  Last modified 6/30/15 (mac).
+  Last modified 7/2/15 (mac).
 
 """
 
@@ -86,6 +86,7 @@ from __future__ import print_function, division
 import os
 import glob
 import shutil
+import datetime
 
 import mcscript
 import ncsm_config
