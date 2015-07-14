@@ -28,19 +28,31 @@ def submission (job_name,job_file,qsubm_path,environment_definitions,args):
 ##    if ( (not args.nopar) and not ( (args.width == 1) and (args.nodesize == None) ) ):
 ##        submission_args += ["-l", "mppwidth=%d" % args.width]
 ##        submission_args += ["-l", "mppdepth=%d" % args.depth]
-    if (args.epar is not None):
+    if (args.nopar):
+        # true serial job
+        pass
+    elif ((args.width == 1) and (args.depth == 1)):
+        # apparently this was also treated as a serial job, though I remember not why
+        pass
+    elif (args.epar is not None):
         # embarassingly parallel serial job
         submission_args += ["-l", "mppwidth=%d" % args.epar]
         # allow pernode specification on epar
         if (args.pernode is not None):
             submission_args += ["-l", "mppnppn=%d" % args.pernode]
-    elif ( (not args.nopar) and not ( (args.width == 1) and (args.depth == 1) ) ):
-        # true parallel job
+    elif (args.depth != 1):
+        # pure MPI parallel job
         submission_args += ["-l", "mppwidth=%d" % args.width]
-        if (args.depth != 1):
-            submission_args += ["-l", "mppdepth=%d" % args.depth]
-            pernode = args.nodesize / args.depth
-            submission_args += ["-l", "mppnppn=%d" % pernode]
+    else:
+        # OMP or hybrid MPI/OMP parallel job
+        # the ad hoc hopper way
+        #    https://www.nersc.gov/users/computational-systems/hopper/running-jobs/using-openmp-with-mpi/
+        ## submission_args += ["-l", "mppwidth=%d" % (args.width*args.depth)]
+        # the "proper" way
+        submission_args += ["-l", "mppwidth=%d" % args.width]
+        submission_args += ["-l", "mppdepth=%d" % args.depth]
+        pernode = args.nodesize / args.depth
+        submission_args += ["-l", "mppnppn=%d" % pernode]
 
     # append user-specified arguments
     if (args.opt is not None):

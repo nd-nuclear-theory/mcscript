@@ -77,7 +77,7 @@
   6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
   6/30/15 (mac): Save mfdn.out with results.
 
-  Last modified 7/2/15 (mac).
+  Last modified 7/3/15 (mac).
 
 """
 
@@ -293,10 +293,14 @@ def task_descriptor_format_6(current_task):
             )
     else:
         template_string =(
-            "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}-{basis_string_pn}-hw{hw:.3f}"
-            "-aL{aLawson:g}-hwL{hwLawson:.3f}"
+            "Z{nuclide[0]}-N{nuclide[1]}-{interaction}-{coulomb:d}"
+            "-{basis_string_pn}"  # general basis
+            "-hw{hw:.3f}"
+            "-aL{aLawson:g}"
+            "-hwL{hwLawson:.3f}"  # general basis
             "-Nmax{Nmax:02d}{mixed_parity_flag}{fci_flag}-Mj{Mj:03.1f}"
-            "-hwint{hw_int:g}-{xform_cutoff_name:s}-lan{lanczos:d}"
+            "-hwint{hw_int:g}-{xform_cutoff_name:s}" # general basis
+            "-lan{lanczos:d}"
             )
 
     descriptor = template_string.format(

@@ -65,8 +65,12 @@ def parallel_prefix(run):
     Note: We use argument for run rather than a global reference to
     mcscript.run, since present function is invoked in initializer for
     mcscript.run, before it has entered the namespace.
+
     """
 
+    # for hopper: https://www.nersc.gov/users/computational-systems/hopper/running-jobs/using-openmp-with-mpi/
+
+    
     args = [
         "aprun",
         "-n%d" % run.parallel_width,
@@ -76,7 +80,8 @@ def parallel_prefix(run):
         args +=[
             "-N%d" % (run.parallel_nodesize // run.parallel_depth),
             "-S%d" % 1,  # ad hoc for hopper
-            "-ss"
+            "-ss",
+            "-cc numa_node" # for intel compiler
             ]
 
     return args

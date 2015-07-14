@@ -4,8 +4,9 @@
   8/2/14 (mac): Originated, based on old wrappers in ncsm.py.
   5/13/15 (mac): Insert "future" statements for Python 2 legacy support.
   6/25/15 (mac): Replace all "twice angular momentum" parameters with true values.
+  7/15/15 (mac): Update for OpenMP.
 
-  Last modified 6/25/15 (mac).
+  Last modified 7/15/15 (mac).
 
 """
 from __future__ import print_function, division
@@ -87,8 +88,8 @@ def call_mfdn_h2 (current_task):
     mcscript.write_input(mfdn_input_filename,mfdn_input)
 
     # execute mfdn
-    # assumes OpenMP parallel environment set up previously
     executable = os.path.join(ncsm_config.exec_dir_mfdn, current_task["mfdn_executable"])
+    mcscript.openmp_setup()
     mcscript.call_parallel([executable], mcscript.run) 
 
     # test for success
