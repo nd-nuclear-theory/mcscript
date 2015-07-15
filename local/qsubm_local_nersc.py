@@ -47,12 +47,20 @@ def submission (job_name,job_file,qsubm_path,environment_definitions,args):
         # OMP or hybrid MPI/OMP parallel job
         # the ad hoc hopper way
         #    https://www.nersc.gov/users/computational-systems/hopper/running-jobs/using-openmp-with-mpi/
-        ## submission_args += ["-l", "mppwidth=%d" % (args.width*args.depth)]
-        # the "proper" way
-        submission_args += ["-l", "mppwidth=%d" % args.width]
-        submission_args += ["-l", "mppdepth=%d" % args.depth]
-        pernode = args.nodesize / args.depth
-        submission_args += ["-l", "mppnppn=%d" % pernode]
+        # Although "-l mppwidth=6 -l mppdepth=6 -l mppnppn=4" would seem to make sense, it fails with
+        #    ['aprun', '-n6', '-d6', '-N4', '-S1', '-ss', ...]
+        # giving error 
+        #    apsched: claim exceeds reservation's memory
+        # Must use recommended "-l mppwidth=36".
+        #
+        # The "proper-seeming" way (but fails)
+        ## submission_args += ["-l", "mppwidth=%d" % args.width]
+        ## submission_args += ["-l", "mppdepth=%d" % args.depth]
+        ## pernode = args.nodesize / args.depth
+        ## submission_args += ["-l", "mppnppn=%d" % pernode]
+
+        submission_args += ["-l", "mppwidth=%d" % (args.width*args.depth)]
+
 
     # append user-specified arguments
     if (args.opt is not None):

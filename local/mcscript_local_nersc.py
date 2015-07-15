@@ -69,6 +69,7 @@ def parallel_prefix(run):
     """
 
     # for hopper: https://www.nersc.gov/users/computational-systems/hopper/running-jobs/using-openmp-with-mpi/
+    # Although "-cc numa_node" is recommended for intel compiler, actual option is "--c" and result is error message.
 
     
     args = [
@@ -81,7 +82,6 @@ def parallel_prefix(run):
             "-N%d" % (run.parallel_nodesize // run.parallel_depth),
             "-S%d" % 1,  # ad hoc for hopper
             "-ss"
-            ##"--cc numa_node" # for intel compiler
             ]
 
     return args
