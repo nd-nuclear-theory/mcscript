@@ -77,7 +77,7 @@
   6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
   6/30/15 (mac): Save mfdn.out with results.
 
-  Last modified 7/3/15 (mac).
+  Last modified 7/15/15 (mac).
 
 """
 
@@ -1097,7 +1097,7 @@ def archive_handler_mfdn_res_only ():
     ##     ["tar", "zcvf", archive_filename, toc_filename]
     ##     )
     os.chdir (mcscript.task.results_dir)
-    result_files = glob.glob("*.res") + glob.glob("*-emcalc-*.dat")
+    result_files = glob.glob("*.res") + glob.glob("*.out") + glob.glob("*-emcalc-*.dat")
     mcscript.call(["tar", "-zcvf", archive_filename ] + result_files, cwd=mcscript.task.results_dir)
 
     # copy archive out to home results archive directory
