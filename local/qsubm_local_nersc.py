@@ -40,7 +40,7 @@ def submission (job_name,job_file,qsubm_path,environment_definitions,args):
         # allow pernode specification on epar
         if (args.pernode is not None):
             submission_args += ["-l", "mppnppn=%d" % args.pernode]
-    elif (args.depth != 1):
+    elif (args.depth == 1):
         # pure MPI parallel job
         submission_args += ["-l", "mppwidth=%d" % args.width]
     else:
