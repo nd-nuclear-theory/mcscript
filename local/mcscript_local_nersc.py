@@ -80,8 +80,8 @@ def parallel_prefix(run):
         args +=[
             "-N%d" % (run.parallel_nodesize // run.parallel_depth),
             "-S%d" % 1,  # ad hoc for hopper
-            "-ss",
-            "--cc numa_node" # for intel compiler
+            "-ss"
+            ##"--cc numa_node" # for intel compiler
             ]
 
     return args
