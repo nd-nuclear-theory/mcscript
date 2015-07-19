@@ -76,8 +76,9 @@
   6/9/15 (mac): Sanity check on reference state parity.
   6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
   6/30/15 (mac): Save mfdn.out with results.
+  7/20/15 (mac): Allow control over choice of partition file.
 
-  Last modified 7/15/15 (mac).
+  Last modified 7/20/15 (mac).
 
 """
 
@@ -832,6 +833,7 @@ def task_handler_mfdn_h2(current_task):
     print ("MFDn", current_task["descriptor"])
 
     # optional dictionary keys
+    # TODO: neaten up with setdefault method
     if ("obs-R20K20" not in current_task):
         current_task["obs-R20K20"] = False
     if ("obs-am-sqr" not in current_task):
@@ -840,7 +842,8 @@ def task_handler_mfdn_h2(current_task):
         current_task["em_multipolarity_list"] = []
     if ("keep_obdme" not in current_task):
         current_task["keep_obdme"] = True
-
+    if ("partition" not in current_task):
+        current_task["partition"] = ""
 
     # set up code parameters
     Nv = current_task["Nv"]
@@ -869,7 +872,7 @@ def task_handler_mfdn_h2(current_task):
 
        
     # import partitioning file
-    partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh"+str(Nshell))
+    partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh{}_{}".format(Nshell,current_task["partition"]))
     print ("Checking for partition file %s..." % partitioning_filename)
     if (os.path.exists(partitioning_filename)):
         mcscript.call(["cp", partitioning_filename, "mfdn_partitioning.info"])
