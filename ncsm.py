@@ -31,6 +31,7 @@
         "initial_vector" (int) : initial vector code for mfdn
         "lanczos" (int) : lanczos iterations
         "tolerance" (float) : diagonalization tolerance parameter
+        "partitioning" (string) : suffix for partition file (default: "")
 
         # obdme parameters
         "obdme_multipolarity" (int) : maximum multipolarity for calculation of densities
@@ -842,8 +843,8 @@ def task_handler_mfdn_h2(current_task):
         current_task["em_multipolarity_list"] = []
     if ("keep_obdme" not in current_task):
         current_task["keep_obdme"] = True
-    if ("partition" not in current_task):
-        current_task["partition"] = ""
+    if ("partitioning" not in current_task):
+        current_task["partitioning"] = ""
 
     # set up code parameters
     Nv = current_task["Nv"]
@@ -872,7 +873,7 @@ def task_handler_mfdn_h2(current_task):
 
        
     # import partitioning file
-    partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh{}_{}".format(Nshell,current_task["partition"]))
+    partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh{}{}".format(Nshell,current_task["partitioning"]))
     print ("Checking for partition file %s..." % partitioning_filename)
     if (os.path.exists(partitioning_filename)):
         mcscript.call(["cp", partitioning_filename, "mfdn_partitioning.info"])
