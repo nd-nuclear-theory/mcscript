@@ -24,7 +24,8 @@ must break up as ["-q", "queue"].
       -- Insert "future" statements for Python 2 legacy support.
       -- Add --noredirect switch.
       -- Mandatory environment variable QSUBM_PYTHON.
-  Last modified 6/2/15 (mac).
+  8/4/15 (mac): Make user environment variable definitions into option.
+  Last modified 8/4/15 (mac).
 
 """
 
@@ -96,7 +97,8 @@ parser.add_argument("run",help="Run number (e.g., 0000 for run0000)")
 # latter arguments are made optional to simplify bare-bones syntax for --toc, etc., calls
 parser.add_argument("queue",nargs='?',help="Submission queue, or RUN for direct interactive run",default="RUN")  
 parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default=60)
-parser.add_argument("vars",nargs="?",help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2,PARAM=1.0)")
+##parser.add_argument("vars",nargs="?",help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2,PARAM=1.0)")
+parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
 ## parser.add_argument("--stat",action="store_true",help="Display queue status information") 
 parser.add_argument("--width",type=int,default=1,help="MPI width") 
 parser.add_argument("--depth",type=int,default=1,help="OMP depth")
@@ -270,6 +272,7 @@ if (args.vars is None):
     user_environment_definitions = []
 else:
     user_environment_definitions = args.vars.split(",")
+    print("User environment definitions:",user_environment_definitions)
 
 environment_definitions += user_environment_definitions
 
