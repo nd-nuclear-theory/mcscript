@@ -272,7 +272,7 @@ if (args.vars is None):
     user_environment_definitions = []
 else:
     user_environment_definitions = args.vars.split(",")
-    print("User environment definitions:",user_environment_definitions)
+    print("  User environment definitions:",user_environment_definitions)
 
 environment_definitions += user_environment_definitions
 
