@@ -1,12 +1,16 @@
 """ mfdn_v14_b06.py -- MFDn version 14 beta06 wrappers for mcscript
 
-  Created by M. A. Caprio, University of Notre Dame.
-  8/2/14 (mac): Originated, based on old wrappers in ncsm.py.
-  5/13/15 (mac): Insert "future" statements for Python 2 legacy support.
-  6/25/15 (mac): Replace all "twice angular momentum" parameters with true values.
-  7/15/15 (mac): Update for OpenMP.
+    Environment variables
 
-  Last modified 7/15/15 (mac).
+        MFDN_NDIAG (int) : number of diagonal processes (optional)
+
+    Created by M. A. Caprio, University of Notre Dame.
+    8/2/14 (mac): Originated, based on old wrappers in ncsm.py.
+    5/13/15 (mac): Insert "future" statements for Python 2 legacy support.
+    6/25/15 (mac): Replace all "twice angular momentum" parameters with true values.
+    7/15/15 (mac): Update for OpenMP.
+    8/4/15 (mac): Support for ndiag via environment.
+    Last modified 8/4/15 (mac).
 
 """
 from __future__ import print_function, division
@@ -38,13 +42,15 @@ def call_mfdn_h2 (current_task):
     # note: emulating missing commas after floats from Pieter's input -- not sure if necessary
 
     # base parameters
+    # TODO: update output formatting to use string format method
     # set hw value for transition operator oscillator length
     #    value 0 disables transition calculation, e.g., for non-oscillator bases
     hw_for_trans = mcscript.ifelse(current_task["traditional_ho"],current_task["hw"],0)
     twice_Mj = int(2*current_task["Mj"])
+    ndiag = int(os.environ.get("MFDN_NDIAG",0))
     mfdn_base_parameters = [
         "%d" % ( 0, ), #IFLAGMBSI
-        "%d" % ( 0, ), # ndiag (0: no spares, automatic ndiag)
+        "%d" % ( ndiag, ), # ndiag (0: no spares, automatic ndiag)
         "%d" % ( 2, ),  # number of classes
         "%d" % ( current_task["nuclide"][0], ),  # protons (class 1 particles)
         "%d" % ( current_task["nuclide"][1], ),  # neutrons (class 2 particles)

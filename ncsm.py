@@ -31,7 +31,6 @@
         "initial_vector" (int) : initial vector code for mfdn
         "lanczos" (int) : lanczos iterations
         "tolerance" (float) : diagonalization tolerance parameter
-        "partitioning" (string) : suffix for partition file (default: "")
 
         # obdme parameters
         "obdme_multipolarity" (int) : maximum multipolarity for calculation of densities
@@ -78,8 +77,9 @@
   6/25/15 (mac): Add documentation. Replace all "twice angular momentum" parameters with true values.
   6/30/15 (mac): Save mfdn.out with results.
   7/20/15 (mac): Allow control over choice of partition file.
+  8/4/15 (mac): Revise control over choice of partition file.
 
-  Last modified 7/20/15 (mac).
+  Last modified 8/4/15 (mac).
 
 """
 
@@ -843,8 +843,6 @@ def task_handler_mfdn_h2(current_task):
         current_task["em_multipolarity_list"] = []
     if ("keep_obdme" not in current_task):
         current_task["keep_obdme"] = True
-    if ("partitioning" not in current_task):
-        current_task["partitioning"] = ""
 
     # set up code parameters
     Nv = current_task["Nv"]
@@ -873,12 +871,22 @@ def task_handler_mfdn_h2(current_task):
 
        
     # import partitioning file
-    partitioning_filename = os.path.join(ncsm_config.data_dir_partitioning,"mfdn_partitioning.info_Nsh{}{}".format(Nshell,current_task["partitioning"]))
-    print ("Checking for partition file %s..." % partitioning_filename)
-    if (os.path.exists(partitioning_filename)):
-        mcscript.call(["cp", partitioning_filename, "mfdn_partitioning.info"])
-    else:
-        print ("Not found.")
+    partitioning_suffix = os.environ.get("MFDN_PARTITIONING",None)
+    if (partitioning_suffix is not None):
+        partitioning_filename = os.path.join(
+            ncsm_config.data_dir_partitioning,
+            "mfdn_partitioning.info_Nsh{:02d}_{}".format(Nshell,partitioning_suffix)
+        )
+        print ("Checking for partition file %s..." % partitioning_filename)
+        if (os.path.exists(partitioning_filename)):
+            mcscript.call(["cp", partitioning_filename, "mfdn_partitioning.info"])
+        else:
+            raise ScriptError("partiton file not found")
+
+    ## partitioning_filename = os.path.join(
+    ##     ncsm_config.data_dir_partitioning,
+    ##     "mfdn_partitioning.info_Nsh{}".format(Nshell)
+    ## )
 
     # invoke mfdn
     current_task.update(
