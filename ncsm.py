@@ -97,7 +97,7 @@ import ncsm_config
 # interaction truncation utilities
 ################################################################
 
-def interaction_truncation_for_Nmax(Nv, Nmax,standardize=True):
+def interaction_truncation_for_Nmax(Nv,Nmax,standardize=True):
     """ interaction_truncation_for_NMax (Nv, Nmax) -> (N1b,N2b)
 
     Identifies (N1b,N2b) truncation needed for interaction to support given many-body run.
@@ -847,10 +847,11 @@ def task_handler_mfdn_h2(current_task):
     # set up MFDn basis truncation parameters
     Nv = current_task["Nv"]
     Nmin = current_task["Nmax"] % current_task["Nstep"]
-    truncation = interaction_truncation_for_Nmax(Nv,current_task["Nmax"],standardize="False")
+    truncation = interaction_truncation_for_Nmax(Nv,current_task["Nmax"],standardize=False)
     ## BUG: through 130520: Nshell = truncation[1] + 1
     ## BUG: through 150805: Nshell given to MFDn was one step higher than needed for odd Nmax (default standardize="True")
     Nshell = truncation[0] + 1
+    ## print("truncation",truncation,"Nshell",Nshell)
 
 
     # set up h2 filenames
@@ -883,7 +884,7 @@ def task_handler_mfdn_h2(current_task):
         if (os.path.exists(partitioning_filename)):
             mcscript.call(["cp", partitioning_filename, "mfdn_partitioning.info"])
         else:
-            raise ScriptError("partiton file not found")
+            raise ScriptError("partition file not found")
 
     ## partitioning_filename = os.path.join(
     ##     ncsm_config.data_dir_partitioning,
