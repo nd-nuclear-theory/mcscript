@@ -844,12 +844,14 @@ def task_handler_mfdn_h2(current_task):
     if ("keep_obdme" not in current_task):
         current_task["keep_obdme"] = True
 
-    # set up code parameters
+    # set up MFDn basis truncation parameters
     Nv = current_task["Nv"]
     Nmin = current_task["Nmax"] % current_task["Nstep"]
-    truncation = interaction_truncation_for_Nmax(Nv,current_task["Nmax"])
+    truncation = interaction_truncation_for_Nmax(Nv,current_task["Nmax"],standardize="False")
     ## BUG: through 130520: Nshell = truncation[1] + 1
+    ## BUG: through 150805: Nshell given to MFDn was one step higher than needed for odd Nmax (default standardize="True")
     Nshell = truncation[0] + 1
+
 
     # set up h2 filenames
     h2_basename = "tbme-h2"
