@@ -884,7 +884,7 @@ def task_handler_mfdn_h2(current_task):
         if (os.path.exists(partitioning_filename)):
             mcscript.call(["cp", partitioning_filename, "mfdn_partitioning.info"])
         else:
-            raise ScriptError("partition file not found")
+            raise mcscript.task.ScriptError("partition file not found")
 
     ## partitioning_filename = os.path.join(
     ##     ncsm_config.data_dir_partitioning,
