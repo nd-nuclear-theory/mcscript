@@ -1,5 +1,5 @@
 readme.txt -- mcscript "readme" file
-Last modified 5/14/15 (mac).
+Last modified 9/2/15 (mac).
 
 ----------------------------------------------------------------
 
@@ -137,8 +137,8 @@ they point to the appropriate cluster-specific local files from the
 e.g.:
 
     cd mcscript
-    ln -s local/qsubm_local_nersc.py 
-    ln -s local/mcscript_local_nersc.py 
+    ln -s local/qsubm_local_nersc.py qsubm_local.py
+    ln -s local/mcscript_local_nersc.py mcscript_local.py
 
 You may also wish to set up symlinks for the example runs, if you wish
 to try them out them, e.g.:
