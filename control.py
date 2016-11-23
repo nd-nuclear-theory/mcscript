@@ -231,7 +231,7 @@ def call(
     print ("Running %s" % str(invocation))
     print ("Given standard input:")
     print (stdin_string)
-    time_stamp()
+    utils.time_stamp()
     print ("----------------------------------------------------------------")
     sys.stdout.flush()
     
@@ -266,7 +266,7 @@ def call(
 
     # finish logging
     print ("----------------------------------------------------------------")
-    time_stamp()
+    utils.time_stamp()
     print ("----------------------------------------------------------------")
     sys.stdout.flush()  # just for good measure
 

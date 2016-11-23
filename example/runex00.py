@@ -1,11 +1,6 @@
 #!/usr/bin/python3
 
-""" runtest.py -- testbed code for debugging and loading mcscript
-
-   For simple test run on front end:
-   
-      qsubm test
-
+""" runex00.py
 
   Language: Python 3
 
@@ -13,6 +8,7 @@
   Department of Physics, University of Notre Dame
 
   6/13/16 (mac): Created.
+  11/22/16 (mac): Update after restructuring mcscript.
 
 """
 
@@ -25,7 +21,7 @@ mcscript.init()
 ##################################################################
 
 # test utils submodule
-print("Time stamp:",mcscript.utils.time_stamp())  # long form
+print("Time stamp:",mcscript.utils.time_stamp())
 
 # example of output from the script to stdout
 print()
@@ -58,7 +54,7 @@ mcscript.utils.write_input(
 
 # example of running an executable
 #
-#   Note that mcscript.utils.subprocess is a wrapper to the subprocess
+#   Note that mcscript.call is a wrapper to the subprocess
 #   package, but does a lot more...  It generates logging output, it
 #   checks the return code and generates an exception on failure
 #   (i.e., a nonzero return), it can provide input lines to the code
@@ -67,7 +63,7 @@ mcscript.utils.write_input(
 #
 #   See the docstring for mcscript.utils.call for further information.
 
-mcscript.utils.call(["/bin/cat","hello.txt"])
+mcscript.call(["/bin/cat","hello.txt"])
 
 ################################################################
 # termination

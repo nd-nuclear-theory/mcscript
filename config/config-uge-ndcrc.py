@@ -205,9 +205,8 @@ def parallel_invocation(base):
 
     invocation = [
         "mpiexec",
-        "--n={}".format(mcscript.run.parallel_width),
-        "--map-by=core:PE={}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth),
-        "--preload-binary"
+        "--n","{}".format(mcscript.run.parallel_width),
+        "--map-by","node:PE={}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth)  # TODO fix up binding syntax
     ]
     invocation += base
 

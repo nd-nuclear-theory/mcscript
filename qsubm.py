@@ -26,7 +26,7 @@ must break up as ["-q", "queue"].
       -- Mandatory environment variable QSUBM_PYTHON.
   8/4/15 (mac): Make user environment variable definitions into option.
   6/13/16 (mac): Rename environment variables to MCSCRIPT_*.
-
+  6/22/16 (mac): Update to use config.py for local configuration.
 """
 
 import sys
@@ -36,9 +36,6 @@ import subprocess
 import shutil
 
 import config  # local configuration (usually symlink)
-
-# TEMPORARY transitional alias
-qsubm_local = config
 
 ################################################################
 # argument parsing
@@ -75,7 +72,7 @@ parser = argparse.ArgumentParser(
     "${MODULESHOME}/bin/modulecmd" is preferable to
     "/opt/modules/3.2.6.6/bin/modulecmd".  
 
-    MCSCRIPT_PATH (expected by some qsubm_local files) should specify the
+    MCSCRIPT_DIR (expected by some config files) should specify the
     directory in which qsubm is installed.
 
     MCSCRIPT_PYTHON should give the full filename (including path) to the
@@ -86,7 +83,7 @@ parser = argparse.ArgumentParser(
     clusters, this will likely have to point towards a specific Python
     version, loaded with a specific module load.
     
-    Requires local definitions file qsubm_local.py to translate
+    Requires local definitions file config.py to translate
     options into arguments for local batch server.  See directions in
     readme.txt.  Your local definitions might not make use of or
     support all the parallel environment options.
@@ -172,10 +169,10 @@ else:
     exit(1)
 
 
-if ("MCSCRIPT_PATH" in os.environ):
-    qsubm_path = os.environ["MCSCRIPT_PATH"]
+if ("MCSCRIPT_DIR" in os.environ):
+    qsubm_path = os.environ["MCSCRIPT_DIR"]
 else:
-    print ("MCSCRIPT_PATH not found in environment")
+    print ("MCSCRIPT_DIR not found in environment")
     exit(1)
 
 ################################################################
@@ -356,7 +353,7 @@ sys.stdout.flush()
 if (run_mode == "batch"):
     
     # set local qsub arguments
-    (submission_args, submission_input_string) = qsubm_local.submission(job_name,job_file,qsubm_path,environment_definitions,args)
+    (submission_args, submission_input_string) = config.submission(job_name,job_file,qsubm_path,environment_definitions,args)
     
     # notes: options must come before command on some platforms (e.g., Univa)
     print (" ".join(submission_args))
