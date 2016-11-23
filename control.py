@@ -125,7 +125,7 @@ def module(args):
     """
 
     print ("module"," ".join(args))
-    module_command = os.environ["MCSCRIPT_MODULE_CMD"]
+    module_command = os.path.join(os.environ["MODULESHOME"],"bin","modulecmd")
     module_code_string = subprocess.check_output([ module_command, "python" ] + args)
     if (module_code_string != ""):
         print("  Executing module code...")
