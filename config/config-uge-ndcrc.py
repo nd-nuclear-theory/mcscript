@@ -2,6 +2,39 @@
 
     mcscript definitions for Univa Grid Engine at the Notre Dame CRC
 
+
+    Example:
+
+        # environment configuration -- put this in your .cshrc
+        setenv MCSCRIPT_DIR ${HOME}/projects/mcscript
+        setenv MCSCRIPT_RUN_HOME ${HOME}/runs
+        setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
+        setenv MCSCRIPT_RUN_PREFIX run
+        setenv MCSCRIPT_PYTHON python3
+        setenv PATH ${MCSCRIPT_DIR}/tools:${PATH}
+        setenv PYTHONPATH ${MCSCRIPT_DIR}/..:${PYTHONPATH}
+
+        # link to local config
+        cd projects/mcscript
+        ln -s config/config-uge-ndcrc.py config.py
+ 
+        # build hybrid test program
+        cd example
+        module load ompi/1.10.2-gcc-4.9.2
+        mpicc -fopenmp hello_hybrid.c -o hello_hybrid
+        cd ..
+
+        # load python3
+        #   must do *after* loading gcc 4.9.2 due to version conflict
+        module load python/3.4.0
+        
+        qsubm ex00
+        qsubm ex01 --toc
+        qsubm ex01 --pool="greet"
+        qsubm ex02 --width=4
+        qsubm ex02 --width=4 --depth=2
+
+
     Language: Python 3
     Mark A. Caprio
     University of Notre Dame
@@ -206,7 +239,7 @@ def parallel_invocation(base):
     invocation = [
         "mpiexec",
         "--n","{}".format(mcscript.run.parallel_width),
-        "--map-by","node:PE={}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth)  # TODO fix up binding syntax
+        "--map-by","node:PE={}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth)  # TODO fix up use of new binding syntax
     ]
     invocation += base
 
