@@ -1,26 +1,29 @@
-""" mcscript -- scripting utility functions
+""" utils -- scripting utility functions
 
-    Created by M. A. Caprio, University of Notre Dame.
-    2/13/13 (mac): Extracted from job.py.
-    5/28/13 (mac): Overhaul of subprocess invocation to use POpen.communicate().
-    6/5/13 (mac): Absorbed into mcscript package.
-    1/22/14 (mac): Python 3 update.
-    5/14/15 (mac): 
-        -- Insert "future" statements for Python 2 legacy support, conditional 
-           use of decode by Python version.  
-        -- Increased diagnostic output from subpath search utilities. 
-    Last modified 5/14/15 (mac).
+  Language: Python 3
+
+  M. A. Caprio
+  Department of Physics, University of Notre Dame
+
+  2/13/13 (mac): Extracted from job.py.
+  5/28/13 (mac): Overhaul of subprocess invocation to use POpen.communicate().
+  6/5/13 (mac): Absorbed into mcscript package.
+  1/22/14 (mac): Python 3 update.
+  5/14/15 (mac): 
+      -- Insert "future" statements for Python 2 legacy support, conditional 
+         use of decode by Python version.  
+      -- Increased diagnostic output from subpath search utilities.
+  6/13/16 (mac): Rename to utils.py as proper subpackage of mcscript.
+
+TODO: replace QSUBM_MODULE_CMD with local hook; merge call_parallel and call_serial into call
 
 """
-
-from __future__ import print_function, division
 
 import glob
 import math
 import os
 import shutil
 import string
-## import StringIO
 import subprocess
 import sys
 import time
@@ -30,13 +33,7 @@ import time
 # module operations
 ################################################################
 
-if ("QSUBM_MODULE_CMD" in os.environ):
-    module_command = os.environ["QSUBM_MODULE_CMD"]
-else:
-    print ("QSUBM_MODULE_CMD not found in environment")
-    exit(1)
-
-def module (args):
+def module(args):
     """ module([arg1,arg2,...]) evaluates the code provided by the
     module command module_command python arg1 arg2 ...
 
@@ -44,6 +41,7 @@ def module (args):
     """
 
     print (" ".join([ "module" ] + args))
+    module_command = local.module_command()
     module_code_string = subprocess.check_output([ module_command, "python" ] + args)
     if (module_code_string != ""):
         print ("  Executing module code...")
@@ -179,7 +177,23 @@ def call_serial(baseargs,run,**kwargs):
 
     """
 
-    return call(baseargs,prefix=run.serial_prefix,**kwargs)
+    if (self.batch_mode):
+        if (self.parallel_epar != -1):
+            # set configuration so serial codes will launch locally under this
+            # daughter process (presumably already on compute node)
+            serial_mode = "epar"
+        else:
+            # set configuration so serial codes will launch appropriately for
+            # batch jobs at the present facility (perhaps on a separate
+            # compute node if the job scripts run on dedicated nodes distinct
+            # from the compute nodes)
+            serial_mode = "batch"
+    else:
+        # local run on front end
+        serial_mode = "local"
+
+    serial_prefix = local.serial_prefix(serial_mode)
+    return call(baseargs,prefix=serial_prefix,**kwargs)
 
 def call_parallel(baseargs,run,**kwargs):
     """ Invoke via mcscript.call, with MPI parallel prefix arguments.
@@ -192,28 +206,33 @@ def call_parallel(baseargs,run,**kwargs):
 
     """
 
-    return call(baseargs,prefix=run.parallel_prefix,**kwargs)
+    parallel_prefix = local.parallel_prefix(run)
+
+    return call(baseargs,prefix=parallel_prefix,**kwargs)
 
 ################################################################
 # input file generation
 ################################################################
 
-def write_input(filename,input_lines=[]):
+def write_input(filename,input_lines=[],silent=False):
     """ Generate text file (typically an input file for a code to be
     invoked by the script), with contents given line-by-line as list
     of strings, and log to stdout.
 
     input_lines: list of strings for input lines
+
+    silent: whether or not to suppress diagnostic output (e.g., for large sets of files
     """
     
     # set up input
     stdin_string = "".join([s + "\n" for s in input_lines])
 
     # produce diagnotic output
-    print ("----------------------------------------------------------------")
-    print ("Generating input file %s:" % filename)
-    print (stdin_string)
-    print ("----------------------------------------------------------------")
+    if (not silent):
+        print ("----------------------------------------------------------------")
+        print ("Generating input file %s:" % filename)
+        print (stdin_string)
+        print ("----------------------------------------------------------------")
 
     # dump contents to file
     data_file = open(filename,"w")
@@ -278,7 +297,7 @@ def value_range(x1,x2,dx,epsilon=0.00001):
         x += dx
     return value_list
     
-def log_range (x1,x2,steps,base=2,power=1,first=True):
+def log_range(x1,x2,steps,base=2,power=1,first=True):
     """ log_range (x1,x2,steps,base=2,power=1,first=True) -> values returns a range
     starting from x1 and ending with x2 (inclusive) in logarithmic
     increments, at with steps increments per octave.  The first entry may be omitted by setting first=False.

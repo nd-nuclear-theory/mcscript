@@ -32,6 +32,19 @@ def job_id():
     return os.environ.get("JOB_ID","0")
 
 ################################################################
+# module system
+################################################################
+
+def module_command():
+    """ Determine module command path on cluster.
+
+    Returns:
+        (string) : Fully qualified module command name.
+    """
+
+    return "/opt/crc/Modules/current/bin/modulecmd"
+
+################################################################
 # serial and parallel code launching definitions
 ################################################################
 

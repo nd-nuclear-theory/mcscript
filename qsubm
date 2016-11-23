@@ -1,0 +1,2 @@
+#!/bin/csh
+${MCSCRIPT_PYTHON} ${MCSCRIPT_PATH}/qsubm.py ${argv}

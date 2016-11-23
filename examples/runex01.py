@@ -57,6 +57,7 @@ import sys
 # -- make available some functions for use in script
 #    (including mcscript utility functions and mcscript.task task management)
 import mcscript
+mcscript.init()
 
 ##################################################################
 # build task list
@@ -76,9 +77,9 @@ worlds = ["Mercury", "Venus", "Earth", "Mars"]
 tasks = [
     {
         "world_name" : world_name
-        }
+    }
     for world_name in worlds
-    ]
+]
 
 ##################################################################
 # implementation functions for doing a "hello world" task
@@ -104,13 +105,13 @@ def task_handler_hello (current_task):
 
     # write greeting message to file
 
-    mcscript.write_input(
+    mcscript.utils.write_input(
         "hello.txt",
         input_lines=[
             "Dear {world_name},".format(**current_task),
             "   Hello!",
             "Your script",
-            mcscript.run
+            mcscript.run.name
             ]
         )
 
@@ -135,8 +136,6 @@ mcscript.task.init(
     task_pool=task_pool,
     phase_handler_list=[task_handler_hello]
     )
-mcscript.task.task_master()
-
 
 ################################################################
 # termination

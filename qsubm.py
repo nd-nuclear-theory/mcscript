@@ -25,11 +25,9 @@ must break up as ["-q", "queue"].
       -- Add --noredirect switch.
       -- Mandatory environment variable QSUBM_PYTHON.
   8/4/15 (mac): Make user environment variable definitions into option.
-  Last modified 8/4/15 (mac).
+  6/13/16 (mac): Rename environment variables to MCSCRIPT_*.
 
 """
-
-from __future__ import print_function, division
 
 import sys
 import os
@@ -37,7 +35,10 @@ import argparse
 import subprocess
 import shutil
 
-import qsubm_local
+import config  # local configuration (usually symlink)
+
+# TEMPORARY transitional alias
+qsubm_local = config
 
 ################################################################
 # argument parsing
@@ -54,19 +55,19 @@ parser = argparse.ArgumentParser(
 
     Environment variables:
 
-    QSUBM_RUN_HOME must specify the directory in which job files are
+    MCSCRIPT_RUN_HOME must specify the directory in which job files are
     found.
 
-    QSUBM_WORK_HOME should specify the parent directory in which
+    MCSCRIPT_WORK_HOME should specify the parent directory in which
     run scratch directories should be made.
 
-    QSUBM_LAUNCH_HOME (optional) should specify the parent directory
+    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory
     in which run subdirectories for qsub invocation and output logging
-    should be made.  Otherwise, this will default to QSUBM_WORK_HOME.
+    should be made.  Otherwise, this will default to MCSCRIPT_WORK_HOME.
 
-    QSUBM_RUN_PREFIX should specify the prefix for run names, e.g.,"run".
+    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g.,"run".
 
-    QSUBM_MODULE_CMD (expected by mcscript) should give the module
+    MCSCRIPT_MODULE_CMD (expected by mcscript) should give the module
     command on the given system, which you can find by asking "where
     module" and looking inside the results.  You may be able to use an
     environment variable rather than a hard-coded version number,
@@ -74,10 +75,10 @@ parser = argparse.ArgumentParser(
     "${MODULESHOME}/bin/modulecmd" is preferable to
     "/opt/modules/3.2.6.6/bin/modulecmd".  
 
-    QSUBM_PATH (expected by some qsubm_local files) should specify the
+    MCSCRIPT_PATH (expected by some qsubm_local files) should specify the
     directory in which qsubm is installed.
 
-    QSUBM_PYTHON should give the full filename (including path) to the
+    MCSCRIPT_PYTHON should give the full filename (including path) to the
     appropriate Python executable for running run script files.  This
     is needed for qsubm to do a local run of a script, which involves
     invoking a Python interpreter for it.  A typical value would be
@@ -147,34 +148,34 @@ args = parser.parse_args()
 # environment processing
 ################################################################
 
-if ("QSUBM_RUN_HOME" in os.environ):
-    run_home = os.environ["QSUBM_RUN_HOME"]
+if ("MCSCRIPT_RUN_HOME" in os.environ):
+    run_home = os.environ["MCSCRIPT_RUN_HOME"]
 else:
-    print ("QSUBM_RUN_HOME not found in environment")
+    print ("MCSCRIPT_RUN_HOME not found in environment")
     exit(1)
 
-if ("QSUBM_WORK_HOME" in os.environ):
-    work_home = os.environ["QSUBM_WORK_HOME"]
+if ("MCSCRIPT_WORK_HOME" in os.environ):
+    work_home = os.environ["MCSCRIPT_WORK_HOME"]
 else:
-    print ("QSUBM_WORK_HOME not found in environment")
+    print ("MCSCRIPT_WORK_HOME not found in environment")
     exit(1)
 
-if ("QSUBM_LAUNCH_HOME" in os.environ):
-    launch_home = os.environ["QSUBM_LAUNCH_HOME"]
+if ("MCSCRIPT_LAUNCH_HOME" in os.environ):
+    launch_home = os.environ["MCSCRIPT_LAUNCH_HOME"]
 else:
     launch_home = work_home
 
-if ("QSUBM_PYTHON" in os.environ):
-    python_executable = os.environ["QSUBM_PYTHON"]
+if ("MCSCRIPT_PYTHON" in os.environ):
+    python_executable = os.environ["MCSCRIPT_PYTHON"]
 else:
-    print ("QSUBM_PYTHON not found in environment")
+    print ("MCSCRIPT_PYTHON not found in environment")
     exit(1)
 
 
-if ("QSUBM_PATH" in os.environ):
-    qsubm_path = os.environ["QSUBM_PATH"]
+if ("MCSCRIPT_PATH" in os.environ):
+    qsubm_path = os.environ["MCSCRIPT_PATH"]
 else:
-    print ("QSUBM_PATH not found in environment")
+    print ("MCSCRIPT_PATH not found in environment")
     exit(1)
 
 ################################################################
@@ -185,17 +186,18 @@ else:
 environment_definitions = []  # environment variable definitions
 
 # set run name
-run_prefix = os.environ["QSUBM_RUN_PREFIX"]
+run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
 run = run_prefix + args.run
 print ("Run:", run)
-environment_definitions.append("QSUBM_RUN=%s" % run)
+environment_definitions.append("MCSCRIPT_RUN=%s" % run)
 
 # ...and process run file
 script_extensions = [".py", ".csh"]
 job_file = None
 for extension in script_extensions:
-    if (os.path.exists(os.path.join(run_home,run+extension))):
-        job_file = os.path.join(run_home,run+extension)
+    filename = os.path.join(run_home,run+extension)
+    if (filename):
+        job_file = filename
         job_extension = extension
         break
 print ("  Run home:", run_home)  # useful to report now, in case job file missing
@@ -203,7 +205,7 @@ if (job_file is None):
     print ("No job file %s.* found with an extension in the set %s." % (run, script_extensions))
     exit(1)
 print ("  Job file:", job_file)
-environment_definitions.append("QSUBM_JOB_FILE=%s" % job_file )
+environment_definitions.append("MCSCRIPT_JOB_FILE=%s" % job_file )
 
 # set queue and flag batch or local mode
 # force local run for task.py toc mode
@@ -214,55 +216,55 @@ if ((args.queue == "RUN") or args.toc or args.unlock):
 else:
     run_mode = "batch"
     print ("  Mode:", run_mode, "(%s)" % args.queue)
-environment_definitions.append("QSUBM_RUN_MODE=%s" % run_mode)
+environment_definitions.append("MCSCRIPT_RUN_MODE=%s" % run_mode)
 
 # set wall time
 wall_time_min = args.wall
 print ("  Wall time (min):", wall_time_min)
-environment_definitions.append("QSUBM_WALL_SEC=%d" % (wall_time_min*60))
+environment_definitions.append("MCSCRIPT_WALL_SEC=%d" % (wall_time_min*60))
 
 # record width and depth parameters
-environment_definitions.append("QSUBM_WIDTH=%d" % args.width)
-environment_definitions.append("QSUBM_DEPTH=%d" % args.depth)
+environment_definitions.append("MCSCRIPT_WIDTH=%d" % args.width)
+environment_definitions.append("MCSCRIPT_DEPTH=%d" % args.depth)
 if ( (args.depth != 1) and (args.nodesize is None)):
     print ("OMP --depth specified without a --nodesize")
     exit(1)
 if (args.pernode is not None):
-    environment_definitions.append("QSUBM_PERNODE=%d" % args.pernode)
+    environment_definitions.append("MCSCRIPT_PERNODE=%d" % args.pernode)
 else:
-    environment_definitions.append("QSUBM_PERNODE=%d" % -1)
+    environment_definitions.append("MCSCRIPT_PERNODE=%d" % -1)
 if (args.nodesize is not None):
-    environment_definitions.append("QSUBM_NODESIZE=%d" % args.nodesize)
+    environment_definitions.append("MCSCRIPT_NODESIZE=%d" % args.nodesize)
 else:
-    environment_definitions.append("QSUBM_NODESIZE=%d" % -1)
+    environment_definitions.append("MCSCRIPT_NODESIZE=%d" % -1)
 if (args.epar is not None):
-    environment_definitions.append("QSUBM_EPAR=%d" % args.epar)
+    environment_definitions.append("MCSCRIPT_EPAR=%d" % args.epar)
 else:
-    environment_definitions.append("QSUBM_EPAR=%d" % -1)
+    environment_definitions.append("MCSCRIPT_EPAR=%d" % -1)
 
 # set repetition parameter
 repetitions = args.num
 
 # process task options
 if (args.toc):
-    environment_definitions.append("TASK_TOC")
+    environment_definitions.append("MCSCRIPT_TASK_TOC")
 if (args.noredirect):
-    environment_definitions.append("TASK_NOREDIRECT")
+    environment_definitions.append("MCSCRIPT_TASK_NOREDIRECT")
 if (args.unlock):
-    environment_definitions.append("TASK_UNLOCK")
+    environment_definitions.append("MCSCRIPT_TASK_UNLOCK")
 if (args.archive):
     # archive mode
-    environment_definitions.append("TASK_POOL=ARCH")
+    environment_definitions.append("MCSCRIPT_TASK_POOL=ARCH")
 else:
     # standard run mode
     if (args.pool is not None):
-        environment_definitions.append("TASK_POOL=%s" % args.pool)
+        environment_definitions.append("MCSCRIPT_TASK_POOL=%s" % args.pool)
 if (args.phase is not None):
-    environment_definitions.append("TASK_PHASE=%s" % args.phase)
+    environment_definitions.append("MCSCRIPT_TASK_PHASE=%s" % args.phase)
 if (args.start is not None):
-    environment_definitions.append("TASK_START=%d" % args.start)
+    environment_definitions.append("MCSCRIPT_TASK_START=%d" % args.start)
 if (args.limit is not None):
-    environment_definitions.append("TASK_COUNT_LIMIT=%d" % args.limit)
+    environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT=%d" % args.limit)
 
 
 
@@ -287,7 +289,7 @@ environment_definitions += user_environment_definitions
 work_dir = os.path.join(work_home,run)
 ## if ( not os.path.exists(work_dir)):
 ##     os.mkdir(work_dir)
-environment_definitions.append("QSUBM_WORK_DIR=%s" % work_dir)
+environment_definitions.append("MCSCRIPT_WORK_DIR=%s" % work_dir)
 
 # set up run launch directory (for batch job output logging)
 launch_dir_parent = os.path.join(launch_home,run)
@@ -305,7 +307,7 @@ else:
     launch_dir = os.path.join(launch_home,run,"batch")
 if ( not os.path.exists(launch_dir)):
     os.mkdir(launch_dir)
-environment_definitions.append("QSUBM_LAUNCH_DIR=%s" % launch_dir)
+environment_definitions.append("MCSCRIPT_LAUNCH_DIR=%s" % launch_dir)
 
 
 ################################################################

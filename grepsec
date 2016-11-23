@@ -1,0 +1,103 @@
+#!/bin/csh
+
+# grepsec -- extract section from text file with bracket-delimited section headers 
+#
+# See help message for usage and other documentation.
+#
+# Required utilities: sed
+#
+# Language: csh
+#
+# Mark A. Caprio
+# University of Notre Dame
+# 6/18/16 (mac): Created.
+
+# display help
+if (("$1" == "") || ("$1" == "-h") || ("$1" == "-help") || ("$1" == "--help") ) then
+  # Note: We need quotes on $1 to handle case in which argument is switch 
+  # with meaning inside an "if" test (e.g., "-d").
+  echo ""
+  echo "Usage: grepsec regexp [filename]"
+  echo ""
+  echo "A section is matched if its name *begins* with the given regexp"
+  echo "(which may typically just be ordinary text to match).  Only the"
+  echo "first matching section is printed."
+  echo ""
+  echo "Section contents are extracted *exclusive* of beginning section header"
+  echo "and of any hash-commented lines."
+  echo ""
+  echo "Example: If example.txt contains"
+  echo ""
+  echo "    [alpha]    "
+  echo "    # comment"
+  echo "    hello 1  "
+  echo "    hello 2  "
+  echo "             "
+  echo "    [beta]   "
+  echo "    # comment"
+  echo "    goodbye 1"
+  echo "    goodbye 2"
+  echo ""
+  echo "  then executing"
+  echo ""
+  echo "    grepsec alp example.txt"
+  echo ""
+  echo "  yields the output"
+  echo ""
+  echo "    hello 1  "
+  echo "    hello 2  "
+  echo ""
+  exit
+endif
+
+# Notes on sed script 
+#
+# Operate in quiet mode ("-n"), so pattern space is only printed with
+# an explicit print ("p").
+#
+# Problem with escaping: Double enforce variable expansion on all "$"
+# characters regardless of backslash escaping, which is a problem if
+# we use "$" in our sed script.  Single quotes suppress variable
+# expansion on all "$" characters, which is a problem if we use a
+# shell variable.  Explicit escaping is tedious, since also "*" must
+# be escaped.  My compromise has been to studiously avoid matching 
+# either the last line ("$") or end-of-line within a regexp ("/...$/").
+#
+# First select pattern space from given section header to next section 
+# header inclusive:
+#
+#    /^\[${regexp}.*\]/,/^\[.*\]/
+# 
+# where
+#
+#    /^\[${regexp}.*\]/
+#
+#  matches a header of the form "[<regexp>...]", and
+#
+#    /^\[.*\]/
+#
+# matches the next header (or continues to end of file).
+#
+# Then, within this pattern space execute the sequence within braces...
+#
+# (1) Exclude lines matching the form of a header:
+#
+#    /^\[.*\]/d
+#
+# (2) Exclude comment lines:
+#
+#    /^#/d
+#
+# (3) Print line.
+
+# read off regexp
+set regexp = "$1"
+
+# read off optional filename
+if (${#argv}  == 2) then
+  set filename = "$2"
+else
+  set filename = ""
+endif
+
+sed --quiet "/^\[${regexp}.*\]/,/^\[.*\]/{/^\[.*\]/d;/^#/d;p}" $filename

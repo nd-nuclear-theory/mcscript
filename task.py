@@ -6,12 +6,12 @@
     Globals: requires attributes of mcscript.run to be populated 
 
     Environment variables:
-      TASK_PHASE -- phase (0-based) for tasks to be executed
-      TASK_POOL -- named pool for tasks to be executed (or ALL)
-      TASK_TOC -- flag to request generation of TOC file
-      TASK_STDOUT -- flag to request diagnostic dump of output to terminal
-      TASK_COUNT_LIMIT -- flag to request generation of TOC file
-      TASK_START -- starting value for task index (or offset for job rank in epar mode)
+      MCSCRIPT_TASK_PHASE -- phase (0-based) for tasks to be executed
+      MCSCRIPT_TASK_POOL -- named pool for tasks to be executed (or ALL)
+      MCSCRIPT_TASK_TOC -- flag to request generation of TOC file
+      MCSCRIPT_TASK_STDOUT -- flag to request diagnostic dump of output to terminal
+      MCSCRIPT_TASK_COUNT_LIMIT -- flag to request generation of TOC file
+      MCSCRIPT_TASK_START -- starting value for task index (or offset for job rank in epar mode)
 
     Created by M. A. Caprio, University of Notre Dame.
     3/2/13 (mac): Originated as task.py.
@@ -25,11 +25,9 @@
         Python 2.7 format method.
     6/4/15 (mac): Add check for locking clashes.
     6/25/15 (mac): Simplify task interface to single init() function.
-    Last modified 6/25/15 (mac).
+    6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
 
 """
-
-from __future__ import print_function, division
 
 import sys
 import os
@@ -74,27 +72,27 @@ def task_read_env():
     global phase, pool, task_count_limit, task_start, make_toc, do_unlock
     global task_root_dir, flag_dir, output_dir, results_dir, archive_dir
 
-    if "TASK_PHASE" in os.environ:
-        phase = int(os.environ["TASK_PHASE"])
+    if "MCSCRIPT_TASK_PHASE" in os.environ:
+        phase = int(os.environ["MCSCRIPT_TASK_PHASE"])
     else:
         # default to 0th phase -- natural default when tasks only have single-phase
         phase = 0
 
-    if "TASK_POOL" in os.environ:
-        pool = os.environ["TASK_POOL"]
+    if "MCSCRIPT_TASK_POOL" in os.environ:
+        pool = os.environ["MCSCRIPT_TASK_POOL"]
     else:
         pool = None
 
-    if "TASK_COUNT_LIMIT" in os.environ:
-        task_count_limit = int(os.environ["TASK_COUNT_LIMIT"])
+    if "MCSCRIPT_TASK_COUNT_LIMIT" in os.environ:
+        task_count_limit = int(os.environ["MCSCRIPT_TASK_COUNT_LIMIT"])
     else:
         task_count_limit = None
 
-    task_start = int(os.environ.get("TASK_START","0"))
+    task_start = int(os.environ.get("MCSCRIPT_TASK_START","0"))
 
-    make_toc = ("TASK_TOC" in os.environ)
-    do_unlock = ("TASK_UNLOCK" in os.environ)
-    ##make_archive = ("TASK_ARCHIVE" in os.environ)
+    make_toc = ("MCSCRIPT_TASK_TOC" in os.environ)
+    do_unlock = ("MCSCRIPT_TASK_UNLOCK" in os.environ)
+    ##make_archive = ("MCSCRIPT_TASK_ARCHIVE" in os.environ)
 
     # task directories
     flag_dir = os.path.join(mcscript.run.work_dir,"flags")
@@ -131,7 +129,7 @@ def make_task_dirs ():
 ################################################################
 
 
-def write_current_toc ():
+def write_current_toc():
     """ Write current table of contents to file runxxxx.toc.
 
     Returns filename, sans path, as convenience to caller.
@@ -247,7 +245,7 @@ def task_toc ():
             fields = [ index_str(index), task["pool"]]
             fields += [task_status(index,phase) for phase in range(phases)]
             fields += [ task["descriptor"] ]
-            lines.append(mcscript.spacify(fields))
+            lines.append(mcscript.utils.spacify(fields))
 
     return "\n".join(lines)
 
@@ -400,7 +398,8 @@ def do_task ():
     lock_stream = open(flag_base+".lock", "w")
     lock_stream.write("{}\n".format(flag_base))
     lock_stream.write("pool {} descriptor {}\n".format(task["pool"],task["descriptor"]))
-    lock_stream.write("job_id {} epar_rank {}\n".format(mcscript.run.job_id,mcscript.run.epar_rank))
+    lock_stream.write("job_id {}\n".format(mcscript.run.job_id))
+    ## lock_stream.write("job_id {} epar_rank {}\n".format(mcscript.run.job_id,mcscript.run.epar_rank))
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
 
@@ -414,7 +413,7 @@ def do_task ():
     task_start_time = time.time()
 
     # set up output redirection
-    redirect_stdout = not ("TASK_NOREDIRECT" in os.environ)
+    redirect_stdout = not ("MCSCRIPT_TASK_NOREDIRECT" in os.environ)
     output_filename = task_output_filename (task_index, phase)
     # purge any old file -- else it may persist if current task aborts
     if (os.path.exists(output_filename)):
@@ -429,8 +428,8 @@ def do_task ():
     print("task", task_index, "phase", phase)
     print(task["descriptor"])
     print(64*"-")
-    print(mcscript.run_data_string())
-    print(mcscript.time_stamp())
+    print(mcscript.run.run_data_string())
+    print(mcscript.utils.time_stamp())
     print(64*"-")
     print()
     sys.stdout.flush()

@@ -1,0 +1,11 @@
+# this is an example file for section retrieval
+
+[alpha]
+# comment
+hello 1
+hello 2
+
+[beta]
+# comment
+goodbye 1
+goodby 2

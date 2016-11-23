@@ -1,31 +1,40 @@
 #!/usr/bin/python3
 
-""" runtest.py -- testbed code for debugging and loading mcscript
+""" runex00.py -- basic hello world example job
+
+   Last modified 12/9/14.
 
    For simple test run on front end:
    
-      qsubm test
-
-
-  Language: Python 3
-
-  M. A. Caprio
-  Department of Physics, University of Notre Dame
-
-  6/13/16 (mac): Created.
-
+      qsubm ex00 
 """
 
-import mcscript
+# generic packages for use below
+#
+#   Actually, we do not need these in the present example, but this is
+#   where you would load them...
 
-mcscript.init()
+import math
+import sys
+
+# import mcscript
+#
+# This accomplishes various initialization tasks:
+# -- parse environment for various script parameters
+#    (e.g., are we in batch mode? are we supposed to run certain tasks?)
+# -- do basic run setup
+#    (e.g., make working directory in scratch space)
+# -- make available some functions for use in script
+#    (including mcscript utility functions and mcscript.task task
+#    management)
+#
+# See the docstrings in mcscript.py for further information.
+
+import mcscript
 
 ##################################################################
 # main body
 ##################################################################
-
-# test utils submodule
-print("Time stamp:",mcscript.utils.time_stamp())  # long form
 
 # example of output from the script to stdout
 print()
@@ -37,12 +46,12 @@ print()
 #
 #   Typically this would be an "input" file for some code...
 #
-#   Note that mcscript.utils.write_input also generates logging output (to
+#   Note that mcscript.write_input also generates logging output (to
 #   standard output).
 #
-#   See the docstring for mcscript.utils.write_input for further information.
+#   See the docstring for mcscript.write_input for further information.
 
-mcscript.utils.write_input(
+mcscript.write_input(
     "hello.txt",
     input_lines=[
         "",
@@ -58,16 +67,16 @@ mcscript.utils.write_input(
 
 # example of running an executable
 #
-#   Note that mcscript.utils.subprocess is a wrapper to the subprocess
+#   Note that mcscript.subprocess is a wrapper to the subprocess
 #   package, but does a lot more...  It generates logging output, it
 #   checks the return code and generates an exception on failure
 #   (i.e., a nonzero return), it can provide input lines to the code
 #   via standard input (optional parameter input_lines), and various
 #   other possibilities depending on the optional parameters.
 #
-#   See the docstring for mcscript.utils.call for further information.
+#   See the docstring for mcscript.call for further information.
 
-mcscript.utils.call(["/bin/cat","hello.txt"])
+mcscript.call(["/bin/cat","hello.txt"])
 
 ################################################################
 # termination
