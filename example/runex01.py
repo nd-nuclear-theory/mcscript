@@ -88,13 +88,13 @@ tasks = [
 # into their own module.
 ##################################################################
 
-def task_descriptor_hello (current_task):
+def task_descriptor_hello(current_task):
     """ Return task descriptor for hello task.
     """
 
     return "{world_name}".format(**current_task)
 
-def task_handler_hello (current_task):
+def task_handler_hello(current_task):
     """ Do a hello world task  given current task parameters.
 
     Expected dictionary keys:
@@ -120,7 +120,7 @@ def task_handler_hello (current_task):
 # task list entry annotation functions
 ##################################################################
 
-def task_pool (current_task):
+def task_pool(current_task):
     """ Create task pool identifier.
     """
     

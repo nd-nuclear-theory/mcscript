@@ -27,6 +27,7 @@ must break up as ["-q", "queue"].
   8/4/15 (mac): Make user environment variable definitions into option.
   6/13/16 (mac): Rename environment variables to MCSCRIPT_*.
   6/22/16 (mac): Update to use config.py for local configuration.
+  12/14/16 (mac): Add --here switch.
 """
 
 import sys
@@ -96,6 +97,7 @@ parser.add_argument("run",help="Run number (e.g., 0000 for run0000)")
 parser.add_argument("queue",nargs='?',help="Submission queue, or RUN for direct interactive run",default="RUN")  
 parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default=60)
 ##parser.add_argument("vars",nargs="?",help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2,PARAM=1.0)")
+parser.add_argument("--here",action="store_true",help="Force run in current working directory")
 parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
 ## parser.add_argument("--stat",action="store_true",help="Display queue status information") 
 parser.add_argument("--width",type=int,default=1,help="MPI width") 
@@ -145,19 +147,25 @@ args = parser.parse_args()
 # environment processing
 ################################################################
 
-if ("MCSCRIPT_RUN_HOME" in os.environ):
+if (args.here):
+    run_home = os.environ["PWD"]
+elif ("MCSCRIPT_RUN_HOME" in os.environ):
     run_home = os.environ["MCSCRIPT_RUN_HOME"]
 else:
     print ("MCSCRIPT_RUN_HOME not found in environment")
     exit(1)
 
-if ("MCSCRIPT_WORK_HOME" in os.environ):
+if (args.here):
+    work_home = os.environ["PWD"]
+elif ("MCSCRIPT_WORK_HOME" in os.environ):
     work_home = os.environ["MCSCRIPT_WORK_HOME"]
 else:
     print ("MCSCRIPT_WORK_HOME not found in environment")
     exit(1)
 
-if ("MCSCRIPT_LAUNCH_HOME" in os.environ):
+if (args.here):
+    launch_home = os.environ["PWD"]
+elif ("MCSCRIPT_LAUNCH_HOME" in os.environ):
     launch_home = os.environ["MCSCRIPT_LAUNCH_HOME"]
 else:
     launch_home = work_home
@@ -167,7 +175,6 @@ if ("MCSCRIPT_PYTHON" in os.environ):
 else:
     print ("MCSCRIPT_PYTHON not found in environment")
     exit(1)
-
 
 if ("MCSCRIPT_DIR" in os.environ):
     qsubm_path = os.environ["MCSCRIPT_DIR"]
