@@ -33,7 +33,7 @@ mcscript.init()
 #   via standard input (optional parameter input_lines), and various
 #   other possibilities depending on the optional parameters.
 #
-#   See the docstring for mcscript.utils.call for further information.
+#   See the docstring for mcscript.call for further information.
 
 filename = os.path.join(os.environ["MCSCRIPT_DIR"],"example","hello_hybrid")
 mcscript.call([filename],mode="parallel")

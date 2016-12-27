@@ -15,7 +15,7 @@
       -- Increased diagnostic output from subpath search utilities.
   6/13/16 (mac): Rename to utils.py as proper subpackage of mcscript.
   11/22/16 (mac): Move call out to control submodule.
-
+  12/27/16 (mac): Rewrite search_in_subdirectories.
 """
 
 import glob
@@ -199,53 +199,47 @@ def ifelse(cond,a,b):
 # path search utilities
 ################################################################
 
-def subpath_search_filename(base_path,search_list,filename):
-    """ subpath_search_filename(base_path,search_list,filename) -> name
+def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=False):
+    """ Search for file in any of several subdirectories to given base path.
 
-    Searches for file base_path/subdir/filename, for subdir in
-    search_list, and returns first match of existing file.  Raises
-    exception on failure.
+    Arguments:
+        base_path_or_list (str or list of str): base path in which to search
+            subdirectories (may alternatively be list of base paths)
+        subdirectory_list (list of str): subdirectories to search
+        filename (str): file name (or base file name) to match
+        base (bool, optional): whether to accept filename as base name rather than
+            exact match (then just return this base in the result)
+
+    Returns:
+        (str): first match
+
+    Raises:
+         ScriptError: if no match is found
     """
 
+    # process arguments
+    if (type(base_path_or_list)==str):
+        base_path_list = [base_path_or_list]
+    else:
+        base_path_list = list(base_path_or_list)
     print ("Searching for file name...")
-    print ("  Base path:", base_path)
-    print ("  Search list:", search_list)
-    print ("  Filename:", filename)
+    print ("  Base path(s):",base_path_or_list)
+    print ("  Subdirectories:",subdirectory_list)
+    print ("  Filename:",filename)
 
     # search in successive directories
-    for subdir in search_list:
-        qualified_name = os.path.join(base_path,subdir,filename)
-        if (os.path.exists(qualified_name)):
-            print ("  >>>>", qualified_name)
-            return qualified_name
+    for base_path in base_path_list:
+        for subdirectory in subdirectory_list:
+            qualified_name = os.path.join(base_path,subdirectory,filename)
+            if (base):
+                success = len(glob.glob(qualified_name+"*")>0)
+            else:
+                success = os.path.exists(qualified_name)
+            if (success):
+                print ("  ->", qualified_name)
+                return qualified_name
 
     # fallthrough
     print ("  No matching filename found...")
     raise ScriptError("no filename match on filename".format(filename))
-
-def subpath_search_basename(base_path,search_list,basename):
-    """ subpath_search_basename(base_path,search_list,basename) -> name
-
-    Searches for file base_path/subdir/basename*, for subdir in
-    search_list, and returns the base name base_path/subdir/basename
-    for the first match of an existing file.  Raises
-    exception on failure.
-    """
-
-    print ("Searching for file by base name...")
-    print ("  Base path:", base_path)
-    print ("  Search list:", search_list)
-    print ("  Filename base:", basename)
-
-    # search in successive directories file
-    for subdir in search_list:
-        qualified_name = os.path.join(base_path,subdir,basename)
-        matches = glob.glob(qualified_name + "*")
-        if (len(matches) is not 0):
-            print ("  >>>>", qualified_name,len(matches))
-            return qualified_name
-
-    # fallthrough
-    print ("  No matching filenames found...")
-    raise ScriptError("no filename match on base filename {}".format(basename))
 
