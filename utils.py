@@ -15,42 +15,43 @@
       -- Increased diagnostic output from subpath search utilities.
   6/13/16 (mac): Rename to utils.py as proper subpackage of mcscript.
   11/22/16 (mac): Move call out to control submodule.
-  12/27/16 (mac): Rewrite search_in_subdirectories.
+  12/27/16 (mac):
+    + Rewrite search_in_subdirectories.
+    + Change write_input argument from "silent" to "verbose".
+    + Coding style updates.
+
 """
 
 import glob
 import math
 import os
-import shutil
-import string
-import subprocess
-import sys
 import time
-
 
 ################################################################
 # input file generation
 ################################################################
 
-def write_input(filename,input_lines=[],silent=False):
+def write_input(filename,input_lines=[],verbose=True):
     """ Generate text file (typically an input file for a code to be
     invoked by the script), with contents given line-by-line as list
     of strings, and log to stdout.
 
-    input_lines: list of strings for input lines
-
-    silent: whether or not to suppress diagnostic output (e.g., for large sets of files
+    Arguments:
+        input_lines (list of str): input lines
+        verbose (bool, optional): whether or not to provide diagnostic output
+          (on by default, but might want to suppress, e.g., for large sets
+           of files)
     """
     
     # set up input
     stdin_string = "".join([s + "\n" for s in input_lines])
 
     # produce diagnotic output
-    if (not silent):
-        print ("----------------------------------------------------------------")
-        print ("Generating input file %s:" % filename)
-        print (stdin_string)
-        print ("----------------------------------------------------------------")
+    if (verbose):
+        print("----------------------------------------------------------------")
+        print("Generating input file %s:" % filename)
+        print(stdin_string)
+        print("----------------------------------------------------------------")
 
     # dump contents to file
     data_file = open(filename,"w")
@@ -70,7 +71,7 @@ def time_stamp():
 def date_tag():
     """ Returns date tag string "YYMMDD".
     """
-    return "%s" % time.strftime("%y%m%d")
+    return time.strftime("%y%m%d")
 
 ################################################################
 # string concatenation utilities
@@ -222,10 +223,10 @@ def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=F
         base_path_list = [base_path_or_list]
     else:
         base_path_list = list(base_path_or_list)
-    print ("Searching for file name...")
-    print ("  Base path(s):",base_path_or_list)
-    print ("  Subdirectories:",subdirectory_list)
-    print ("  Filename:",filename)
+    print("Searching for file name...")
+    print("  Base path(s):",base_path_or_list)
+    print("  Subdirectories:",subdirectory_list)
+    print("  Filename:",filename)
 
     # search in successive directories
     for base_path in base_path_list:
@@ -236,10 +237,10 @@ def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=F
             else:
                 success = os.path.exists(qualified_name)
             if (success):
-                print ("  ->", qualified_name)
+                print("  ->", qualified_name)
                 return qualified_name
 
     # fallthrough
-    print ("  No matching filename found...")
+    print("  No matching filename found...")
     raise ScriptError("no filename match on filename".format(filename))
 
