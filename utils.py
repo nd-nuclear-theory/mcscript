@@ -27,6 +27,8 @@ import math
 import os
 import time
 
+import mcscript # for ScriptError
+
 ################################################################
 # input file generation
 ################################################################
@@ -243,5 +245,5 @@ def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=F
 
     # fallthrough
     print("  No matching filename found...")
-    raise ScriptError("no filename match on filename".format(filename))
+    raise mcscript.ScriptError("no filename match on filename".format(filename))
 

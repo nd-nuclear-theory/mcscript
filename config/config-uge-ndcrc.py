@@ -103,6 +103,11 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     """
 
+    # assert not epar
+    if (args.epar is not None):
+        raise(ValueError("epar presently not supported by this scripting"))
+
+    # start accumulating command line
     submission_invocation = [ "qsub" ]
 
     # job name
@@ -127,12 +132,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             sys.exit(1)
 
         # calculate number of needed cores
-        if (args.epar is not None):
-            # epar -- serial or smp
-            needed_cores = args.epar * args.depth
-        else:
-            # standars -- smp/mpi
-            needed_cores = args.width * args.depth
+        needed_cores = args.width * args.depth
         rounded_cores = args.nodesize * (needed_cores // args.nodesize)
         if ((needed_cores % args.nodesize) != 0):
             rounded_cores += args.nodesize
@@ -140,24 +140,29 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         # generate parallel environment specifier
         if (args.width != 1):
             # handle mpi run
-            submission_invocation += ["-pe", "mpi-%d %d" % (args.nodesize, rounded_cores) ]
+            submission_invocation += [
+                "-pe",
+                "mpi-{nodesize:d} {rounded_cores:d}".format(rounded_cores=rounded_cores,**args)
+            ]
         elif (args.depth != 1):
             # handle smp run
-            submission_invocation += ["-pe", "smp %d" % (args.nodesize) ]
+            submission_invocation += [
+                "-pe",
+                "smp {nodesize:d}".format(**args)
+            ]
 
     # append user-specified arguments
     if (args.opt is not None):
         submission_invocation += args.opt.split(",")
 
     # environment definitions
-    submission_invocation += ["-v", "%s" % ",".join(environment_definitions)]
-
-    # job command
-    if (args.epar is not None):
-        raise(ValueError("epar presently not supported"))
+    submission_invocation += [
+        "-v",
+        ",".join(environment_definitions)
+    ]
 
     submission_invocation += [
-        os.path.join(qsubm_path,"wrapper.csh"),  # csh wrapper required at NDCRC
+        os.path.join(qsubm_path,"csh_job_wrapper.csh"),  # csh wrapper required at NDCRC
         os.environ["MCSCRIPT_PYTHON"], # call interpreter, so py file does not need to be executable
         job_file
     ]
@@ -218,7 +223,7 @@ def serial_invocation(base):
     return base
 
 def parallel_invocation(base):
-    """ Generate subprocess invocation arguments for parallel runq.
+    """ Generate subprocess invocation arguments for parallel run.
 
     Arguments:
         base (list of str): invocation of basic command to be executed
@@ -227,51 +232,23 @@ def parallel_invocation(base):
         (list of str): full invocation
     """
 
-    # for mpich2
-    ## parallel_config = [
-    ##     "mpiexec",
-    ##     "-n", "%d" % run.parallel_width,
-    ##     "-ranks-per-proc", "%d" % run.parallel_depth
-    ##     ]
-
-    # for mpich -- haven't yet checked how to do depth
-
+    # for ompi
     invocation = [
         "mpiexec",
-        "--n","{}".format(mcscript.run.parallel_width),
-        "--map-by","node:PE={}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth)  # TODO fix up use of new binding syntax
+        "--n","{:d}".format(mcscript.run.parallel_width),
+        "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth)  # TODO fix up use of new binding syntax
     ]
+    print("WARNING: TODO still need to fix binding syntax for parallel depth in config-uge-ndcrc")
     invocation += base
 
     return invocation
-
-## ################################################################
-## # embarassingly-parallel job-script relaunching definitions
-## ################################################################
-## 
-## def epar_relaunch_args():
-##     """ Generate arguments for relaunching script file in epar run.
-##     """
-## 
-##     ## # embarassingly parallel launch arguments
-##     ## epar_args = [
-##     ##         "mpiexec",
-##     ##         "-n%d" % mcscript.parallel_width,
-##     ##         "-b", "/usr/bin/env",
-##     ##         "python",  # call interpreter, so py file does not need to be executable
-##     ##         mcscript.job_file
-##     ##         ]
-## 
-##     # TODO for ND
-##     return []
-## 
 
 ################################################################
 # local setup and termination hooks
 ################################################################
 
 def init():
-    """ Does any local setup tasks.
+    """ Do any local setup tasks.
 
     Invoked after mcscript sets the various configuration variables
     and changed the cwd to the scratch directory.
@@ -280,7 +257,7 @@ def init():
     pass
 
 def termination():
-    """ Does any local termination tasks.
+    """ Do any local termination tasks.
     """
     
     pass
