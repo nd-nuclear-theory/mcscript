@@ -44,12 +44,13 @@ def write_input(filename,input_lines=[],verbose=True):
     """
     
     # set up input
-    stdin_string = "".join([s + "\n" for s in input_lines])
+    ##stdin_string = "".join([s + "\n" for s in input_lines])
+    stdin_string = "\n".join(input_lines) + "\n"
 
     # produce diagnotic output
     if (verbose):
         print("----------------------------------------------------------------")
-        print("Generating input file %s:" % filename)
+        print("Generating text file %s:" % filename)
         print(stdin_string)
         print("----------------------------------------------------------------")
 
