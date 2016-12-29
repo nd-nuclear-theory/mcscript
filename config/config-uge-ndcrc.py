@@ -142,13 +142,13 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             # handle mpi run
             submission_invocation += [
                 "-pe",
-                "mpi-{nodesize:d} {rounded_cores:d}".format(rounded_cores=rounded_cores,**args)
+                "mpi-{nodesize:d} {rounded_cores:d}".format(nodesize=args.nodesize,rounded_cores=rounded_cores)
             ]
         elif (args.depth != 1):
             # handle smp run
             submission_invocation += [
                 "-pe",
-                "smp {nodesize:d}".format(**args)
+                "smp {nodesize:d}".format(nodesize=args.nodesize)
             ]
 
     # append user-specified arguments
@@ -235,10 +235,11 @@ def parallel_invocation(base):
     # for ompi
     invocation = [
         "mpiexec",
+        "--report-bindings",
         "--n","{:d}".format(mcscript.run.parallel_width),
         "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth)  # TODO fix up use of new binding syntax
     ]
-    print("WARNING: TODO still need to fix binding syntax for parallel depth in config-uge-ndcrc")
+    ##print("WARNING: TODO still need to fix binding syntax for parallel depth in config-uge-ndcrc")
     invocation += base
 
     return invocation
