@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 """ runex00.py
 
   Language: Python 3

@@ -1,0 +1,100 @@
+mcscript installation guide
+
+M. A. Caprio
+Department of Physics, University of Notre Dame
+
+12/30/16 (mac): Created.
+
+----------------------------------------------------------------
+
+1) Retrieving source
+
+  Change to the directory where you want the repository to be installed,
+  e.g.,
+
+  % cd ~/projects
+
+  Clone the shell repository and all submodules.  In the following,
+  replace "netid" with your ND NetID:
+
+  % git clone --recursive ssh://<netid>@crcfe01.crc.nd.edu/afs/crc.nd.edu/group/nuclthy/git/mcscript.git
+
+  Or, from the secondary (public) repository on github:
+
+  % git clone https://github.com/nd-nuclear-theory/mcscript.git
+
+  Then change your working directory (cd) to the project directory for
+  all the following steps.
+
+1') Subsequently updating source
+
+  % git pull
+
+2) Local configuration
+
+  You need to create a symbolic link "config.py" to point to the
+  correct configuration file for the system or cluster you are running
+  on.  On a generic Linux system, if you are only doing local runs
+  (i.e., no batch job submission) you can use the predefined
+  configuration file config-ompi.py in mcscript/config:
+
+  % ln -s config/config-ompi.py config.py
+
+  Example local configuration files for Univa Grid Engine at the Notre
+  Dame Center for Research Computing and SLURM at NERSC are also
+  included in this directory.
+
+  || @NDCRC:
+  ||
+  || % ln -s config/config-uge-ndcrc.py config.py
+
+  || @NERSC:
+  ||
+  || % ln -s config/config-slurm-nersc.py config.py
+
+  You will need to follow these models to define the batch submission
+  (qsub, sbatch, etc.) and parallel execution launch (mpiexec, srun,
+  etc.) invocations appropriate to your cluster and your running
+  needs.
+
+3) Environment variables
+
+  In your csh initialization file, define initialization as follows
+  (adjusting directory names to match your choices as appropriate):
+
+    # mcscript
+    setenv MCSCRIPT_DIR ${HOME}/projects/mcscript
+    setenv MCSCRIPT_RUN_HOME ${HOME}/runs
+    setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
+    setenv MCSCRIPT_RUN_PREFIX run
+    setenv MCSCRIPT_PYTHON python3
+    source ${MCSCRIPT_DIR}/mcscript_init.csh
+
+  A description of these (and other) environment variables may be
+  found by invoking the qsubm help:
+
+  % qsubm --help
+
+  You may also need to set environment variables for specific
+  application scripts you plan to use with mcscript.  A "typical"
+  example would be for the nuclear structure code MFDn:
+
+    # shell
+    setenv SHELL_PROJECT_DIR "${HOME}/projects/shell"
+    setenv SHELL_MFDN_DIR "${HOME}/projects/mfdn"
+    setenv SHELL_DATA_DIR_H2 "${HOME}/research/data/h2"
+
+4) Basic tests
+
+  Basic test scripts may be found in mcscript/example.  You can start
+  by putting symbolic links to these in your run script directory:
+
+  % cd ${MCSCRIPT_RUN_HOME}
+  % ln -s ${MCSCRIPT_WORK_HOME}/runex00.py
+  % ln -s ${MCSCRIPT_WORK_HOME}/runex01.py
+  % ln -s ${MCSCRIPT_WORK_HOME}/runex02.py
+
+  Then see the comments in each of these example files for information
+  on invoking them, e.g.,
+
+  % qsubm ex00

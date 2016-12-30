@@ -1,4 +1,4 @@
-"""config-local.py
+"""config-ompi.py
 
     mcscript definitions for local runs only (no batch) with Open MPI syntax.
 
@@ -112,30 +112,15 @@ def parallel_invocation(base):
         (list of str): full invocation
     """
 
-
-##       -npernode, --npernode <#pernode>
-##              On each node, launch this many processes.  (deprecated in favor of --map-by ppr:n:node)
-##
-##
-##       To map processes:
-##
-##       --map-by <foo>
-##              Map  to  the  specified  object, defaults to socket. Supported options include slot, hwthread, core, L1cache, L2cache, L3cache, socket, numa, board, node, sequential, dis-
-##              tance, and ppr. Any object can include modifiers by adding a : and any combination of PE=n (bind n processing elements to each proc),  SPAN  (load  balance  the  processes
-##              across the allocation), OVERSUBSCRIBE (allow more processes on a node than processing elements), and NOOVERSUBSCRIBE.  This includes PPR, where the pattern would be termi-
-##              nated by another colon to separate it from the modifiers.
-
-##       --bind-to <foo>                                                                                                                                                                        
-##              Bind processes to the specified object, defaults to core. Supported options include slot, hwthread, core, l1cache, l2cache, l3cache, socket, numa, board, and none.             
-
-# https://www.olcf.ornl.gov/kb_articles/task-core-affinity-on-commodity-clusters/
-# https://www.olcf.ornl.gov/kb_articles/parallel-job-execution-on-commodity-clusters/
+    # TODO: may want to add some thread binding directives
+    #
+    # https://www.olcf.ornl.gov/kb_articles/task-core-affinity-on-commodity-clusters/
+    # https://www.olcf.ornl.gov/kb_articles/parallel-job-execution-on-commodity-clusters/
 
     # for ompi
     invocation = [
         "mpiexec",
-        "--n","{:d}".format(mcscript.run.parallel_width),
-        "--map-by","ppr:{:d}:node:PE={:d}::NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth,mcscript.run.parallel_depth)  # TODO fix up use of new binding syntax
+        "--n","{:d}".format(mcscript.run.parallel_width)
     ]
     invocation += base
 

@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 """ runex01.py -- multi-task example of hello world
 
    There are several ways you should try invoking this script, to have

@@ -1,8 +1,14 @@
-#!/usr/bin/python3
-
 """ runex02.py
 
   Example hybrid parallel hello world run.
+
+  Retrieve code from:
+
+    http://www.slac.stanford.edu/comp/unix/farm/mpi_and_openmp.html
+
+    mpicc -fopenmp hello_hybrid.c -o hello_hybrid
+    setenv OMP_NUM_THREADS 2
+    mpirun -n 2 -x OMP_NUM_THREADS ./hello_hybrid
 
   Language: Python 3
 
