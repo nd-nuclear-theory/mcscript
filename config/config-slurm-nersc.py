@@ -164,7 +164,13 @@ def serial_invocation(base):
         # run on compute node (for Edison)
         #
         # Perhaps could run unwrapped on Cori?
-        invocation = ["srun"]
+        invocation = [
+            "srun",
+            "--ntasks={}".format(1),
+            "--nodes={}".format(1),
+            "--cpus-per-task={}".format(mcscript.run.node_size)
+        ]
+
         invocation += base
 
     return invocation
