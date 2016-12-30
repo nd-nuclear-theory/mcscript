@@ -76,7 +76,8 @@ class RunParameters(object):
         #   will be integers, potentially -1 if left as None in qsub call
         self.parallel_width = int(os.environ["MCSCRIPT_WIDTH"])
         self.parallel_depth = int(os.environ["MCSCRIPT_DEPTH"])
-        self.parallel_pernode = int(os.environ["MCSCRIPT_PERNODE"])
+        self.parallel_spread = int(os.environ["MCSCRIPT_SPREAD"])
+        ## self.parallel_pernode = int(os.environ["MCSCRIPT_PERNODE"])
         self.parallel_nodesize = int(os.environ["MCSCRIPT_NODESIZE"])
         self.parallel_epar = int(os.environ["MCSCRIPT_EPAR"])
         if (self.parallel_epar!=-1):

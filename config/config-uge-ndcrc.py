@@ -153,7 +153,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     # append user-specified arguments
     if (args.opt is not None):
-        submission_invocation += args.opt.split(",")
+        submission_invocation += args.opt
 
     # environment definitions
     submission_invocation += [
@@ -178,11 +178,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 # scripting runtime (user script)
 ################################################################
 ################################################################
-
-# serial jobs: nothing special
-# MPI jobs: standard mpiexec, TODO OMP
-# epar jobs: TODO
-
 
 # circular import of mcscript
 import mcscript

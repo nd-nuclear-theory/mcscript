@@ -16,18 +16,22 @@ must break up as ["-q", "queue"].
 ----------------------------------------------------------------
 
   Created by M. A. Caprio, University of Notre Dame.
-  3/6/13 (mac): Based on earlier qsubm csh script.
-  7/4/13 (mac): Support for multiple cluster flavors via qsubm_local.
-  1/22/14 (mac): Python 3 update.
-  10/27/14 (mac): Updates to --archive handling.
-  5/14/15 (mac): 
-      -- Insert "future" statements for Python 2 legacy support.
-      -- Add --noredirect switch.
-      -- Mandatory environment variable QSUBM_PYTHON.
-  8/4/15 (mac): Make user environment variable definitions into option.
-  6/13/16 (mac): Rename environment variables to MCSCRIPT_*.
-  6/22/16 (mac): Update to use config.py for local configuration.
-  12/14/16 (mac): Add --here switch.
+  + 3/6/13 (mac): Based on earlier qsubm csh script.
+  + 7/4/13 (mac): Support for multiple cluster flavors via qsubm_local.
+  + 1/22/14 (mac): Python 3 update.
+  + 10/27/14 (mac): Updates to --archive handling.
+  + 5/14/15 (mac): 
+    - Insert "future" statements for Python 2 legacy support.
+    - Add --noredirect switch.
+    - Mandatory environment variable QSUBM_PYTHON.
+  + 8/4/15 (mac): Make user environment variable definitions into option.
+  + 6/13/16 (mac): Rename environment variables to MCSCRIPT_*.
+  + 6/22/16 (mac): Update to use config.py for local configuration.
+  + 12/14/16 (mac): Add --here option.
+  + 12/29/16 (mac):
+    - Add --spread option.
+    - Remove --pernode option.
+    - Make --opt option repeatable.
 """
 
 import sys
@@ -100,14 +104,15 @@ parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default
 parser.add_argument("--here",action="store_true",help="Force run in current working directory")
 parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
 ## parser.add_argument("--stat",action="store_true",help="Display queue status information") 
-parser.add_argument("--width",type=int,default=1,help="MPI width") 
-parser.add_argument("--depth",type=int,default=1,help="OMP depth")
+parser.add_argument("--width",type=int,default=1,help="MPI width (number of processes)")
+parser.add_argument("--depth",type=int,default=1,help="OMP depth (threads per process)")
+parser.add_argument("--spread",type=int,default=1,help="Undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 parser.add_argument("--nodesize",type=int,default=None,help="Physical cores per node")
-parser.add_argument("--pernode",type=int,default=None,help="MPI processes per node (may be superfluous if nodesize specified)")
+## parser.add_argument("--pernode",type=int,default=None,help="MPI processes per node (may be superfluous if nodesize specified)")
 parser.add_argument("--epar",type=int,default=None,help="Width for embarassingly parallel job")
 parser.add_argument("--nopar",action="store_true",help="Disable parallel resource requests (for use on special serial queues)")
 parser.add_argument("--num",type=int,default=1,help="Number of repetitions")
-parser.add_argument("--opt",help="Additional option arguments to be passed to qsub (e.g., --opt=\"-m ae\"), comma delimited if more than one (e.g., --opt=\"-A acct,-a 1200\"); beware the spaces may be important to qsub")
+parser.add_argument("--opt",action="append",help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
 parser.add_argument("--toc",action="store_true",help="Task table-of-contents request for task.py interface")
 parser.add_argument("--pool",help="Task pool for task.py interface")
 parser.add_argument("--phase",type=int,default=0,help="Task phase for task.py interface")
@@ -115,7 +120,6 @@ parser.add_argument("--start",type=int,help="Starting task number for task.py in
 parser.add_argument("--limit",type=int,help="Task iteration limit for task.py interface")
 parser.add_argument("--noredirect",action="store_true",help="Disable redirection of standard output/error to file for task.py interface")
 parser.add_argument("--unlock",action="store_true",help="Task unlock request for task.py interface")
-##parser.add_argument("--archive",action="store_const",dest="pool",const="ARCH",help="Task archive request for task.py interface")
 parser.add_argument("--archive",action="store_true",help="Task archive request for task.py interface")
 
 ##parser.print_help()
@@ -230,13 +234,14 @@ environment_definitions.append("MCSCRIPT_WALL_SEC=%d" % (wall_time_min*60))
 # record width and depth parameters
 environment_definitions.append("MCSCRIPT_WIDTH=%d" % args.width)
 environment_definitions.append("MCSCRIPT_DEPTH=%d" % args.depth)
+environment_definitions.append("MCSCRIPT_SPREAD=%d" % args.spread)
 if ( (args.depth != 1) and (args.nodesize is None)):
     print ("OMP --depth specified without a --nodesize")
     exit(1)
-if (args.pernode is not None):
-    environment_definitions.append("MCSCRIPT_PERNODE=%d" % args.pernode)
-else:
-    environment_definitions.append("MCSCRIPT_PERNODE=%d" % -1)
+## if (args.pernode is not None):
+##     environment_definitions.append("MCSCRIPT_PERNODE=%d" % args.pernode)
+## else:
+##     environment_definitions.append("MCSCRIPT_PERNODE=%d" % -1)
 if (args.nodesize is not None):
     environment_definitions.append("MCSCRIPT_NODESIZE=%d" % args.nodesize)
 else:
@@ -297,6 +302,8 @@ environment_definitions.append("MCSCRIPT_WORK_DIR=%s" % work_dir)
 
 # set up run launch directory (for batch job output logging)
 launch_dir_parent = os.path.join(launch_home,run)
+if ( not os.path.exists(launch_home)):
+    os.mkdir(launch_home)
 if ( not os.path.exists(launch_dir_parent)):
     os.mkdir(launch_dir_parent)
 if (args.archive):
