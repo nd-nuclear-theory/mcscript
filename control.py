@@ -207,9 +207,11 @@ def call(
     # set up invocation
     if (mode is None):
         invocation = base
-    elif (mode=="serial"):
+    elif ((mode==call.serial) or (mode=="serial")):
         invocation = config.serial_invocation(base)
-    elif (mode=="parallel"):
+    elif (mode==call.smp):
+        pass # TODO
+    elif ((mode==call.hybrid) or (mode=="parallel")):
         invocation = config.parallel_invocation(base)
     
     # set up input
@@ -270,3 +272,9 @@ def call(
         raise ScriptError("nonzero return")
 
     return stdout_string
+
+# enumerated type (is this best convention???)
+call.serial = 0
+call.smp = 1
+call.hybrid = 2
+

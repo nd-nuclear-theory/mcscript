@@ -43,7 +43,7 @@ mcscript.init()
 #   See the docstring for mcscript.call for further information.
 
 filename = os.path.join(os.environ["MCSCRIPT_DIR"],"example","hello_hybrid")
-mcscript.call([filename],mode="parallel")
+mcscript.call([filename],mode=mcscript.call.hybrid)
 
 ################################################################
 # termination
