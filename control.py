@@ -6,6 +6,7 @@
   Department of Physics, University of Notre Dame
 
   6/13/16 (mac): Extract from mcscript.py.
+  1/8/17 (mac): Simplify omp_setup to just set OMP_NUM_THREADS.
 
 """
 
@@ -86,19 +87,13 @@ def termination():
 # OpenMP setup
 ################################################################
 
-def openmp_setup(stack_size=None):
+def openmp_setup():
     """ Set OpenMP environment variables.
-
-    Arguments:
-        stack_size: string for stack size (e.g., "16M"), or None
     """
 
     # set number of threads by global qsubm depth parameter
+    print("Setting OMP_NUM_THREADS to {}.".format(run.parallel_depth))
     os.environ["OMP_NUM_THREADS"] = str(run.parallel_depth)
-
-    # set stack size
-    if (stack_size != None):
-        os.environ["OMP_STACKSIZE"] = stack_size
     
 
 ################################################################

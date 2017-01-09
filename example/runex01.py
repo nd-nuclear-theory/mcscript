@@ -1,139 +1,69 @@
-""" runex01.py -- multi-task example of hello world
+""" runex01.py
 
-   There are several ways you should try invoking this script, to have
-   a chance to try out the range of possiblities...
+  Language: Python 3
 
-   When you are writing and debugging the script, you might first do a
-   do-nothing test run (for syntax only) on front end, just to make
-   sure it doesn't crash in the setup phase, i.e., as it generates the
-   task list:
-   
-      qsubm ex01
+  M. A. Caprio
+  Department of Physics
+  University of Notre Dame
 
-   But, actually, probably at the same time you would print a table of
-   contents of the tasks, still running on front end:
+  6/13/16 (mac): Created (runex00.py).
+  11/22/16 (mac): Update after restructuring mcscript.
+  1/8/07 (mac): Rename to runex01.py.
 
-      qsubm ex01 --toc
-
-   To actually execute a task, you have to specify the task's pool.
-   Here, for instance, we try to run the tasks in pool "greet", still
-   on front end:
-   
-      qsubm ex01 --pool=greet
-
-   Now if you generate a table of contents again, you should see some
-   tasks marked as completed:
-
-      qsubm ex01 --toc
-
-   If you are on a cluster, on the other hand, you can go ahead and
-   run these jobs on some appropriate queue, with some time limit (the
-   details are cluster specific), for instance:
-   
-
-   Note:
-
-      -- task standard output is always redirected to directory named
-      output
-
-      -- task completion logs are saved to directory flags
-
-      -- task runs in working directory task-nnnn.dir
-      
-      
 """
 
-# generic packages for use below
-import math
-import sys
-
-# load mcscript
-# -- parse environment for various script parameters
-#    (e.g., are we in batch mode? are we supposed to run certain tasks?)
-# -- do basic run setup
-#    (e.g., make working directory in scratch space)
-# -- make available some functions for use in script
-#    (including mcscript utility functions and mcscript.task task management)
 import mcscript
+
 mcscript.init()
 
 ##################################################################
-# build task list
+# main body
 ##################################################################
 
-# configuration
+# test utils submodule
+print("Time stamp:",mcscript.utils.time_stamp())
 
-worlds = ["Mercury", "Venus", "Earth", "Mars"]
+# example of output from the script to stdout
+print()
+print("We have finished loading mcscript now and are")
+print("in the body of the script...")
+print()
 
-# generate task list
-
-# This should be a list of dictionaries, with keys that your task
-# handler function will understand.  Then, mcscript will automatically
-# add some extra keys to these dictionaries, e.g., a task identifier
-# name.
-
-tasks = [
-    {
-        "world_name" : world_name
-    }
-    for world_name in worlds
-]
-
-##################################################################
-# implementation functions for doing a "hello world" task
+# example of generating a text file
 #
-# For a more complicated application, you would separate these out
-# into their own module.
-##################################################################
+#   Typically this would be an "input" file for some code...
+#
+#   Note that mcscript.utils.write_input also generates logging output (to
+#   standard output).
+#
+#   See the docstring for mcscript.utils.write_input for further information.
 
-def task_descriptor_hello(task):
-    """ Return task descriptor for hello task.
-    """
-
-    return "{world_name}".format(**task)
-
-def task_handler_hello(task):
-    """ Do a hello world task  given current task parameters.
-
-    Expected dictionary keys:
-
-    "world_name" : name of world to greet
-
-    """
-
-    # write greeting message to file
-
-    mcscript.utils.write_input(
-        "hello.txt",
-        input_lines=[
-            "Dear {world_name},".format(**task),
-            "   Hello!",
-            "Your script",
-            mcscript.run.name
-            ]
-        )
-
-
-##################################################################
-# task list entry annotation functions
-##################################################################
-
-def task_pool(task):
-    """ Create task pool identifier.
-    """
-    
-    return "greet"
-
-##################################################################
-# master loop
-##################################################################
-
-mcscript.task.init(
-    tasks,
-    task_descriptor=task_descriptor_hello,
-    task_pool=task_pool,
-    phase_handler_list=[task_handler_hello]
+mcscript.utils.write_input(
+    "hello.txt",
+    input_lines=[
+        "",
+        "Dear World,",
+        "",
+        "   Hello!",
+        "",
+        "Your faithful script,",
+        # note use of run parameters from mcscript.run
+        mcscript.run.name
+        ]
     )
+
+# example of running an executable
+#
+#   Note that mcscript.call is a wrapper to the subprocess
+#   package, but does a lot more...  It generates logging output, it
+#   checks the return code and generates an exception on failure
+#   (i.e., a nonzero return), it can provide input lines to the code
+#   via standard input (optional parameter input_lines), and various
+#   other possibilities depending on the optional parameters.
+#
+#   See the docstring for mcscript.utils.call for further information.
+
+mcscript.call(["/bin/cat","hello.txt"])
 
 ################################################################
 # termination
