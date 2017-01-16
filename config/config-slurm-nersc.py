@@ -168,14 +168,14 @@ def serial_invocation(base):
             "srun",
             "--ntasks={}".format(1),
             "--nodes={}".format(1),
-            "--cpus-per-task={}".format(mcscript.run.node_size)
+            "--cpus-per-task={}".format(mcscript.run.parallel_nodesize)
         ]
 
         invocation += base
 
     return invocation
 
-def parallel_invocation(base):
+def hybrid_invocation(base):
     """ Generate subprocess invocation arguments for parallel run.
 
     Arguments:

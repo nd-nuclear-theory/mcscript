@@ -205,14 +205,15 @@ def call(
     """
 
     # set up invocation
+    # TODO: finish implementing smp mode
     if (mode is None):
         invocation = base
-    elif ((mode==call.serial) or (mode=="serial")):
+    elif (mode==call.serial):
         invocation = config.serial_invocation(base)
     elif (mode==call.smp):
-        pass # TODO
-    elif ((mode==call.hybrid) or (mode=="parallel")):
-        invocation = config.parallel_invocation(base)
+        invocation = config.smp_invocation(base)
+    elif (mode==call.hybrid):
+        invocation = config.hybrid_invocation(base)
     
     # set up input
     stdin_string = "".join([s + "\n" for s in input_lines])
