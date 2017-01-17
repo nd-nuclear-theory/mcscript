@@ -10,6 +10,7 @@
     - Rename to parameters.py.
     - Move run_data_string into RunParameters as method.
     - Eliminate load-time construction of global run object.
+  + 1/16/17 (mac): Add support for serial_threads attribute.
 
 """
 
@@ -74,6 +75,7 @@ class RunParameters(object):
 
         # optional parallel queue environment variables
         #   will be integers, potentially -1 if left as None in qsub call
+        self.serial_threads = int(os.environ["MCSCRIPT_SERIALTHREADS"])
         self.parallel_width = int(os.environ["MCSCRIPT_WIDTH"])
         self.parallel_depth = int(os.environ["MCSCRIPT_DEPTH"])
         self.parallel_spread = int(os.environ["MCSCRIPT_SPREAD"])

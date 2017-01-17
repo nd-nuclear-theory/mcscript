@@ -55,11 +55,6 @@ def init():
         subprocess.call(["mkdir","--parents",run.work_dir])
     os.chdir(run.work_dir)
 
-    ################################################################
-    # basic OMP environment setup
-    ################################################################
-
-    openmp_setup()
 
 
 ################################################################
@@ -87,13 +82,16 @@ def termination():
 # OpenMP setup
 ################################################################
 
-def openmp_setup():
+def openmp_setup(threads):
     """ Set OpenMP environment variables.
+    
+    Arguments:
+        threads (int): number of threads
     """
 
     # set number of threads by global qsubm depth parameter
-    print("Setting OMP_NUM_THREADS to {}.".format(run.parallel_depth))
-    os.environ["OMP_NUM_THREADS"] = str(run.parallel_depth)
+    print("Setting OMP_NUM_THREADS to {}.".format(threads))
+    os.environ["OMP_NUM_THREADS"] = str(threads)
     
 
 ################################################################
@@ -142,7 +140,7 @@ class ScriptError(Exception):
 
 def call(
         base,
-        mode=None,
+        mode=0,  # call.local is not yet defined so hard-code value (ugh)
         input_lines=[],
         shell=False,cwd=None,
         print_stdout=True,check_return=True
@@ -158,14 +156,15 @@ def call(
 
         mode (int): mode of invocation for code
 
-            None: lightweight code for direct invocation under script
+            mcscript.call.local: lightweight code for direct invocation under script
             (e.g., a simple os command)
 
-            "serial": serial compute code (may be directly invoked
-            under script or shipped to compute node; also had special
-            treatment under epar jobs)
+            mcscript.call.serial: "serial" compute code (may be
+            directly invoked under script or shipped to compute node;
+            also had special treatment under epar jobs); number of OMP
+            threads set separately from OMP width for hybrid runs
 
-            "parallel": code requiring mpi launch
+            mcscript.call.hybrid: code requiring mpi launch
     
         input_lines (list of str): list of lines to be given to the
         subprocess as standard input (i.e., as list of strings, each
@@ -201,19 +200,21 @@ def call(
         >>> mcscript.call(["cat"],input_lines=["a","b"]) # basic
         >>> mcscript.call(["catx"],input_lines=["a","b"]) # for execution failure
         >>> mcscript.call(["cat","badfile"],input_lines=["a","b"]) # for nonzero return
+        >>> mcscript.call(["cat","badfile"],input_lines=["a","b"],mode=mcscript.call.serial) # specifying run mode
 
     """
 
     # set up invocation
-    # TODO: finish implementing smp mode
-    if (mode is None):
+    if (mode is call.local):
         invocation = base
     elif (mode==call.serial):
+        openmp_setup(run.serial_threads)
         invocation = config.serial_invocation(base)
-    elif (mode==call.smp):
-        invocation = config.smp_invocation(base)
     elif (mode==call.hybrid):
+        openmp_setup(run.parallel_depth)
         invocation = config.hybrid_invocation(base)
+    else:
+        raise(ValueError("invalid invocation mode"))
     
     # set up input
     stdin_string = "".join([s + "\n" for s in input_lines])
@@ -275,7 +276,9 @@ def call(
     return stdout_string
 
 # enumerated type (is this best convention???)
-call.serial = 0
-call.smp = 1
+#
+# TODO: upgrade to Python 3.4 enum type
+call.local = 0
+call.serial = 1
 call.hybrid = 2
 

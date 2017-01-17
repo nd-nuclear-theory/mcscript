@@ -4,6 +4,7 @@ M. A. Caprio
 Department of Physics, University of Notre Dame
 
 12/30/16 (mac): Created.
+1/16/17 (mac): Update MFDn environment example.
 
 ----------------------------------------------------------------
 
@@ -81,6 +82,7 @@ Department of Physics, University of Notre Dame
 
     # shell
     setenv SHELL_PROJECT_DIR "${HOME}/projects/shell"
+    setenv SHELL_INSTALL_DIR "${SHELL_PROJECT_DIR}/install/${CRAY_CPU_TARGET}"
     setenv SHELL_MFDN_DIR "${HOME}/projects/mfdn"
     setenv SHELL_DATA_DIR_H2 "${HOME}/research/data/h2"
 

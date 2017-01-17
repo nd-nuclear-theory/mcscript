@@ -32,6 +32,8 @@ must break up as ["-q", "queue"].
     - Add --spread option.
     - Remove --pernode option.
     - Make --opt option repeatable.
+  + 1/16/17 (mac): Add --serialthreads option.
+  
 """
 
 import sys
@@ -104,8 +106,9 @@ parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default
 parser.add_argument("--here",action="store_true",help="Force run in current working directory")
 parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
 ## parser.add_argument("--stat",action="store_true",help="Display queue status information") 
-parser.add_argument("--width",type=int,default=1,help="MPI width (number of processes)")
-parser.add_argument("--depth",type=int,default=1,help="OMP depth (threads per process)")
+parser.add_argument("--width",type=int,default=1,help="MPI width (number of processes) on hybrid parallel run")
+parser.add_argument("--depth",type=int,default=1,help="OMP depth (threads per process) on hybrid parallel run")
+parser.add_argument("--serialthreads",type=int,default=1,help="OMP threads for nominally serial (non-MPI) run")
 parser.add_argument("--spread",type=int,default=1,help="Undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 parser.add_argument("--nodesize",type=int,default=None,help="Physical cores per node")
 ## parser.add_argument("--pernode",type=int,default=None,help="MPI processes per node (may be superfluous if nodesize specified)")
@@ -234,6 +237,7 @@ environment_definitions.append("MCSCRIPT_WALL_SEC=%d" % (wall_time_min*60))
 # record width and depth parameters
 environment_definitions.append("MCSCRIPT_WIDTH=%d" % args.width)
 environment_definitions.append("MCSCRIPT_DEPTH=%d" % args.depth)
+environment_definitions.append("MCSCRIPT_SERIALTHREADS=%d" % args.serialthreads)
 environment_definitions.append("MCSCRIPT_SPREAD=%d" % args.spread)
 if ( (args.depth != 1) and (args.nodesize is None)):
     print ("OMP --depth specified without a --nodesize")
