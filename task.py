@@ -26,7 +26,7 @@
     6/4/15 (mac): Add check for locking clashes.
     6/25/15 (mac): Simplify task interface to single init() function.
     6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
-
+    1/18/17 (mac): Rename optional argument archive_handler_list to archive_phase_handler_list.
 """
 
 import sys
@@ -615,7 +615,7 @@ def init(
         task_pool=(lambda task : None),
         task_mask=(lambda task : True),
         phase_handler_list=[],
-        archive_handler_list=[]
+        archive_phase_handler_list=[]
 ):
     """Stores the given list of tasks and postprocesses it, adding
     fields with values given by the given functions.
@@ -641,7 +641,7 @@ def init(
     global phase_handlers, phases, archive_phase_handlers, archive_phases
     phase_handlers = phase_handler_list
     phases = len(phase_handlers)
-    archive_phase_handlers = archive_handler_list
+    archive_phase_handlers = archive_phase_handler_list
     archive_phases = len(archive_phase_handlers)
 
     # invoke master loop
