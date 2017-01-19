@@ -26,7 +26,9 @@
     6/4/15 (mac): Add check for locking clashes.
     6/25/15 (mac): Simplify task interface to single init() function.
     6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
-    1/18/17 (mac): Rename optional argument archive_handler_list to archive_phase_handler_list.
+    1/18/17 (mac):
+        + Update archive handler.
+        + Rename optional argument archive_handler_list to archive_phase_handler_list.
 """
 
 import sys
@@ -146,7 +148,7 @@ def write_current_toc():
     return toc_relative_filename
 
 
-def archive_handler_generic ():
+def archive_handler_generic():
     """Make generic archive of all metadata and results directories,
     to the run's archive directory.
 
@@ -179,8 +181,9 @@ def archive_handler_generic ():
     archive subdiretory rather than batch subdirectory.
 
 
-    Returns archive filename.  For convenience of calling function if
-    wrapped in larger task handler.
+    Returns:
+        (str): archive filename (for convenience of calling function if
+            wrapped in larger task handler)
 
     """
     
@@ -191,7 +194,7 @@ def archive_handler_generic ():
     work_dir_parent = os.path.join(task_root_dir,"..")
     archive_filename = os.path.join(
         mcscript.task.archive_dir,
-        "{:s}-archive-{:s}.tgz".format(mcscript.run.name, mcscript.date_tag())
+        "{:s}-archive-{:s}.tgz".format(mcscript.run.name, mcscript.utils.date_tag())
         )
     filename_list = [
         os.path.join(mcscript.run.name,toc_filename),
@@ -212,6 +215,25 @@ def archive_handler_generic ():
     ## hsi_subdir = "2013"
     ## hsi_arg = "lcd %s; cd %s; put %s" % (os.path.dirname(archive_filename), hsi_subdir, os.path.basename(archive_filename))
     ## subprocess.call(["hsi",hsi_arg])
+
+    return archive_filename
+
+
+def archive_handler_hsi(task):
+    """ Generate standard archive and save to tape.
+    """
+
+    # make archive -- whole dir
+    archive_filename = mcscript.task.archive_handler_generic()
+   
+    # put to hsi
+    hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
+    hsi_argument = "lcd {archivedirectory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
+        archive_filename=archive_filename,
+        archive_directory=os.path.dirname(archive_filename),
+        hsi_subdir=hsi_subdir
+    )
+    mcscript.call(["hsi",hsi_argument])
 
     return archive_filename
 
