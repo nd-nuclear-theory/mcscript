@@ -1,25 +1,26 @@
 """ utils -- scripting utility functions
 
-  Language: Python 3
+    Language: Python 3
 
-  M. A. Caprio
-  Department of Physics, University of Notre Dame
+    M. A. Caprio
+    Department of Physics, University of Notre Dame
 
-  2/13/13 (mac): Extracted from job.py.
-  5/28/13 (mac): Overhaul of subprocess invocation to use POpen.communicate().
-  6/5/13 (mac): Absorbed into mcscript package.
-  1/22/14 (mac): Python 3 update.
-  5/14/15 (mac): 
-      -- Insert "future" statements for Python 2 legacy support, conditional 
-         use of decode by Python version.  
-      -- Increased diagnostic output from subpath search utilities.
-  6/13/16 (mac): Rename to utils.py as proper subpackage of mcscript.
-  11/22/16 (mac): Move call out to control submodule.
-  12/27/16 (mac):
-    + Rewrite search_in_subdirectories.
-    + Change write_input argument from "silent" to "verbose".
-    + Coding style updates.
-
+    2/13/13 (mac): Extracted from job.py.
+    5/28/13 (mac): Overhaul of subprocess invocation to use POpen.communicate().
+    6/5/13 (mac): Absorbed into mcscript package.
+    1/22/14 (mac): Python 3 update.
+    5/14/15 (mac): 
+        + Insert "future" statements for Python 2 legacy support, conditional 
+            use of decode by Python version.  
+        + Increased diagnostic output from subpath search utilities.
+    6/13/16 (mac): Rename to utils.py as proper subpackage of mcscript.
+    11/22/16 (mac): Move call out to control submodule.
+    12/27/16 (mac):
+        + Rewrite search_in_subdirectories.
+        + Change write_input argument from "silent" to "verbose".
+        + Coding style updates.
+    1/30/17 (mac): Add function dict_union (from spreadsheet.py).
+    
 """
 
 import glob
@@ -246,4 +247,28 @@ def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=F
     # fallthrough
     print("  No matching filename found...")
     raise mcscript.ScriptError("no filename match on filename".format(filename))
+
+################################################################
+# dictionary management
+################################################################
+
+def dict_union(*args):
+    """ Generate union of dictionaries.
+
+    This helper function is used to combine dictionaries of keyword 
+    arguments so that they can be passed to the string format method.
+
+    Arguments:
+        *args: zero or more container objects either representing 
+             a mapping of key-value pairs or list-like iterable representing
+             a list of key-value pairs
+
+    Returns:
+       (dict): the result of successively updating an initially-empty 
+           dictionary with the given arguments
+    """
+    accumulator = dict()
+    for dictionary in args:
+        accumulator.update(dictionary)
+    return accumulator
 
