@@ -29,6 +29,7 @@
     1/18/17 (mac):
         + Update archive handler.
         + Rename optional argument archive_handler_list to archive_phase_handler_list.
+    1/21/17 (mac): Fix spurious argument on archive_handler_hsi.
 """
 
 import sys
@@ -219,7 +220,7 @@ def archive_handler_generic():
     return archive_filename
 
 
-def archive_handler_hsi(task):
+def archive_handler_hsi():
     """ Generate standard archive and save to tape.
     """
 

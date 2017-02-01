@@ -223,7 +223,9 @@ def call(
     #   support the buffer interface
     # caveat: bytes(stdin_string, "ascii") fails Python 2 backward compatibility,
     # but encoding is required by Python 3
-    stdin_bytes = bytes(stdin_string,"ascii")
+    #
+    # "ascii" encoding will choke on newer gnu utilities utf-8 output
+    stdin_bytes = bytes(stdin_string,encoding="ascii",errors="ignore")
 
     # log header output
     print ("----------------------------------------------------------------")
@@ -254,8 +256,8 @@ def call(
 
     # process output
     # result of process.communicate was bytes (under Python 3)
-    stdout_string = stdout_bytes.decode("ascii")
-    stderr_string = stderr_bytes.decode("ascii")
+    stdout_string = stdout_bytes.decode(encoding="ascii",errors="ignore")
+    stderr_string = stderr_bytes.decode(encoding="ascii",errors="ignore")
     if (print_stdout):
         print (stdout_string)
     print (stderr_string)
