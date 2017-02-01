@@ -230,8 +230,8 @@ def archive_handler_hsi():
    
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
-    hsi_argument = "lcd {archivedirectory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
-        archive_filename=archive_filename,
+    hsi_argument = "lcd {archive_directory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
+        archive_filename=os.path.basename(archive_filename),
         archive_directory=os.path.dirname(archive_filename),
         hsi_subdir=hsi_subdir
     )
