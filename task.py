@@ -32,10 +32,11 @@
     1/21/17 (mac): Fix spurious argument on archive_handler_hsi.
 """
 
-import sys
-import os
-import time
+import datetime
 import glob
+import os
+import sys
+import time
 
 # Circular import:
 #   Should load after mcscript base definitions and utilities are already loaded.
