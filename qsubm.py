@@ -20,7 +20,7 @@ must break up as ["-q", "queue"].
   + 7/4/13 (mac): Support for multiple cluster flavors via qsubm_local.
   + 1/22/14 (mac): Python 3 update.
   + 10/27/14 (mac): Updates to --archive handling.
-  + 5/14/15 (mac): 
+  + 5/14/15 (mac):
     - Insert "future" statements for Python 2 legacy support.
     - Add --noredirect switch.
     - Mandatory environment variable QSUBM_PYTHON.
@@ -33,7 +33,7 @@ must break up as ["-q", "queue"].
     - Remove --pernode option.
     - Make --opt option repeatable.
   + 1/16/17 (mac): Add --serialthreads option.
-  
+
 """
 
 import sys
@@ -77,7 +77,7 @@ parser = argparse.ArgumentParser(
     environment variable rather than a hard-coded version number,
     which is likely to change frequently, e.g.,
     "${MODULESHOME}/bin/modulecmd" is preferable to
-    "/opt/modules/3.2.6.6/bin/modulecmd".  
+    "/opt/modules/3.2.6.6/bin/modulecmd".
 
     MCSCRIPT_DIR (expected by some config files) should specify the
     directory in which qsubm is installed.
@@ -89,7 +89,7 @@ parser = argparse.ArgumentParser(
     "python3" if the Python 3 executable is in the path.  However, on
     clusters, this will likely have to point towards a specific Python
     version, loaded with a specific module load.
-    
+
     Requires local definitions file config.py to translate
     options into arguments for local batch server.  See directions in
     readme.txt.  Your local definitions might not make use of or
@@ -100,12 +100,13 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("run",help="Run number (e.g., 0000 for run0000)")
 # latter arguments are made optional to simplify bare-bones syntax for --toc, etc., calls
-parser.add_argument("queue",nargs='?',help="Submission queue, or RUN for direct interactive run",default="RUN")  
+parser.add_argument("queue",nargs='?',help="Submission queue, or RUN for direct interactive run",default="RUN")
 parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default=60)
 ##parser.add_argument("vars",nargs="?",help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2,PARAM=1.0)")
 parser.add_argument("--here",action="store_true",help="Force run in current working directory")
+parser.add_argument("--dry-run",action="store_true",help="Don't execute any external programs; only execute scripting")
 parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
-## parser.add_argument("--stat",action="store_true",help="Display queue status information") 
+## parser.add_argument("--stat",action="store_true",help="Display queue status information")
 parser.add_argument("--width",type=int,default=1,help="MPI width (number of processes) on hybrid parallel run")
 parser.add_argument("--depth",type=int,default=1,help="OMP depth (threads per process) on hybrid parallel run")
 parser.add_argument("--serialthreads",type=int,default=1,help="OMP threads for nominally serial (non-MPI) run")
@@ -136,7 +137,7 @@ args = parser.parse_args()
 
 # TODO
 # will have to modify argument processing to allow no arguments, local
-# customization for qstat 
+# customization for qstat
 
 # @ i = 0
 # while (($i == 0) || ($loop))
@@ -369,10 +370,10 @@ sys.stdout.flush()
 
 # handle batch run
 if (run_mode == "batch"):
-    
+
     # set local qsub arguments
     (submission_args, submission_input_string) = config.submission(job_name,job_file,qsubm_path,environment_definitions,args)
-    
+
     # notes: options must come before command on some platforms (e.g., Univa)
     print (" ".join(submission_args))
     print (submission_input_string)
@@ -404,4 +405,3 @@ elif (run_mode == "local"):
     print ("-"*64)
     process = subprocess.Popen(popen_args,cwd=launch_dir,env=job_environ)
     process.wait()
-
