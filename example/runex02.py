@@ -8,12 +8,12 @@
    sure it doesn't crash in the setup phase, i.e., as it generates the
    task list:
    
-       % qsubm ex01
+       % qsubm ex02
 
    But, actually, probably at the same time you would print a table of
    contents of the tasks, still running on front end:
 
-       % qsubm ex01 --toc
+       % qsubm ex02 --toc
 
    To actually execute a task, you have to specify the task's pool.
    Tasks within a given pool should all require the same computing
@@ -21,12 +21,12 @@
    for instance, we try to run the tasks in the pool for inner planets
    ("inner"), still on front end:
    
-       % qsubm ex01 --pool=inner --phase=0
+       % qsubm ex02 --pool=inner --phase=0
 
    Now if you generate a table of contents again, you should see some
    tasks marked as completed:
 
-       % qsubm ex01 --toc
+       % qsubm ex02 --toc
 
             0000 inner X - Mercury
             0001 inner X - Venus
@@ -39,8 +39,8 @@
 
    Once phase 0 is completed, we can run phase 1:
 
-       % qsubm ex01 --pool=inner --phase=1
-       % qsubm ex01 --toc
+       % qsubm ex02 --pool=inner --phase=1
+       % qsubm ex02 --toc
 
             0000 inner X X Mercury
             0001 inner X X Venus
@@ -66,7 +66,7 @@
 
        % qsubm ex02 --pool=outer --phase=0
        % qsubm ex02 --pool=outer --phase=1
-       % qsubm ex01 --toc
+       % qsubm ex02 --toc
 
             0000 inner X X Mercury
             0001 inner X X Venus

@@ -102,7 +102,7 @@ def serial_invocation(base):
 
     return base
 
-def parallel_invocation(base):
+def hybrid_invocation(base):
     """ Generate subprocess invocation arguments for parallel run.
 
     Arguments:

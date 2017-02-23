@@ -5,6 +5,7 @@ Department of Physics, University of Notre Dame
 
 12/30/16 (mac): Created.
 1/18/17 (mac): Remove MFDn environment example.
+2/23/17 (mac): Clarify configuration instructions.
 
 ----------------------------------------------------------------
 
@@ -18,7 +19,7 @@ Department of Physics, University of Notre Dame
   Clone the shell repository and all submodules.  In the following,
   replace "netid" with your ND NetID:
 
-  % git clone --recursive ssh://<netid>@crcfe01.crc.nd.edu/afs/crc.nd.edu/group/nuclthy/git/mcscript.git
+  % git clone ssh://<netid>@crcfe01.crc.nd.edu/afs/crc.nd.edu/group/nuclthy/git/mcscript.git
 
   Or, from the secondary (public) repository on github:
 
@@ -35,15 +36,22 @@ Department of Physics, University of Notre Dame
 
   You need to create a symbolic link "config.py" to point to the
   correct configuration file for the system or cluster you are running
-  on.  On a generic Linux system, if you are only doing local runs
-  (i.e., no batch job submission) you can use the predefined
-  configuration file config-ompi.py in mcscript/config:
+  on.
+
+  If you are only doing *local* runs (i.e., no batch job submission)
+  on your laptop/workstation with OpenMPI as your MPI implementation,
+  you can use the generic configuration file config-ompi.py in
+  mcscript/config:
 
   % ln -s config/config-ompi.py config.py
 
+  Othereise, whenever you move to a new cluster, you will have to
+  write such a file, to take into account the pecularities of the
+  batch submission software and queue structure of that cluster.
+
   Example local configuration files for Univa Grid Engine at the Notre
-  Dame Center for Research Computing and SLURM at NERSC are also
-  included in this directory.
+  Dame Center for Research Computing and SLURM at NERSC are included
+  in this directory.
 
   || @NDCRC:
   ||
@@ -54,8 +62,8 @@ Department of Physics, University of Notre Dame
   || % ln -s config/config-slurm-nersc.py config.py
 
   You will need to follow these models to define the batch submission
-  (qsub, sbatch, etc.) and parallel execution launch (mpiexec, srun,
-  etc.) invocations appropriate to your cluster and your running
+  (qsub, sbatch, etc.) and serial/parallel execution launch (mpiexec,
+  srun, etc.) invocations appropriate to your cluster and your running
   needs.
 
 3) Environment variables
@@ -81,15 +89,30 @@ Department of Physics, University of Notre Dame
 
 4) Basic tests
 
-  Basic test scripts may be found in mcscript/example.  You can start
-  by putting symbolic links to these in your run script directory:
+  Basic test scripts may be found in mcscript/example.  But qsubm will
+  be looking for tem in your "run" directory.  So you can start by
+  putting symbolic links to these example scripts in your "run"
+  directory:
 
   % cd ${MCSCRIPT_RUN_HOME}
-  % ln -s ${MCSCRIPT_WORK_HOME}/runex00.py
-  % ln -s ${MCSCRIPT_WORK_HOME}/runex01.py
-  % ln -s ${MCSCRIPT_WORK_HOME}/runex02.py
+  % ln -s ${MCSCRIPT_DIR}/example/runex01.py
+  % ln -s ${MCSCRIPT_DIR}/example/runex02.py
+  % ln -s ${MCSCRIPT_DIR}/example/runex03.py
 
-  Then see the comments in each of these example files for information
-  on invoking them, e.g.,
+  The first example does not require any special options, e.g.,
 
-  % qsubm ex00
+  % qsubm ex01
+
+  Note: You can invoke qsubm from *any* directory.  It does not care
+  about your current working directory.  It will look for the scripts
+  in ${MCSCRIPT_RUN_HOME} regardless.
+
+  For the subsequent examples, see the docstring at the top comments
+  in each of these example files for information on which arguments to
+  try out when invoking them, e.g.,
+
+  % qsubm ex02 --toc
+
+  To run the hybrid parallel example (runex03.py), you will need to
+  first obtain and compile the example code hello_hybrid.c as
+  described in the docstring of example/runex02.py.

@@ -1,4 +1,4 @@
-""" runex03.py
+"""runex03.py
 
   Example hybrid parallel hello world run.
 
@@ -9,6 +9,21 @@
     mpicc -fopenmp hello_hybrid.c -o hello_hybrid
     setenv OMP_NUM_THREADS 2
     mpirun -n 2 -x OMP_NUM_THREADS ./hello_hybrid
+
+  Here are some parallelization possibilities (for the nodesize
+  option, you will usually want to use the number of cores per node):
+
+  Pure OpenMP...
+
+  % qsubm ex03 --depth=4 --nodesize=24
+
+  Pure MPI...
+
+  % qsubm ex03 --width=4 --nodesize=24
+
+  Hybrid MPI/OpenMP...
+
+  % qsubm ex03 --width=2 --depth=2 --nodesize=24
 
   Language: Python 3
 
