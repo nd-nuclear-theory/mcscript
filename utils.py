@@ -3,7 +3,7 @@
     Language: Python 3
 
     M. A. Caprio
-    Department of Physics, University of Notre Dame
+    University of Notre Dame
 
     2/13/13 (mac): Extracted from job.py.
     5/28/13 (mac): Overhaul of subprocess invocation to use POpen.communicate().
@@ -20,12 +20,14 @@
         + Change write_input argument from "silent" to "verbose".
         + Coding style updates.
     1/30/17 (mac): Add function dict_union (from spreadsheet.py).
+    2/23/17 (mac): Add function mkdir to provide alternative to os.mkdir.
     
 """
 
 import glob
 import math
 import os
+import subprocess
 import time
 
 import mcscript # for ScriptError
@@ -272,3 +274,20 @@ def dict_union(*args):
         accumulator.update(dictionary)
     return accumulator
 
+################################################################
+# filesystem
+################################################################
+
+def mkdir(dirname):
+    """Create directory, avoiding use of os.mkdir.
+
+    Note: os.mkdir can apparently cause stability issues with parallel
+    filesystems (at least NERSC CSCRATCH circa 2/17, where it is
+    apparently translated as "lfs mkdir -i"?) and is therefore to be
+    avoided in scripting which might encounter such filesystems.
+
+    Arguments:
+        dirname (str): name for directory to create
+    """
+
+    subprocess.call(["mkdir",dirname])

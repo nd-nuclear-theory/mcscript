@@ -15,7 +15,11 @@ must break up as ["-q", "queue"].
 
 ----------------------------------------------------------------
 
-  Created by M. A. Caprio, University of Notre Dame.
+  Language: Python 3
+
+  M. A. Caprio
+  University of Notre Dame
+
   + 3/6/13 (mac): Based on earlier qsubm csh script.
   + 7/4/13 (mac): Support for multiple cluster flavors via qsubm_local.
   + 1/22/14 (mac): Python 3 update.
@@ -33,7 +37,7 @@ must break up as ["-q", "queue"].
     - Remove --pernode option.
     - Make --opt option repeatable.
   + 1/16/17 (mac): Add --serialthreads option.
-
+  + 2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
 """
 
 import sys
@@ -43,6 +47,7 @@ import subprocess
 import shutil
 
 import config  # local configuration (usually symlink)
+import mcscript.utils
 
 ################################################################
 # argument parsing
@@ -302,15 +307,15 @@ environment_definitions += user_environment_definitions
 #   in case scratch is local to the compute note
 work_dir = os.path.join(work_home,run)
 ## if ( not os.path.exists(work_dir)):
-##     os.mkdir(work_dir)
+##     mcscript.utils.mkdir(work_dir)
 environment_definitions.append("MCSCRIPT_WORK_DIR=%s" % work_dir)
 
 # set up run launch directory (for batch job output logging)
 launch_dir_parent = os.path.join(launch_home,run)
 if ( not os.path.exists(launch_home)):
-    os.mkdir(launch_home)
+    mcscript.utils.mkdir(launch_home)
 if ( not os.path.exists(launch_dir_parent)):
-    os.mkdir(launch_dir_parent)
+    mcscript.utils.mkdir(launch_dir_parent)
 if (args.archive):
     # archive mode
     # launch in archive directory rather than usual batch job output directory
@@ -322,7 +327,7 @@ else:
     # standard run mode
     launch_dir = os.path.join(launch_home,run,"batch")
 if ( not os.path.exists(launch_dir)):
-    os.mkdir(launch_dir)
+    mcscript.utils.mkdir(launch_dir)
 environment_definitions.append("MCSCRIPT_LAUNCH_DIR=%s" % launch_dir)
 
 

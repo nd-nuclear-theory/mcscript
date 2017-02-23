@@ -13,7 +13,9 @@
       MCSCRIPT_TASK_COUNT_LIMIT -- flag to request generation of TOC file
       MCSCRIPT_TASK_START -- starting value for task index (or offset for job rank in epar mode)
 
-    Created by M. A. Caprio, University of Notre Dame.
+    M. A. Caprio
+    University of Notre Dame
+
     3/2/13 (mac): Originated as task.py.
     5/28/13 (mac): Updated to recognize ScriptError exception.
     6/5/13 (mac): Absorbed into mcscript package.
@@ -27,9 +29,10 @@
     6/25/15 (mac): Simplify task interface to single init() function.
     6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
     1/18/17 (mac):
-        + Update archive handler.
-        + Rename optional argument archive_handler_list to archive_phase_handler_list.
+        - Update archive handler.
+        - Rename optional argument archive_handler_list to archive_phase_handler_list.
     1/21/17 (mac): Fix spurious argument on archive_handler_hsi.
+    2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
 """
 
 import datetime
@@ -117,16 +120,16 @@ def make_task_dirs ():
     """
 
     if ( not os.path.exists(flag_dir)):
-        os.mkdir(flag_dir)
+        mcscript.utils.mkdir(flag_dir)
 
     if ( not os.path.exists(output_dir)):
-        os.mkdir(output_dir)
+        mcscript.utils.mkdir(output_dir)
 
     if ( not os.path.exists(results_dir)):
-        os.mkdir(results_dir)
+        mcscript.utils.mkdir(results_dir)
 
     if ( not os.path.exists(archive_dir)):
-        os.mkdir(archive_dir)
+        mcscript.utils.mkdir(archive_dir)
 
 ################################################################
 # generic archiving support
@@ -430,7 +433,7 @@ def do_task ():
     # set up task directory
     task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
     if ( not os.path.exists(task_dir)):
-        os.mkdir(task_dir)
+        mcscript.utils.mkdir(task_dir)
     os.chdir(task_dir)
 
     # initiate timing
