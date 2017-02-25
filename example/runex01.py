@@ -8,7 +8,7 @@
 
   6/13/16 (mac): Created (runex00.py).
   11/22/16 (mac): Update after restructuring mcscript.
-  1/8/07 (mac): Rename to runex01.py.
+  1/8/17 (mac): Rename to runex01.py.
 
 """
 

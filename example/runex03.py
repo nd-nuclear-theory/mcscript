@@ -31,7 +31,7 @@
   University of Notre Dame
 
   11/22/16 (mac): Created (runex02.py).
-  1/8/07 (mac): Rename to runex03.py.
+  1/8/17 (mac): Rename to runex03.py.
 
 """
 

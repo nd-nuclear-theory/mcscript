@@ -95,8 +95,8 @@
   Department of Physics
   University of Notre Dame
 
-  1/8/07 (mac): Add renamed results file.  Rename to runex02.py.
-  1/20/07 (mac): Add second phase to example.
+  1/8/17 (mac): Add renamed results file.  Rename to runex02.py.
+  1/20/17 (mac): Add second phase to example.
 
 """
 

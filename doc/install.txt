@@ -6,6 +6,7 @@ Department of Physics, University of Notre Dame
 12/30/16 (mac): Created.
 1/18/17 (mac): Remove MFDn environment example.
 2/23/17 (mac): Clarify configuration instructions.
+2/25/17 (mac): Add note about python availability on compute node.
 
 ----------------------------------------------------------------
 
@@ -86,6 +87,16 @@ Department of Physics, University of Notre Dame
 
   You may also need to set environment variables for specific
   application scripts you plan to use with mcscript.
+
+  Availability of Python: You will need to make sure that
+  MCSCRIPT_PYTHON points to a valid Python 3 executable both on the
+  front end node (for qsubm and for local runs by qsubm) and on the
+  compute node (in order for your job script to launch on the compute
+  node).
+
+  || @NDCRC: Even if the python module is loaded on the front end,
+  || this PATH does *not* seem to convey to the compute node.
+
 
 4) Basic tests
 
