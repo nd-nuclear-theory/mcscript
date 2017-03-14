@@ -13,6 +13,7 @@
 import sys
 import os
 import subprocess
+import enum
 
 import mcscript.config as config
 import mcscript.parameters as parameters
@@ -84,7 +85,7 @@ def termination():
 
 def openmp_setup(threads):
     """ Set OpenMP environment variables.
-    
+
     Arguments:
         threads (int): number of threads
     """
@@ -92,15 +93,15 @@ def openmp_setup(threads):
     # set number of threads by global qsubm depth parameter
     print("Setting OMP_NUM_THREADS to {}.".format(threads))
     os.environ["OMP_NUM_THREADS"] = str(threads)
-    
+
 
 ################################################################
 # module operations
 ################################################################
 
 def module(args):
-    """Evaluate module operation. 
-    
+    """Evaluate module operation.
+
     Evaluates the code provided by the module command
 
         modulecmd python arg1 arg2 ...
@@ -110,7 +111,7 @@ def module(args):
 
     Arguments:
 
-        args (list of str): list of intended arguments to 
+        args (list of str): list of intended arguments to
         "module"
 
     EX: module(["load", "mpich2"]) # to add mpiexec command to PATH
@@ -138,9 +139,15 @@ class ScriptError(Exception):
     def __str__(self):
         return repr(self.value)
 
+# enumerated type
+class CallMode(enum.Enum):
+    kLocal = 0
+    kSerial = 1
+    kHybrid = 2
+
 def call(
         base,
-        mode=0,  # call.local is not yet defined so hard-code value (ugh)
+        mode=CallMode.kLocal,
         input_lines=[],
         shell=False,cwd=None,
         print_stdout=True,check_return=True
@@ -165,7 +172,7 @@ def call(
             threads set separately from OMP width for hybrid runs
 
             mcscript.call.hybrid: code requiring mpi launch
-    
+
         input_lines (list of str): list of lines to be given to the
         subprocess as standard input (i.e., as list of strings, each
         of which is to be treated as one input line)
@@ -175,10 +182,10 @@ def call(
 
         check_resturn (boolean): whether or not to check subprocess's return value
         (and raise exception if nonzero)
-    
+
         shell (boolean): whether or not to launch subshell
         (pass-through to POpen)
-    
+
         cwd (str or None): current working directory (pass-through to
         POpen)
 
@@ -190,11 +197,11 @@ def call(
         If check_return is set and subprocess return is nonzero,
         raises a ScriptError exception.  Also raises a ScriptError
         exception if subprocess cannot be invoked in the first place.
-    
+
     Limitations:
 
         All captured output is lost if process crashes.
-    
+
     Examples:
 
         >>> mcscript.call(["cat"],input_lines=["a","b"]) # basic
@@ -215,7 +222,7 @@ def call(
         invocation = config.hybrid_invocation(base)
     else:
         raise(ValueError("invalid invocation mode"))
-    
+
     # set up input
     stdin_string = "".join([s + "\n" for s in input_lines])
     # encode as bytes
@@ -235,7 +242,7 @@ def call(
     utils.time_stamp()
     print ("----------------------------------------------------------------")
     sys.stdout.flush()
-    
+
     # invoke
     try:
         # launch process
@@ -244,7 +251,7 @@ def call(
             stdin=subprocess.PIPE,     # to take input from communicate
             stdout=subprocess.PIPE,    # to send output to communicate
             stderr=subprocess.PIPE,    # separate stderr
-            shell=shell,cwd=cwd,       # pass-through arguments 
+            shell=shell,cwd=cwd,       # pass-through arguments
             close_fds=True             # for extra neatness and protection
             )
     except OSError as err:
@@ -277,10 +284,7 @@ def call(
 
     return stdout_string
 
-# enumerated type (is this best convention???)
-#
-# TODO: upgrade to Python 3.4 enum type
-call.local = 0
-call.serial = 1
-call.hybrid = 2
-
+# convenience definitions for enumerated type
+call.local = CallMode.kLocal
+call.serial = CallMode.kSerial
+call.hybrid = CallMode.kHybrid
