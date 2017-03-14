@@ -9,9 +9,9 @@
     5/28/13 (mac): Overhaul of subprocess invocation to use POpen.communicate().
     6/5/13 (mac): Absorbed into mcscript package.
     1/22/14 (mac): Python 3 update.
-    5/14/15 (mac): 
-        + Insert "future" statements for Python 2 legacy support, conditional 
-            use of decode by Python version.  
+    5/14/15 (mac):
+        + Insert "future" statements for Python 2 legacy support, conditional
+            use of decode by Python version.
         + Increased diagnostic output from subpath search utilities.
     6/13/16 (mac): Rename to utils.py as proper subpackage of mcscript.
     11/22/16 (mac): Move call out to control submodule.
@@ -20,8 +20,9 @@
         + Change write_input argument from "silent" to "verbose".
         + Coding style updates.
     1/30/17 (mac): Add function dict_union (from spreadsheet.py).
+    2/21/17 (pjf): Add CoefficientDict class.
     2/23/17 (mac): Add function mkdir to provide alternative to os.mkdir.
-    
+
 """
 
 import glob
@@ -29,6 +30,7 @@ import math
 import os
 import subprocess
 import time
+import numbers
 
 import mcscript # for ScriptError
 
@@ -47,7 +49,7 @@ def write_input(filename,input_lines=[],verbose=True):
           (on by default, but might want to suppress, e.g., for large sets
            of files)
     """
-    
+
     # set up input
     ##stdin_string = "".join([s + "\n" for s in input_lines])
     stdin_string = "\n".join(input_lines) + "\n"
@@ -71,7 +73,7 @@ def write_input(filename,input_lines=[],verbose=True):
 def time_stamp():
     """ Returns time stamp string.
     """
-    
+
     return time.asctime()
 
 def date_tag():
@@ -100,6 +102,13 @@ def spacify(li):
     return stringify(li," ")
 
 ################################################################
+# debug message utilities
+################################################################
+
+def type_as_str(x):
+    return str(type(x))[7:-1]
+
+################################################################
 # range construction utilities
 ################################################################
 
@@ -108,7 +117,7 @@ def value_range(x1,x2,dx,epsilon=0.00001):
 
     This is meant to emulate Mathematica's Range[x1,x2,x], with a "<=" upper bound, in
     contrast to Python's range, which is limited to integers and has an "<" upper bound.
-    
+
     Limitations: Currently assumes dx is positive.  Upper cutoff is
     slightly fuzzy due to use of epsilon in floating point comparison.
 
@@ -121,7 +130,7 @@ def value_range(x1,x2,dx,epsilon=0.00001):
         value_list.append(x)
         x += dx
     return value_list
-    
+
 def log_range(x1,x2,steps,base=2,power=1,first=True):
     """ log_range (x1,x2,steps,base=2,power=1,first=True) -> values returns a range
     starting from x1 and ending with x2 (inclusive) in logarithmic
@@ -139,10 +148,10 @@ def log_range(x1,x2,steps,base=2,power=1,first=True):
         x1 * base**(power*p)
         for p in value_range(0,alpha,1/steps)
         ]
-    
+
     if (not first):
         value_list = value_list[1:]
-        
+
     return value_list
 
 ################################################################
@@ -186,7 +195,7 @@ def approx_gtr(x,y,tol):
 def auto_value(x,default):
     """ auto_value(x,default) returns x, unless x is None, in which case it returns default
     """
-    
+
     if x is None:
         return default
     else:
@@ -257,16 +266,16 @@ def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=F
 def dict_union(*args):
     """ Generate union of dictionaries.
 
-    This helper function is used to combine dictionaries of keyword 
+    This helper function is used to combine dictionaries of keyword
     arguments so that they can be passed to the string format method.
 
     Arguments:
-        *args: zero or more container objects either representing 
+        *args: zero or more container objects either representing
              a mapping of key-value pairs or list-like iterable representing
              a list of key-value pairs
 
     Returns:
-       (dict): the result of successively updating an initially-empty 
+       (dict): the result of successively updating an initially-empty
            dictionary with the given arguments
     """
     accumulator = dict()
@@ -291,3 +300,77 @@ def mkdir(dirname):
     """
 
     subprocess.call(["mkdir",dirname])
+
+################################################################
+# coefficient management
+################################################################
+
+class CoefficientDict(dict):
+    """An extended dictionary which represents the coefficients of an algebraic
+    expression.
+    """
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+
+    def __add__(self, rhs):
+        """Add two CoefficientDicts, matching coefficients.
+        """
+        if not isinstance(rhs, CoefficientDict):
+            raise TypeError("unsupported operand type(s) for +: 'CoefficientDict' and "+type_as_str(rhs))
+        out = CoefficientDict()
+        # add keys appearing in both dictionaries
+        for key in (self.keys() & rhs.keys()):
+            out[key] = self[key] + rhs[key]
+        # copy keys appearing only on left side
+        for key in (self.keys() - rhs.keys()):
+            out[key] = self[key]
+        # copy keys appearing only on right side
+        for key in (rhs.keys() - self.keys()):
+            out[key] = rhs[key]
+        return out
+
+    def __mul__(self, rhs):
+        """Scalar multiply by a number.
+        """
+        if not (isinstance(rhs, numbers.Number)):
+            raise TypeError("unsupported operand type(s) for *: 'CoefficientDict' and "+type_as_str(rhs))
+        out = CoefficientDict()
+        for key in self.keys():
+            out[key] = self[key] * rhs
+        return out
+
+    def __sub__(self, rhs):
+        """Subtract two CoefficientDicts, matching coefficients.
+
+        Note: equivalent to self + (-1)*rhs.
+        """
+        if not isinstance(rhs, CoefficientDict):
+            raise TypeError("unsupported operand type(s) for -: 'CoefficientDict' and "+type_as_str(rhs))
+        return self + (-1)*rhs
+
+    def __rmul__(self, lhs):
+        """Left scalar multiply by a number.
+
+        Note: equivalent to self*lhs since scalar multiplication is commutative.
+        """
+        if not (isinstance(lhs, numbers.Number)):
+            raise TypeError("unsupported operand type(s) for *: "+type_as_str(lhs)+" and 'CoefficientDict'")
+        return (self * lhs)
+
+    def __truediv__(self, rhs):
+        """Scalar divide by a number.
+
+        Note: equivalent to self*(1/rhs).
+        """
+        if not (isinstance(rhs, numbers.Number)):
+            raise TypeError("unsupported operand type(s) for /: 'CoefficientDict' and "+type_as_str(rhs))
+        return self * (1/rhs)
+
+    def __floordiv__(self, rhs):
+        """Scalar floor divide by a number.
+
+        Note: equivalent to self*(1//rhs).
+        """
+        if not (isinstance(rhs, numbers.Number)):
+            raise TypeError("unsupported operand type(s) for //: 'CoefficientDict' and "+type_as_str(rhs))
+        return self * (1//rhs)
