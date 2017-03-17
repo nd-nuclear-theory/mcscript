@@ -165,10 +165,12 @@ def serial_invocation(base):
         #
         # Perhaps could run unwrapped on Cori?
         invocation = [
+            "env",
             "srun",
             "--ntasks={}".format(1),
             "--nodes={}".format(1),
-            "--cpus-per-task={}".format(mcscript.run.parallel_nodesize)
+            "--cpus-per-task={}".format(mcscript.run.parallel_nodesize),
+            "--export=ALL"
         ]
 
         invocation += base
