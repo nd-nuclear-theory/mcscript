@@ -223,6 +223,10 @@ def call(
     else:
         raise(ValueError("invalid invocation mode"))
 
+    # make a single string if running under subshell
+    if shell:
+        invocation = " ".join(invocation)
+
     # set up input
     stdin_string = "".join([s + "\n" for s in input_lines])
     # encode as bytes
