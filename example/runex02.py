@@ -97,6 +97,7 @@
 
   1/8/17 (mac): Add renamed results file.  Rename to runex02.py.
   1/20/17 (mac): Add second phase to example.
+  3/16/17 (mac): Add generic archive handler.
 
 """
 
@@ -263,7 +264,8 @@ mcscript.task.init(
     tasks,
     task_descriptor=task_descriptor_world,
     task_pool=task_pool_world,
-    phase_handler_list=[say_hello,say_goodbye]
+    phase_handler_list=[say_hello,say_goodbye],
+    archive_phase_handler_list=[mcscript.task.archive_handler_generic]
     )
 
 ################################################################

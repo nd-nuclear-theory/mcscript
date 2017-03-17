@@ -1,43 +1,32 @@
 #!/usr/bin/python3
 """qsubm -- generic queue submission for task-oriented batch scripts
 
-See readme.txt for setup instructions and further documentation.
+    Language: Python 3
 
-----------------------------------------------------------------
+    M. A. Caprio
+    University of Notre Dame
 
-Debugging:
-
-The Popen argument syntax is tricky.  On hopper, through early June
-2013, arguments of form "-q qeueue" worked just fine.  As of June 24,
-these are treated as atomic arguments and not properly parsed.  Instead
-must break up as ["-q", "queue"].
-
-
-----------------------------------------------------------------
-
-  Language: Python 3
-
-  M. A. Caprio
-  University of Notre Dame
-
-  + 3/6/13 (mac): Based on earlier qsubm csh script.
-  + 7/4/13 (mac): Support for multiple cluster flavors via qsubm_local.
-  + 1/22/14 (mac): Python 3 update.
-  + 10/27/14 (mac): Updates to --archive handling.
-  + 5/14/15 (mac):
-    - Insert "future" statements for Python 2 legacy support.
-    - Add --noredirect switch.
-    - Mandatory environment variable QSUBM_PYTHON.
-  + 8/4/15 (mac): Make user environment variable definitions into option.
-  + 6/13/16 (mac): Rename environment variables to MCSCRIPT_*.
-  + 6/22/16 (mac): Update to use config.py for local configuration.
-  + 12/14/16 (mac): Add --here option.
-  + 12/29/16 (mac):
-    - Add --spread option.
-    - Remove --pernode option.
-    - Make --opt option repeatable.
-  + 1/16/17 (mac): Add --serialthreads option.
-  + 2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
+    + 3/6/13 (mac): Based on earlier qsubm csh script.
+    + 7/4/13 (mac): Support for multiple cluster flavors via qsubm_local.
+    + 1/22/14 (mac): Python 3 update.
+    + 10/27/14 (mac): Updates to --archive handling.
+    + 5/14/15 (mac):
+        - Insert "future" statements for Python 2 legacy support.
+        - Add --noredirect switch.
+        - Mandatory environment variable QSUBM_PYTHON.
+    + 8/4/15 (mac): Make user environment variable definitions into option.
+    + 6/13/16 (mac): Rename environment variables to MCSCRIPT_*.
+    + 6/22/16 (mac): Update to use config.py for local configuration.
+    + 12/14/16 (mac): Add --here option.
+    + 12/29/16 (mac):
+        - Add --spread option.
+        - Remove --pernode option.
+        - Make --opt option repeatable.
+    + 1/16/17 (mac): Add --serialthreads option.
+    + 2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
+    + 3/16/17 (mac):
+        - Add --setup option.
+        - Change environment interface to pass MCSCRIPT_TASK_MODE.
 """
 
 import sys
@@ -109,7 +98,6 @@ parser.add_argument("queue",nargs='?',help="Submission queue, or RUN for direct 
 parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default=60)
 ##parser.add_argument("vars",nargs="?",help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2,PARAM=1.0)")
 parser.add_argument("--here",action="store_true",help="Force run in current working directory")
-parser.add_argument("--dry-run",action="store_true",help="Don't execute any external programs; only execute scripting")
 parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
 ## parser.add_argument("--stat",action="store_true",help="Display queue status information")
 parser.add_argument("--width",type=int,default=1,help="MPI width (number of processes) on hybrid parallel run")
@@ -122,14 +110,17 @@ parser.add_argument("--epar",type=int,default=None,help="Width for embarassingly
 parser.add_argument("--nopar",action="store_true",help="Disable parallel resource requests (for use on special serial queues)")
 parser.add_argument("--num",type=int,default=1,help="Number of repetitions")
 parser.add_argument("--opt",action="append",help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
-parser.add_argument("--toc",action="store_true",help="Task table-of-contents request for task.py interface")
-parser.add_argument("--pool",help="Task pool for task.py interface")
-parser.add_argument("--phase",type=int,default=0,help="Task phase for task.py interface")
-parser.add_argument("--start",type=int,help="Starting task number for task.py interface")
-parser.add_argument("--limit",type=int,help="Task iteration limit for task.py interface")
-parser.add_argument("--noredirect",action="store_true",help="Disable redirection of standard output/error to file for task.py interface")
-parser.add_argument("--unlock",action="store_true",help="Task unlock request for task.py interface")
-parser.add_argument("--archive",action="store_true",help="Task archive request for task.py interface")
+
+# options for multi-task run (task.py interface)
+parser.add_argument("--toc",action="store_true",help="Multi-task run: Invoke run script to generate task table of contents")
+parser.add_argument("--setup",action="store_true",help="Multi-task run: Invoke setup-only run")
+parser.add_argument("--archive",action="store_true",help="Multi-task run: Invoke archive-generation run")
+parser.add_argument("--pool",help="Multi-task run: Set task pool for task selection")
+parser.add_argument("--phase",type=int,default=0,help="Multi-task run: Set task phase for task selection")
+parser.add_argument("--start",type=int,help="Multi-task run: Set starting task number for task selection")
+parser.add_argument("--limit",type=int,help="Multi-task run: Set task count limit for task selection")
+parser.add_argument("--noredirect",action="store_true",help="Multi-task run: Disable redirection of standard output/error to file (for interactive debugging)")
+parser.add_argument("--unlock",action="store_true",help="Multi-task run: Delete any .lock or .fail flags for tasks")
 
 ##parser.print_help()
 ##print
@@ -264,27 +255,29 @@ else:
 # set repetition parameter
 repetitions = args.num
 
-# process task options
-if (args.toc):
-    environment_definitions.append("MCSCRIPT_TASK_TOC")
-if (args.noredirect):
-    environment_definitions.append("MCSCRIPT_TASK_NOREDIRECT")
-if (args.unlock):
-    environment_definitions.append("MCSCRIPT_TASK_UNLOCK")
-if (args.archive):
-    # archive mode
-    environment_definitions.append("MCSCRIPT_TASK_POOL=ARCH")
-else:
-    # standard run mode
-    if (args.pool is not None):
-        environment_definitions.append("MCSCRIPT_TASK_POOL=%s" % args.pool)
-if (args.phase is not None):
-    environment_definitions.append("MCSCRIPT_TASK_PHASE=%s" % args.phase)
-if (args.start is not None):
-    environment_definitions.append("MCSCRIPT_TASK_START=%d" % args.start)
-if (args.limit is not None):
-    environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT=%d" % args.limit)
 
+# set multi-task run parameters
+if (args.toc):
+    task_mode = "toc"
+elif (args.unlock):
+    task_mode = "unlock"
+elif (args.setup):
+    task_mode = "setup"
+elif (args.archive):
+    task_mode = "archive"
+else:
+    task_mode = "normal"
+environment_definitions.append("MCSCRIPT_TASK_MODE={:s}".format(task_mode))
+if (args.pool is not None):
+    environment_definitions.append("MCSCRIPT_TASK_POOL={:s}".format(args.pool))
+if (args.phase is not None):
+    environment_definitions.append("MCSCRIPT_TASK_PHASE={:d}".format(args.phase))
+if (args.start is not None):
+    environment_definitions.append("MCSCRIPT_TASK_START_INDEX={:d}".format(args.start))
+if (args.limit is not None):
+    environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT={:d}".format(args.limit))
+if (args.noredirect):
+    environment_definitions.append("MCSCRIPT_TASK_NOREDIRECT=1")
 
 
 # set user-specified variable definitions

@@ -5,34 +5,34 @@
 
     Globals: requires attributes of mcscript.run to be populated 
 
-    Environment variables:
-      MCSCRIPT_TASK_PHASE -- phase (0-based) for tasks to be executed
-      MCSCRIPT_TASK_POOL -- named pool for tasks to be executed (or ALL)
-      MCSCRIPT_TASK_TOC -- flag to request generation of TOC file
-      MCSCRIPT_TASK_STDOUT -- flag to request diagnostic dump of output to terminal
-      MCSCRIPT_TASK_COUNT_LIMIT -- flag to request generation of TOC file
-      MCSCRIPT_TASK_START -- starting value for task index (or offset for job rank in epar mode)
+    Language: Python 3
 
     M. A. Caprio
     University of Notre Dame
 
-    3/2/13 (mac): Originated as task.py.
-    5/28/13 (mac): Updated to recognize ScriptError exception.
-    6/5/13 (mac): Absorbed into mcscript package.
-    11/1/13 (mac): Add local archive dir in scratch to help circumvent home space overruns.
-    1/22/14 (mac): Python 3 update.
-    7/3/14 (mac): Add generic archiving support.
-    5/14/15 (mac): Insert "future" statements and convert print to write
-        for Python 2 legacy support.  Upgrade string formatting to
-        Python 2.7 format method.
-    6/4/15 (mac): Add check for locking clashes.
-    6/25/15 (mac): Simplify task interface to single init() function.
-    6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
-    1/18/17 (mac):
-        - Update archive handler.
-        - Rename optional argument archive_handler_list to archive_phase_handler_list.
-    1/21/17 (mac): Fix spurious argument on archive_handler_hsi.
-    2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
+    + 3/2/13 (mac): Originated as task.py.
+    + 5/28/13 (mac): Updated to recognize ScriptError exception.
+    + 6/5/13 (mac): Absorbed into mcscript package.
+    + 11/1/13 (mac): Add local archive dir in scratch to help circumvent home space overruns.
+    + 1/22/14 (mac): Python 3 update.
+    + 7/3/14 (mac): Add generic archiving support.
+    + 5/14/15 (mac): Insert "future" statements and convert print to write
+          for Python 2 legacy support.  Upgrade string formatting to
+          Python 2.7 format method.
+    + 6/4/15 (mac): Add check for locking clashes.
+    + 6/25/15 (mac): Simplify task interface to single init() function.
+    + 6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
+    + 1/18/17 (mac):
+          - Update archive handler.
+          - Rename optional argument archive_handler_list to archive_phase_handler_list.
+    + 1/21/17 (mac): Fix spurious argument on archive_handler_hsi.
+    + 2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
+    + 3/16/17 (mac):
+        - Restructure to avoid most global variables.
+        - Upgrade docstrings.
+        - Change environment interface to expect MCSCRIPT_TASK_MODE.
+        - Allow for "setup" task mode.
+        - Define task "metadata" field.
 """
 
 import datetime
@@ -46,26 +46,16 @@ import time
 import mcscript
 
 
-################################################################
-# global storage
-################################################################
-
-# task management storage
-task_list = []
-phase_handlers = []
-phases = 0
-archive_phase_handlers = []
-archive_phases = 0
-
-task_index = None
-task = None
-
-# directory structure -- global definitions
-task_root_dir = None
-flag_dir = None
-output_dir = None
-results_dir = None
-archive_dir = None
+## ################################################################
+## # global storage
+## ################################################################
+## 
+## # directory structure -- global definitions
+## task_root_dir = None
+## flag_dir = None
+## output_dir = None
+## results_dir = None
+## archive_dir = None
 
 
 ################################################################
@@ -74,39 +64,37 @@ archive_dir = None
 
 def task_read_env():
     """ Read environment variables for task settings.
+
+    Environment variables:
+        MCSCRIPT_TASK_MODE -- major run mode: toc, setup, archive, unlock, normal
+        MCSCRIPT_TASK_PHASE -- phase (0-based) for tasks to be executed
+        MCSCRIPT_TASK_POOL -- named pool for tasks to be executed (or ALL)
+        MCSCRIPT_TASK_START_INDEX -- starting value for task index (or offset for job rank in epar mode)
+        MCSCRIPT_TASK_COUNT_LIMIT -- flag to request generation of TOC file
+        MCSCRIPT_TASK_NOREDIRECT -- flag to request diagnostic dump of output to terminal
+
+    Parameter fields:
+        "mode"
+        "phase"
+        "pool"
+        "start_index"
+        "count_limit"
+        "noredirect"
+
+    Returns:
+        (dict): multi-task run parameters
     """
 
-    global phase, pool, task_count_limit, task_start, make_toc, do_unlock
-    global task_root_dir, flag_dir, output_dir, results_dir, archive_dir
+    task_parameters = {}
 
-    if "MCSCRIPT_TASK_PHASE" in os.environ:
-        phase = int(os.environ["MCSCRIPT_TASK_PHASE"])
-    else:
-        # default to 0th phase -- natural default when tasks only have single-phase
-        phase = 0
+    task_parameters["mode"] = os.environ["MCSCRIPT_TASK_MODE"]
+    task_parameters["phase"] = int(os.environ.get("MCSCRIPT_TASK_PHASE",0))
+    task_parameters["pool"] = os.environ.get("MCSCRIPT_TASK_POOL")
+    task_parameters["count_limit"] = os.environ.get("MCSCRIPT_TASK_COUNT_LIMIT")
+    task_parameters["start_index"] = os.environ.get("MCSCRIPT_TASK_START_INDEX",0)
+    task_parameters["noredirect"] = bool(os.environ.get("MCSCRIPT_TASK_NOREDIRECT",0))
 
-    if "MCSCRIPT_TASK_POOL" in os.environ:
-        pool = os.environ["MCSCRIPT_TASK_POOL"]
-    else:
-        pool = None
-
-    if "MCSCRIPT_TASK_COUNT_LIMIT" in os.environ:
-        task_count_limit = int(os.environ["MCSCRIPT_TASK_COUNT_LIMIT"])
-    else:
-        task_count_limit = None
-
-    task_start = int(os.environ.get("MCSCRIPT_TASK_START","0"))
-
-    make_toc = ("MCSCRIPT_TASK_TOC" in os.environ)
-    do_unlock = ("MCSCRIPT_TASK_UNLOCK" in os.environ)
-    ##make_archive = ("MCSCRIPT_TASK_ARCHIVE" in os.environ)
-
-    # task directories
-    flag_dir = os.path.join(mcscript.run.work_dir,"flags")
-    output_dir = os.path.join(mcscript.run.work_dir,"output")
-    results_dir = os.path.join(mcscript.run.work_dir,"results")
-    archive_dir = os.path.join(mcscript.run.work_dir,"archive")
-    task_root_dir = mcscript.run.work_dir
+    return task_parameters
 
 ################################################################
 # directory setup
@@ -134,23 +122,6 @@ def make_task_dirs ():
 ################################################################
 # generic archiving support
 ################################################################
-
-
-def write_current_toc():
-    """ Write current table of contents to file runxxxx.toc.
-
-    Returns filename, sans path, as convenience to caller.
-    """
-    
-    # write current toc
-    toc_relative_filename = "{}.toc".format(mcscript.run.name)
-    toc_filename = os.path.join(task_root_dir,toc_relative_filename)
-    toc_stream = open(toc_filename, "w")
-    toc_stream.write(task_toc())
-    toc_stream.close()
-
-    # return filename 
-    return toc_relative_filename
 
 
 def archive_handler_generic():
@@ -192,15 +163,13 @@ def archive_handler_generic():
 
     """
     
-    # write current toc
-    toc_filename = write_current_toc()
-
     # make archive -- whole dir
     work_dir_parent = os.path.join(task_root_dir,"..")
     archive_filename = os.path.join(
         mcscript.task.archive_dir,
         "{:s}-archive-{:s}.tgz".format(mcscript.run.name, mcscript.utils.date_tag())
         )
+    toc_filename = "{}.toc".format(mcscript.run.name)
     filename_list = [
         os.path.join(mcscript.run.name,toc_filename),
         os.path.join(mcscript.run.name,"flags"),
@@ -246,38 +215,58 @@ def archive_handler_hsi():
 # recall functions
 ################################################################
 
-def index_str (index):
-    """ index_str() formats a task index as %04d, or passes through other strings
+def index_str(task_index):
+    """ Format a task index as %04d, or pass through other strings
     for special purposes (e.g., ARCH).
-    """
-    if (type(index) == int):
-        return format(index,"04d")
-    else:
-        return str(index)
 
-def task_toc ():
-    """ task_toc() returns a status report as a newline-delimited string.
+    Arguments:
+        task_index (int or str): task index
+
+    Returns:
+        (str): formatted index
+    """
+
+    if (type(task_index) == int):
+        return format(task_index,"04d")
+    else:
+        return str(task_index)
+
+def task_toc(task_list,phases):
+    """ Generate a task status report as a newline-delimited string.
+
+    Arguments:
+        task_list (dict): task list
+        phases (int): number of phases
+
+    Returns:
+        (str): table of contents
     """
 
     lines = [
         "Run: {:s}".format(mcscript.run.name),
         "{:s}".format(time.asctime()),
         "Tasks: {:d}".format(len(task_list)),
-        "Archive phases: {:d}".format(archive_phases)
         ]
-    for index in range(len(task_list)):
-        task = task_list[index]
-        # TODO: align on length of longest pool: format(task["pool"],"12s")
-        if ((pool == None) or (pool == "ARCH") or (task["pool"] == pool)):
-            fields = [ index_str(index), task["pool"]]
-            fields += [task_status(index,phase) for phase in range(phases)]
-            fields += [ task["descriptor"] ]
-            lines.append(mcscript.utils.spacify(fields))
+    for task_index in range(len(task_list)):
+
+        # retrieve task properties
+        task = task_list[task_index]
+        task_pool = task["metadata"]["pool"]
+        task_descriptor = task["metadata"]["descriptor"]
+        task_mask = task["metadata"]["mask"]
+
+        # assemble line
+        fields = [ index_str(task_index), task_pool]
+        fields += [task_status(task_index,task_phase,task_mask) for task_phase in range(phases)]
+        fields += [ task_descriptor ]
+
+        # accumulate line
+        lines.append(mcscript.utils.spacify(fields))
 
     return "\n".join(lines)
 
-def task_unlock ():
-    """ task_unlock() removes all lock and fail flags.
+def task_unlock():
+    """ Remove all lock and fail flags.
     """
     
     flag_files = glob.glob(os.path.join(flag_dir,"task*.lock")) + glob.glob(os.path.join(flag_dir,"task*.fail"))
@@ -285,128 +274,82 @@ def task_unlock ():
     for flag_file in flag_files:
         os.remove(flag_file)
 
-def task_flag_base (index, phase):
-    """ task_flag_base(index, phase) returns the flag file basename for the given
-    phase of the given task.
+def task_flag_base(task_index,phase):
+    """Generate flag file basename for the given phase of the given task.
+
+    Arguments:
+        task_index (int or str): task index
+        phase (int): task phase
+
+    Returns:
+        (str): base file name
     """
 
-    return os.path.join(flag_dir,"task-{:s}-{:d}".format(index_str(index),phase))
+    return os.path.join(flag_dir,"task-{:s}-{:d}".format(index_str(task_index),phase))
 
-def task_output_filename (index, phase):
-    """ task_output_filename(index, phase) returns the output redirection filename for the given
-    phase of the given task.
+def task_output_filename(task_index,phase):
+    """Generate the output redirection filename for the given phase of
+    the given task.
+
+    Arguments:
+        task_index (int or str): task index
+        phase (int): task phase
+
+    Returns:
+        (str): redirection file name
+
     """
 
-    return os.path.join(output_dir,"task-{:s}-{:d}.out".format(index_str(index),phase))
+    return os.path.join(output_dir,"task-{:s}-{:d}.out".format(index_str(task_index),phase))
 
-def task_status (index, phase):
-    """ task_status(index, phase) returns "-", "L", "F", or "X" to indicate whether the given
-    phase of the given task is pending, locked, failed, or done.
+def task_status(task_index,phase,task_mask):
+    """ Generate status flag for the given phase of the given task.
+
+    Status flag values:
+        "L": locked (in progress or crashed ungracefully)
+        "F": failure (crashed gracefully)
+        "X": done
+        ".": masked out
+        "-": pending
+
+    Arguments:
+        task_index (int or str): task index
+        phase (int): task phase
+        task_mask (bool): mask flag for task
+
+    Returns:
+        (str): status flag
     """
 
-    flag_base =  task_flag_base(index,phase)
+    flag_base = task_flag_base(task_index,phase)
     if ( os.path.exists(flag_base + ".lock") ):
         return "L"
     elif ( os.path.exists(flag_base + ".fail") ):
         return "F"
     elif ( os.path.exists(flag_base + ".done") ):
         return "X"
-    elif ( not task_list[index]["mask"] ):
+    elif ( not task_mask ):
         return "."
     else:
         return "-"
 
-
 ################################################################
-# task invocation functions
+# locking protocol
 ################################################################
 
-def seek_task ():
-    """ seek_task() sets task_index and task to indicate the next task
-    to be executed in the current phase, or else sets both to None.
+def get_lock(task_index,task_phase):
+    """ Write lock file for given task and given phase.
 
-    Returns True if eligible task found, False if not.
+    Arguments:
+        task_index (int or str): task index
+        task_phase (int): task phase
     """
 
-    global task_index, task
+    flag_base = task_flag_base(task_index,task_phase)
 
-    # select tasks in given pool
-    # (or all pools if pool is ALL)
-    pool_task_indices = [
-        index
-        for index in range(len(task_list))
-        if ((task_list[index]["pool"] == pool) or (pool == "ALL"))
-        ]
-    ## DEBUG: print pool_task_indices
-
-    # look through pool for next task
-    if (mcscript.run.parallel_epar != -1):
-        if (mcscript.run.epar_rank is None):
-            print("Invalid rank None encountered in epar mode...")
-            sys.exit(1)
-        min_task_index = task_start + mcscript.run.epar_rank
-        max_task_index = task_start + mcscript.run.epar_rank
-    else:
-        if (task_index == None):
-            min_task_index = task_start
-        else:
-            min_task_index = task_index + 1
-        max_task_index = len(task_list) - 1
-    task_index = None
-    for index in pool_task_indices:
-        # only search forward (to avoid excessive lock file requests)
-        if (index < min_task_index):
-            continue
-        # don't overrun any given limit on task index
-        if (index > max_task_index):
-            break
-        
-        # skip if task locked or done
-        ##DEBUG: print(index, phase), task_status(index, phase)
-        if ( task_status(index, phase) != "-" ):
-            ## print "Skipping", (index,phase), task_status(index, phase)
-            continue
-
-        # skip if prior phase not completed
-        if (phase > 0):
-            if ( task_status(index, phase-1) != "X" ):
-                print("Missing prerequisite", task_flag_base(index, phase-1))
-                continue
-
-        # designate this task as the one to do
-        task_index = index
-        break
-
-    # return emptyhanded if no task found
-    if task_index is None:
-        task = None
-        return False
-    
-    # store corresponding task dictionary
-    task = task_list[task_index]
-
-    # return success
-    return True
-
-def do_task ():
-    """ do_task() --> time sets up a task/phase, calls its handler, and closes up
-    
-    The current working directory is changed to the task directory.
-    A lock file is created for the task and phase.
-    The phase handler is called.
-    The current working directory is changed back up one level (presumably to the run scratch directory).
-    The lock file for the task and phase is changed into a completion file.
-    """
-
-    # store corresponding task dictionary
-    task = task_list[task_index]
-
-
-    # lock task
-    flag_base = task_flag_base(task_index, phase)
     # preliminary lock
     lock_stream = open(flag_base+".lock", "w")
-    lock_stream.write(mcscript.run.job_id)
+    lock_stream.write("{}\n".format(mcscript.run.job_id))
     lock_stream.close()
     # make sure lock was successful
     if (mcscript.run.batch_mode):
@@ -421,97 +364,89 @@ def do_task ():
         else:
             print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(mcscript.run.job_id,line))
             raise mcscript.ScriptError("Yielding lock to other instance")
-    # full lock
-    lock_stream = open(flag_base+".lock", "w")
+
+    # write expanded lock contents
+    lock_stream = open(flag_base+".lock","a")
     lock_stream.write("{}\n".format(flag_base))
-    lock_stream.write("pool {} descriptor {}\n".format(task["pool"],task["descriptor"]))
-    lock_stream.write("job_id {}\n".format(mcscript.run.job_id))
-    ## lock_stream.write("job_id {} epar_rank {}\n".format(mcscript.run.job_id,mcscript.run.epar_rank))
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
 
-    # set up task directory
-    task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
-    if ( not os.path.exists(task_dir)):
-        mcscript.utils.mkdir(task_dir)
-    os.chdir(task_dir)
 
-    # initiate timing
-    task_start_time = time.time()
+def fail_lock(task_index,task_phase,task_time):
+    """Rename lock file to failure file.
 
-    # set up output redirection
-    redirect_stdout = not ("MCSCRIPT_TASK_NOREDIRECT" in os.environ)
-    output_filename = task_output_filename (task_index, phase)
-    # purge any old file -- else it may persist if current task aborts
-    if (os.path.exists(output_filename)):
-        os.remove(output_filename)
-    if (redirect_stdout):
-        print("Redirecting to", output_filename)
-        saved_stdout = sys.stdout
-        sys.stdout = open(output_filename, "w")
+    Arguments:
+        task_index (int or str): task index
+        task_phase (int): task phase
+    """
 
-    # generate header for task output file
-    print(64*"-")
-    print("task", task_index, "phase", phase)
-    print(task["descriptor"])
-    print(64*"-")
-    print(mcscript.run.run_data_string())
-    print(mcscript.utils.time_stamp())
-    print(64*"-")
-    print()
-    sys.stdout.flush()
+    flag_base = task_flag_base(task_index,task_phase)
+    os.rename(flag_base+".lock",flag_base+".fail")
 
-    # invoke task handler
-    try:
-        phase_handlers[phase](task)
-    except mcscript.ScriptError as err:
-        # on failure, flag failure and propagate exception so script terminates
-        print("ScriptError:", err)
-        os.rename(flag_base+".lock",flag_base+".fail")
-        raise
+def finalize_lock(task_index,task_phase,task_time):
+    """Finalize lock file for given task and given phase, and covert it
+    to done file.
 
-    # undo output redirection
-    sys.stdout.flush()
-    if (redirect_stdout):
-        sys.stdout.close()
-        sys.stdout = saved_stdout
+    Arguments:
+        task_index (int or str): task index
+        task_phase (int): task phase
+        task_time (float): timing for task
+    """
 
-    # process timing
-    task_end_time = time.time()
-    task_time = task_end_time - task_start_time
+    flag_base = task_flag_base(task_index,task_phase)
 
-    # process lock file to done file
-    lock_stream = open(flag_base+".lock", "a")
+    # augment lock file
+    lock_stream = open(flag_base+".lock","a")
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.write("{:.2f}\n".format(task_time))
     lock_stream.close()
+
+    # move lock file to done file
     os.rename(flag_base+".lock",flag_base+".done")
 
-    # cd back to task root directory
-    os.chdir(task_root_dir)
 
-    return task_time
+################################################################
+# special runs: archive
+################################################################
 
-def do_archive ():
+def write_toc(task_list,phases):
+    """ Write current table of contents to file runxxxx.toc.
+
+    Arguments:
+        task_list (dict): task list
+        phases (int): number of phases
+
+    Returns:
+        (str): toc filename, sans path (as convenience to caller)
+    """
+    
+    # write current toc
+    toc_filename = "{}.toc".format(mcscript.run.name)
+    toc_stream = open(toc_filename, "w")
+    toc_stream.write(task_toc(task_list,phases))
+    toc_stream.close()
+
+    # return filename 
+    return toc_filename
+
+def do_archive(task_parameters,archive_phase_handlers):
     """ do_archive() --> time sets up the archive task/phase, calls its handler, and closes up
     
-    The phase handler is called.
+    The phase handler is called
+
+    Arguments:
+        ...
+
     """
 
+    task_index = "ARCH"  # special value for use in filename generation
+    task_phase = task_parameters["phase"]
     # lock task
     # CAVEAT: file system asynchrony (?) or simultaneus running of
     # different archive phases can cause trouble with tar archiving,
     # if tar senses lock file appearing or disappearing during
     # archiving of flags directory -- results in exit with failure code
-   
-    task_index = "ARCH"
-    flag_base = task_flag_base(task_index, phase)
-    lock_stream = open(flag_base+".lock", "w")
-    lock_stream.write("{}\n".format(flag_base))
-    lock_stream.write("---\n")
-    lock_stream.write("{} {}\n".format(mcscript.run.job_id,"---"))
-    lock_stream.write("{}\n".format(time.asctime()))
-    lock_stream.close()
+    get_lock(task_index,task_phase)
 
     # initiate timing
     task_start_time = time.time()
@@ -519,10 +454,10 @@ def do_archive ():
     # handle task
     # with output redirection
     saved_stdout = sys.stdout
-    output_filename = task_output_filename (task_index, phase)
+    output_filename = task_output_filename(task_index,task_phase)
     print("Redirecting to", output_filename)
     sys.stdout = open(output_filename, "w")
-    archive_phase_handlers[phase]()
+    archive_phase_handlers[task_phase]()
     sys.stdout = saved_stdout
     
     # process timing
@@ -530,11 +465,142 @@ def do_archive ():
     task_time = task_end_time - task_start_time
 
     # process lock file to done file
-    lock_stream = open(flag_base+".lock", "a")
-    lock_stream.write("{}\n".format(time.asctime()))
-    lock_stream.write("{:.2f}\n".format(task_time))
-    lock_stream.close()
-    os.rename(flag_base+".lock",flag_base+".done")
+    finalize_lock(task_index,task_phase,task_time)
+
+    # cd back to task root directory
+    os.chdir(task_root_dir)
+
+
+################################################################
+# task invocation functions
+################################################################
+
+def seek_task(task_list,task_pool,task_phase,prior_task_index):
+    """Seek next available task, at given phase, in given pool.
+
+    Arguments:
+        task_list (dict): dictionary of tasks
+        task_pool (str): pool to consider (or "ALL")
+        task_phase (int): phase to consider
+        prior_task_index (int): last checked task index
+
+    Returns:
+       (int or None): index for next eligible task, or None if none found
+
+    """
+
+    # select remaining tasks in given pool
+    # (or all pools if pool is ALL)
+    remaining_pool_task_indices = [
+        task_index
+        for task_index in range(prior_task_index+1,len(task_list))
+        if ((task_list[task_index]["pool"] == task_pool) or (task_pool == "ALL"))
+        ]
+    ## DEBUG: print pool_task_indices
+
+    next_index = None
+    for task_index in remaining_pool_task_indices:
+
+        # skip if task locked or done
+        task_mask = task_list[task_index]["metadata"]["mask"]
+        if ( task_status(task_index,task_phase,task_mask) != "-" ):
+            continue
+
+        # skip if prior phase not completed
+        if (task_phase > 0):
+            if ( task_status(task_index,task_phase-1,task_mask) != "X" ):
+                print("Missing prerequisite", task_flag_base(task_index,task_phase-1))
+                continue
+
+        # designate this task as the one to do
+        next_index = task_index
+        break
+
+    return next_index
+
+def do_task(task,phase_handlers):
+    """ do_task() --> time sets up a task/phase, calls its handler, and closes up
+    
+    The current working directory is changed to the task directory.
+    A lock file is created for the task and phase.
+    The phase handler is called.
+    The current working directory is changed back up one level (presumably to the run scratch directory).
+    The lock file for the task and phase is changed into a completion file.
+
+    Arguments:
+       task (dict): Task dictionary (including metadata such as desired phase)
+       phase_handlers (list): List of phase handlers
+    """
+
+    # extract task parameters
+    task_descriptor = task["metadata"]["descriptor"]
+    task_mode = task["metadata"]["mode"]
+    task_index = task["metadata"]["index"]
+    task_phase = task["metadata"]["phase"]
+    task_mask = task["metadata"]["mask"]
+
+
+    # set up task directory
+    task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
+    if (not os.path.exists(task_dir)):
+        mcscript.utils.mkdir(task_dir)
+    os.chdir(task_dir)
+
+    # get lock
+    if (task_mode == "normal"):
+        get_lock(task_index,task_phase)
+
+    # initiate timing
+    task_start_time = time.time()
+
+    # set up output redirection
+    if (task_mode == "normal"):
+        redirect_stdout = not ("MCSCRIPT_TASK_NOREDIRECT" in os.environ)  # TODO get from task_parameters["noredirect"]
+        output_filename = task_output_filename(task_index,task_phase)
+        # purge any old file -- else it may persist if current task aborts
+        if (os.path.exists(output_filename)):
+            os.remove(output_filename)
+        if (redirect_stdout):
+            print("Redirecting to", output_filename)
+            saved_stdout = sys.stdout
+            sys.stdout = open(output_filename, "w")
+
+    # generate header for task output file
+    if (task_mode == "normal"):
+        print(64*"-")
+        print("task {} phase {}".format(task_index,task_phase))
+        print(task["metadata"]["descriptor"])
+        print(64*"-")
+        print(mcscript.run.run_data_string())
+        print(mcscript.utils.time_stamp())
+        print(64*"-")
+        print()
+        sys.stdout.flush()
+
+    # invoke task handler
+    try:
+        phase_handlers[task_phase](task)
+    except mcscript.ScriptError as err:
+        # on failure, flag failure and propagate exception so script terminates
+        print("ScriptError:", err)
+        if (task_mode == "normal"):
+            fail_lock(task_index,task_phase)
+        raise
+
+    # undo output redirection
+    if (task_mode == "normal"):
+        sys.stdout.flush()
+        if (redirect_stdout):
+            sys.stdout.close()
+            sys.stdout = saved_stdout
+
+    # process timing
+    task_end_time = time.time()
+    task_time = task_end_time - task_start_time
+
+    # process lock file to done file
+    if (task_mode == "normal"):
+        finalize_lock(task_index,task_phase,task_time)
 
     # cd back to task root directory
     os.chdir(task_root_dir)
@@ -546,44 +612,65 @@ def do_archive ():
 # task master function
 ################################################################
 
-def task_master():
-    """ task_master() performs a master task execution loop, acting on the given phase and pool.
+def invoke_tasks_setup(task_parameters,task_list,phase_handlers):
+    """ Iterate over tasks to invoke them for setup run.
+
+    Arguments:
+        task_parameters (dict): multi-task run parameters
+        task_list (dict): task list
+        phase_handlers (list): phase handlers
     """
-    global task_index
 
-    # task general initialization
-    task_read_env()
-    
-    # task directory setup
-    make_task_dirs()
+    # retrieve multi-task run parameters
+    task_mode = task_parameters["mode"]
+    task_pool = task_parameters["pool"]
+    task_phase = task_parameters["phase"]
+    task_start_index = task_parameters["start_index"]
+    task_count_limit = task_parameters["count_limit"]
 
-    # special case handlers
-    
-    if (make_toc):
-        print()
-        print(task_toc())
-        return
+    task_index = -1  # "last run task" for seeking purposes
+    while (True):
+        # seek next task
+        task_index = seek_task(task_list,task_pool,task_phase,task_index)
+        if (task_index is None):
+            print("No more available tasks in pool", task_pool)
+            break
+        task = task_list[task_index]
 
-    if (do_unlock):
-        task_unlock()
-        return
-
-    # configure pool
-    
-    if (pool == None):
-        print("No pool specified -- using None.")
-
-    if (pool == "ARCH"):
-        do_archive()
-        return
-
-    # epar diagnostics
-
-    if (mcscript.run.parallel_epar != -1):
-        print("In epar task_master ({:d})...".format(mcscript.run.epar_rank))
+        # display diagnostic header for task
+        #     this goes to global (unredirected) output
+        print("[task {} phase {} {}]".format(task_index,task_phase,task["metadata"]["descriptor"]))
         sys.stdout.flush()
 
-    # main loop
+        # execute task
+        task["metadata"]["phase"] = task_phase
+        task["metadata"]["mode"] = task_mode
+        task_time = do_task(task,phase_handlers)
+        ## print("(Task setup time: {:.2f} sec)".format(task_time))
+
+
+def invoke_tasks_normal(task_parameters,task_list,phase_handlers):
+    """ Iterate over tasks to invoke them for normal run.
+
+    Arguments:
+        task_parameters (dict): multi-task run parameters
+        task_list (dict): task list
+        phase_handlers (list): phase handlers
+    """
+
+    # retrieve multi-task run parameters
+    task_mode = task_parameters["mode"]
+    task_pool = task_parameters["pool"]
+    task_phase = task_parameters["phase"]
+    task_start_index = task_parameters["start_index"]
+    task_count_limit = task_parameters["count_limit"]
+
+    # epar diagnostics
+    ## if (mcscript.run.parallel_epar != -1):
+    ##     print("In epar task_master ({:d})...".format(mcscript.run.epar_rank))
+    ##     sys.stdout.flush()
+
+    task_index = task_start_index-1  # "last run task" for seeking purposes
     task_count = 0
     loop_start_time = time.time()
     task_time = 0.
@@ -608,28 +695,67 @@ def task_master():
             print("Reached time limit.")
             break
 
-
         # seek next task
-        if (not seek_task()):
-            print("Found no available tasks in pool", pool)
+        task_index = seek_task(task_list,task_pool,task_phase,task_index)
+        if (task_index is None):
+            print("No more available tasks in pool", task_pool)
             break
+        task = task_list[task_index]
 
         # display diagnostic header for task
         #     this goes to global (unredirected) output
-        print(64*"-")
-        print("task", task_index, "phase", phase)
-        print(task["descriptor"])
-        print(64*"-")
+        print("[task {} phase {} {}]".format(task_index,task_phase,task["metadata"]["descriptor"]))
         sys.stdout.flush()
 
-
         # execute task (with timing)
-        task_time = do_task()
+        task["metadata"]["phase"] = task_phase
+        task["metadata"]["mode"] = task_mode
+        task_time = do_task(task,phase_handlers)
         print("(Task time: {:.2f} sec)".format(task_time))
 
         # tally
         task_count += 1
 
+
+def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers):
+    """ Control multi-task run.
+
+    Globals:
+        ...
+    
+    Arguments:
+        ...
+    """
+
+    task_mode = task_parameters["mode"]
+    task_pool = task_parameters["pool"]
+
+    # special run modes
+    if (task_mode == "toc"):
+        # update toc file
+        toc_filename = write_toc(task_list,len(phase_handlers))
+        # replicate toc file contents to stdout
+        with open(toc_filename) as toc_stream:
+            print()
+            sys.stdout.writelines(toc_stream.readlines())
+            print()
+    elif (task_mode == "unlock"):
+        task_unlock()
+    elif (task_mode == "archive"):
+        write_toc(task_list,len(phase_handlers))  # update toc for archive
+        do_archive(task_parameters,archive_phase_handlers)
+    elif (task_mode in ("setup","normal")):
+        # check that pool defined
+        if (task_pool == None):
+            print("Exiting without doing anything, since no pool specified.")
+            return
+        # process tasks
+        if (task_mode == "setup"):
+            invoke_tasks_setup(task_parameters,task_list,phase_handlers)
+        elif (task_mode == "normal"):
+            invoke_tasks_normal(task_parameters,task_list,phase_handlers)
+    else:
+        raise(mcscript.ScriptError("unrecognized run mode: {}".format(task_mode)))
 
 
 ################################################################
@@ -637,7 +763,7 @@ def task_master():
 ################################################################
 
 def init(
-        tasks,
+        task_list,
         task_descriptor=(lambda task : None),
         task_pool=(lambda task : None),
         task_mask=(lambda task : True),
@@ -654,22 +780,56 @@ def init(
     set from the length of the phase handler list.
 
     Finally, invokes master task handling loop.
+
+    Globals:
+        phase, ...
+
+    Arguments:
+        ...
     """
 
-    # process task list
-    global task_list, phases
-    task_list = tasks
-    for index in range(len(task_list)):
-        task_list[index]["descriptor"] = task_descriptor(task_list[index])
-        task_list[index]["pool"] = task_pool(task_list[index])
-        task_list[index]["mask"] = task_mask(task_list[index])
+    # task directories
+    #
+    # Note: ideally these should be moved out of global storage, but
+    # user code will need modification.
 
-    # register phase handlers
-    global phase_handlers, phases, archive_phase_handlers, archive_phases
+    global task_root_dir, flag_dir, output_dir, results_dir, archive_dir
+    task_root_dir = mcscript.run.work_dir
+    flag_dir = os.path.join(mcscript.run.work_dir,"flags")
+    output_dir = os.path.join(mcscript.run.work_dir,"output")
+    results_dir = os.path.join(mcscript.run.work_dir,"results")
+    archive_dir = os.path.join(mcscript.run.work_dir,"archive")
+
+    # task environment variable communication
+    task_parameters = task_read_env()
+    
+    # set up task directories
+    make_task_dirs()
+
+    # process task list
+    for index in range(len(task_list)):
+        task = task_list[index]
+
+        # legacy fields
+        # TODO -- remove legacy fields once sure nobody uses them
+        task["descriptor"] = task_descriptor(task)
+        task["pool"] = task_pool(task)
+        task["mask"] = task_mask(task)
+
+        # encapsulated metadata
+        metadata = {
+            "descriptor" : task_descriptor(task),
+            "pool" : task_pool(task),
+            "mask" : task_mask(task),
+            "index" : index,
+            "mode" : None,  # to be set at task invocation time
+            "phase" : None  # to be set at task invocation time
+        }
+        task["metadata"] = metadata
+
+    # alias handler arguments
     phase_handlers = phase_handler_list
-    phases = len(phase_handlers)
     archive_phase_handlers = archive_phase_handler_list
-    archive_phases = len(archive_phase_handlers)
 
     # invoke master loop
-    task_master()
+    task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
