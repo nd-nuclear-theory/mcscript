@@ -156,6 +156,24 @@ def serial_invocation(base):
         (list of str): full invocation
     """
 
+    # Debugging at NERSC (mac/pjf,3/17/17,Edison): Undocumented
+    # behavior of srun...  When srun is invoked under sbatch, and
+    # sbatch has been given an --environment argument, srun does *not*
+    # behave as advertised:
+    #
+    # --export=<environment variables | NONE> 
+    #   ... By default all environment variables are propagated. ...
+    #
+    # Instead, only environment variables which were explicitly passed
+    # to sbatch, plus the SLURM_* environment variables, are
+    # propagated by srun.
+    #
+    # The solution is to invoke srun with the --export option, given
+    # the undocumented value "ALL".  (This value was documented for
+    # sbatch but not for srun.):
+    #
+    #   srun --export=ALL ...
+
     if (not mcscript.run.batch_mode):
         # run on front end (though might sometimes want to run on compute
         # node if have interactive allocation)
