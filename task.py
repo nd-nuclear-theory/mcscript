@@ -349,7 +349,7 @@ def get_lock(task_index,task_phase):
 
     # preliminary lock
     lock_stream = open(flag_base+".lock", "w")
-    lock_stream.write("{}\n".format(mcscript.run.job_id))
+    lock_stream.write("{}".format(mcscript.run.job_id))  # omit newline since will do string comparison below
     lock_stream.close()
     # make sure lock was successful
     if (mcscript.run.batch_mode):
@@ -367,6 +367,7 @@ def get_lock(task_index,task_phase):
 
     # write expanded lock contents
     lock_stream = open(flag_base+".lock","a")
+    lock_stream.write("\n".format(flag_base))  # add newline after job id
     lock_stream.write("{}\n".format(flag_base))
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
