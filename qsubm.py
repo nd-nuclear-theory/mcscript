@@ -27,6 +27,9 @@
     + 3/16/17 (mac):
         - Add --setup option.
         - Change environment interface to pass MCSCRIPT_TASK_MODE.
+  + 3/18/17 (mac):
+        - Revise to support updated hybrid run parameters.
+        - Rename option --setup to --prerun.
 """
 
 import sys
@@ -92,6 +95,7 @@ parser = argparse.ArgumentParser(
     """
     )
 
+# general arguments
 parser.add_argument("run",help="Run number (e.g., 0000 for run0000)")
 # latter arguments are made optional to simplify bare-bones syntax for --toc, etc., calls
 parser.add_argument("queue",nargs='?',help="Submission queue, or RUN for direct interactive run",default="RUN")
@@ -100,27 +104,42 @@ parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default
 parser.add_argument("--here",action="store_true",help="Force run in current working directory")
 parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
 ## parser.add_argument("--stat",action="store_true",help="Display queue status information")
-parser.add_argument("--width",type=int,default=1,help="MPI width (number of processes) on hybrid parallel run")
-parser.add_argument("--depth",type=int,default=1,help="OMP depth (threads per process) on hybrid parallel run")
-parser.add_argument("--serialthreads",type=int,default=1,help="OMP threads for nominally serial (non-MPI) run")
-parser.add_argument("--spread",type=int,default=1,help="Undersubscription factor (e.g., spread=2 requests twice the cores needed)")
-parser.add_argument("--nodesize",type=int,default=None,help="Physical cores per node")
-## parser.add_argument("--pernode",type=int,default=None,help="MPI processes per node (may be superfluous if nodesize specified)")
-parser.add_argument("--epar",type=int,default=None,help="Width for embarassingly parallel job")
-parser.add_argument("--nopar",action="store_true",help="Disable parallel resource requests (for use on special serial queues)")
 parser.add_argument("--num",type=int,default=1,help="Number of repetitions")
 parser.add_argument("--opt",action="append",help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
 
-# options for multi-task run (task.py interface)
+# serial run parallelization parameters
+parser.add_argument("--serialthreads",type=int,default=1,help="Serial compute run (single-node, non-MPI): OMP threads")
+
+# hybrid run parallelization parameters
+#
+# Not all local configuration files need necessarily require or
+# respect all of the following parameters.
+parser.add_argument("--nodes",type=int,default=1,help="Hybrid parallel run: number of nodes")
+parser.add_argument("--ranks",type=int,default=1,help="Hybrid parallel run: number of MPI ranks")
+parser.add_argument("--threads",type=int,default=1,help="Hybrid parallel run: OMP threads per rank)")
+parser.add_argument("--nodesize",type=int,default=0,help="Hybrid parallel run: logical threads available per node"
+                    " (might instead be interpreted physical CPUs depending on local config file)")
+##parser.add_argument("--undersubscription",type=int,default=1,help="Hybrid parallel run: undersubscription factor (e.g., spread=2 requests twice the cores needed)")
+
+# multi-task interface: invocation modes
 parser.add_argument("--toc",action="store_true",help="Multi-task run: Invoke run script to generate task table of contents")
-parser.add_argument("--setup",action="store_true",help="Multi-task run: Invoke setup-only run")
+parser.add_argument("--unlock",action="store_true",help="Multi-task run: Delete any .lock or .fail flags for tasks")
 parser.add_argument("--archive",action="store_true",help="Multi-task run: Invoke archive-generation run")
-parser.add_argument("--pool",help="Multi-task run: Set task pool for task selection")
+parser.add_argument("--prerun",action="store_true",help="Multi-task run: Invoke prerun mode, for argument validation and file staging only")
+parser.add_argument("--offline",action="store_true",help="Multi-task run: Invoke offline mode, to create batch scripts for later submission instead of running compute codes")
+
+# multi-task interface: task selection
+parser.add_argument("--pool",help="Multi-task run: Set task pool (or ALL) for task selection")
 parser.add_argument("--phase",type=int,default=0,help="Multi-task run: Set task phase for task selection")
 parser.add_argument("--start",type=int,help="Multi-task run: Set starting task number for task selection")
 parser.add_argument("--limit",type=int,help="Multi-task run: Set task count limit for task selection")
-parser.add_argument("--noredirect",action="store_true",help="Multi-task run: Disable redirection of standard output/error to file (for interactive debugging)")
-parser.add_argument("--unlock",action="store_true",help="Multi-task run: Delete any .lock or .fail flags for tasks")
+parser.add_argument("--redirect",type=bool,default=True,help="Multi-task run: Allow redirection of standard"
+                    " output/error to file (may want to disable for interactive debugging)")
+
+# some special options (deprecated?)
+##parser.add_argument("--epar",type=int,default=None,help="Width for embarassingly parallel job")
+##parser.add_argument("--nopar",action="store_true",help="Disable parallel resource requests (for use on special serial queues)")
+
 
 ##parser.print_help()
 ##print
@@ -190,14 +209,10 @@ else:
 # argument processing
 ################################################################
 
-# initialize accumulation lists
-environment_definitions = []  # environment variable definitions
-
 # set run name
 run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
 run = run_prefix + args.run
 print ("Run:", run)
-environment_definitions.append("MCSCRIPT_RUN=%s" % run)
 
 # ...and process run file
 script_extensions = [".py", ".csh"]
@@ -213,7 +228,6 @@ if (job_file is None):
     print ("No job file %s.* found with an extension in the set %s." % (run, script_extensions))
     exit(1)
 print ("  Job file:", job_file)
-environment_definitions.append("MCSCRIPT_JOB_FILE=%s" % job_file )
 
 # set queue and flag batch or local mode
 # force local run for task.py toc mode
@@ -224,33 +238,32 @@ if ((args.queue == "RUN") or args.toc or args.unlock):
 else:
     run_mode = "batch"
     print ("  Mode:", run_mode, "(%s)" % args.queue)
-environment_definitions.append("MCSCRIPT_RUN_MODE=%s" % run_mode)
 
 # set wall time
 wall_time_min = args.wall
-print ("  Wall time (min):", wall_time_min)
-environment_definitions.append("MCSCRIPT_WALL_SEC=%d" % (wall_time_min*60))
+print ("  Wall time (min): {:d}".format(wall_time_min))
+wall_time_sec = wall_time_min*60
 
-# record width and depth parameters
-environment_definitions.append("MCSCRIPT_WIDTH=%d" % args.width)
-environment_definitions.append("MCSCRIPT_DEPTH=%d" % args.depth)
-environment_definitions.append("MCSCRIPT_SERIALTHREADS=%d" % args.serialthreads)
-environment_definitions.append("MCSCRIPT_SPREAD=%d" % args.spread)
-if ( (args.depth != 1) and (args.nodesize is None)):
-    print ("OMP --depth specified without a --nodesize")
-    exit(1)
-## if (args.pernode is not None):
-##     environment_definitions.append("MCSCRIPT_PERNODE=%d" % args.pernode)
-## else:
-##     environment_definitions.append("MCSCRIPT_PERNODE=%d" % -1)
-if (args.nodesize is not None):
-    environment_definitions.append("MCSCRIPT_NODESIZE=%d" % args.nodesize)
-else:
-    environment_definitions.append("MCSCRIPT_NODESIZE=%d" % -1)
-if (args.epar is not None):
-    environment_definitions.append("MCSCRIPT_EPAR=%d" % args.epar)
-else:
-    environment_definitions.append("MCSCRIPT_EPAR=%d" % -1)
+# environment definitions: general run parameters
+environment_definitions = [
+    "MCSCRIPT_RUN={:s}".format(run),
+    "MCSCRIPT_JOB_FILE={:s}".format(job_file),
+    "MCSCRIPT_RUN_MODE={:s}".format(run_mode),
+    "MCSCRIPT_WALL_SEC={:d}".format(wall_time_sec)
+]
+
+# environment definitions: serial run parameters
+environment_definitions += [
+    "MCSCRIPT_SERIAL_THREADS={:d}".format(args.serialthreads)
+]
+
+# environment definitions: hybrid run parameters
+environment_definitions += [
+    "MCSCRIPT_HYBRID_NODES={:d}".format(args.nodes),
+    "MCSCRIPT_HYBRID_RANKS={:d}".format(args.ranks),
+    "MCSCRIPT_HYBRID_THREADS={:d}".format(args.threads),
+    "MCSCRIPT_HYBRID_NODESIZE={:d}".format(args.nodesize)
+]
 
 # set repetition parameter
 repetitions = args.num
@@ -258,16 +271,21 @@ repetitions = args.num
 
 # set multi-task run parameters
 if (args.toc):
-    task_mode = "toc"
+    task_mode = mcscript.task.TaskMode.kTOC
 elif (args.unlock):
-    task_mode = "unlock"
-elif (args.setup):
-    task_mode = "setup"
+    task_mode = mcscript.task.TaskMode.kUnlock
 elif (args.archive):
-    task_mode = "archive"
+    task_mode = mcscript.task.TaskMode.kArchive
+elif (args.prerun):
+    task_mode = mcscript.task.TaskMode.kPrerun
+elif (args.offline):
+    task_mode = mcscript.task.TaskMode.kOffline
 else:
-    task_mode = "normal"
-environment_definitions.append("MCSCRIPT_TASK_MODE={:s}".format(task_mode))
+    task_mode = mcscript.task.TaskMode.kRun
+
+# TODO (mac): neaten up so that these arguments are always provided
+# (and simplify this code to a simple list += as above)
+environment_definitions.append("MCSCRIPT_TASK_MODE={:d}".format(task_mode.value))
 if (args.pool is not None):
     environment_definitions.append("MCSCRIPT_TASK_POOL={:s}".format(args.pool))
 if (args.phase is not None):
@@ -276,8 +294,7 @@ if (args.start is not None):
     environment_definitions.append("MCSCRIPT_TASK_START_INDEX={:d}".format(args.start))
 if (args.limit is not None):
     environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT={:d}".format(args.limit))
-if (args.noredirect):
-    environment_definitions.append("MCSCRIPT_TASK_NOREDIRECT=1")
+environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:b}".format(args.redirect))
 
 
 # set user-specified variable definitions

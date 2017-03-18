@@ -11,6 +11,7 @@
     - Move run_data_string into RunParameters as method.
     - Eliminate load-time construction of global run object.
   + 1/16/17 (mac): Add support for serial_threads attribute.
+  + 3/18/17 (mac): Revise to support updated hybrid run parameters.
 
 """
 
@@ -73,26 +74,22 @@ class RunParameters(object):
         self.job_file = os.environ["MCSCRIPT_JOB_FILE"]
         self.wall_time_sec = int(os.environ["MCSCRIPT_WALL_SEC"])
 
-        # optional parallel queue environment variables
-        #   will be integers, potentially -1 if left as None in qsub call
-        self.serial_threads = int(os.environ["MCSCRIPT_SERIALTHREADS"])
-        self.parallel_width = int(os.environ["MCSCRIPT_WIDTH"])
-        self.parallel_depth = int(os.environ["MCSCRIPT_DEPTH"])
-        self.parallel_spread = int(os.environ["MCSCRIPT_SPREAD"])
-        ## self.parallel_pernode = int(os.environ["MCSCRIPT_PERNODE"])
-        self.parallel_nodesize = int(os.environ["MCSCRIPT_NODESIZE"])
-        self.parallel_epar = int(os.environ["MCSCRIPT_EPAR"])
-        if (self.parallel_epar!=-1):
-            raise(ValueError("mcscript: embarassingly parallel mode not currently supported"))
+        # environment definitions: serial run parameters
+        self.serial_threads = int(os.environ["MCSCRIPT_SERIAL_THREADS"])
+
+        # environment definitions: hybrid run parameters
+        self.hybrid_nodes = int(os.environ["MCSCRIPT_HYBRID_NODES"])
+        self.hybrid_ranks = int(os.environ["MCSCRIPT_HYBRID_RANKS"])
+        self.hybrid_threads = int(os.environ["MCSCRIPT_HYBRID_THREADS"])
+        self.hybrid_nodesize = int(os.environ["MCSCRIPT_HYBRID_NODESIZE"])
 
         # generate local definitions
         self.job_id = config.job_id()
 
         # verbosity level
-        self.verbose = (
-            not ("TASK_TOC" in os.environ)
-            and not ("TASK_UNLOCK" in os.environ)
-            )
+        #
+        # Note: may want to reduce for toc and unlock runs
+        self.verbose = True
 
         ## # adjust verbosity level for epar
         ## self.verbose = ( self.verbose and 

@@ -33,9 +33,13 @@
         - Change environment interface to expect MCSCRIPT_TASK_MODE.
         - Allow for "setup" task mode.
         - Define task "metadata" field.
+    + 3/18/17 (mac):
+        - Define task modes as enum.
+        - Rename "setup" mode to "prerun".
 """
 
 import datetime
+import enum
 import glob
 import os
 import sys
@@ -45,6 +49,17 @@ import time
 #   Should load after mcscript base definitions and utilities are already loaded.
 import mcscript
 
+################################################################
+# task special run modes
+################################################################
+
+class TaskMode(enum.Enum):
+    kRun = 0
+    kTOC = 1
+    kUnlock = 2
+    kArchive = 3
+    kPrerun = 4
+    kOffline = 5
 
 ## ################################################################
 ## # global storage
@@ -71,7 +86,7 @@ def task_read_env():
         MCSCRIPT_TASK_POOL -- named pool for tasks to be executed (or ALL)
         MCSCRIPT_TASK_START_INDEX -- starting value for task index (or offset for job rank in epar mode)
         MCSCRIPT_TASK_COUNT_LIMIT -- flag to request generation of TOC file
-        MCSCRIPT_TASK_NOREDIRECT -- flag to request diagnostic dump of output to terminal
+        MCSCRIPT_TASK_REDIRECT -- flag to request diagnostic dump of output to terminal
 
     Parameter fields:
         "mode"
@@ -79,7 +94,7 @@ def task_read_env():
         "pool"
         "start_index"
         "count_limit"
-        "noredirect"
+        "redirect"
 
     Returns:
         (dict): multi-task run parameters
@@ -87,12 +102,12 @@ def task_read_env():
 
     task_parameters = {}
 
-    task_parameters["mode"] = os.environ["MCSCRIPT_TASK_MODE"]
+    task_parameters["mode"] = TaskMode(int(os.environ["MCSCRIPT_TASK_MODE"]))
     task_parameters["phase"] = int(os.environ.get("MCSCRIPT_TASK_PHASE",0))
     task_parameters["pool"] = os.environ.get("MCSCRIPT_TASK_POOL")
     task_parameters["count_limit"] = os.environ.get("MCSCRIPT_TASK_COUNT_LIMIT")
     task_parameters["start_index"] = os.environ.get("MCSCRIPT_TASK_START_INDEX",0)
-    task_parameters["noredirect"] = bool(os.environ.get("MCSCRIPT_TASK_NOREDIRECT",0))
+    task_parameters["redirect"] = bool(os.environ.get("MCSCRIPT_TASK_REDIRECT"))
 
     return task_parameters
 
@@ -519,7 +534,7 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
 
     return next_index
 
-def do_task(task,phase_handlers):
+def do_task(task_parameters,task,phase_handlers):
     """ do_task() --> time sets up a task/phase, calls its handler, and closes up
     
     The current working directory is changed to the task directory.
@@ -529,16 +544,21 @@ def do_task(task,phase_handlers):
     The lock file for the task and phase is changed into a completion file.
 
     Arguments:
+       task_parameters (dict): task parameters (needed for some global properties, e.g., redirection mode)
        task (dict): Task dictionary (including metadata such as desired phase)
        phase_handlers (list): List of phase handlers
     """
 
     # extract task parameters
-    task_descriptor = task["metadata"]["descriptor"]
-    task_mode = task["metadata"]["mode"]
+    task_mode = task_parameters["mode"]
+    task_phase = task_parameters["phase"]
     task_index = task["metadata"]["index"]
-    task_phase = task["metadata"]["phase"]
+    task_descriptor = task["metadata"]["descriptor"]
     task_mask = task["metadata"]["mask"]
+
+    # fill in further metadata for task handlers
+    task["metadata"]["phase"] = task_phase
+    task["metadata"]["mode"] = task_mode
 
 
     # set up task directory
@@ -548,15 +568,15 @@ def do_task(task,phase_handlers):
     os.chdir(task_dir)
 
     # get lock
-    if (task_mode == "normal"):
+    if (task_mode != TaskMode.kPrerun):
         get_lock(task_index,task_phase)
 
     # initiate timing
     task_start_time = time.time()
 
     # set up output redirection
-    if (task_mode == "normal"):
-        redirect_stdout = not ("MCSCRIPT_TASK_NOREDIRECT" in os.environ)  # TODO get from task_parameters["noredirect"]
+    if (task_mode != TaskMode.kPrerun):
+        redirect_stdout = task_parameters["redirect"]
         output_filename = task_output_filename(task_index,task_phase)
         # purge any old file -- else it may persist if current task aborts
         if (os.path.exists(output_filename)):
@@ -567,7 +587,7 @@ def do_task(task,phase_handlers):
             sys.stdout = open(output_filename, "w")
 
     # generate header for task output file
-    if (task_mode == "normal"):
+    if (task_mode != TaskMode.kPrerun):
         print(64*"-")
         print("task {} phase {}".format(task_index,task_phase))
         print(task["metadata"]["descriptor"])
@@ -589,7 +609,7 @@ def do_task(task,phase_handlers):
         raise
 
     # undo output redirection
-    if (task_mode == "normal"):
+    if (task_mode != TaskMode.kPrerun):
         sys.stdout.flush()
         if (redirect_stdout):
             sys.stdout.close()
@@ -600,7 +620,7 @@ def do_task(task,phase_handlers):
     task_time = task_end_time - task_start_time
 
     # process lock file to done file
-    if (task_mode == "normal"):
+    if (task_mode != TaskMode.kPrerun):
         finalize_lock(task_index,task_phase,task_time)
 
     # cd back to task root directory
@@ -613,7 +633,7 @@ def do_task(task,phase_handlers):
 # task master function
 ################################################################
 
-def invoke_tasks_setup(task_parameters,task_list,phase_handlers):
+def invoke_tasks_prerun(task_parameters,task_list,phase_handlers):
     """ Iterate over tasks to invoke them for setup run.
 
     Arguments:
@@ -644,13 +664,11 @@ def invoke_tasks_setup(task_parameters,task_list,phase_handlers):
         sys.stdout.flush()
 
         # execute task
-        task["metadata"]["phase"] = task_phase
-        task["metadata"]["mode"] = task_mode
-        task_time = do_task(task,phase_handlers)
+        task_time = do_task(task_parameters,task,phase_handlers)
         ## print("(Task setup time: {:.2f} sec)".format(task_time))
 
 
-def invoke_tasks_normal(task_parameters,task_list,phase_handlers):
+def invoke_tasks_run(task_parameters,task_list,phase_handlers):
     """ Iterate over tasks to invoke them for normal run.
 
     Arguments:
@@ -709,9 +727,7 @@ def invoke_tasks_normal(task_parameters,task_list,phase_handlers):
         sys.stdout.flush()
 
         # execute task (with timing)
-        task["metadata"]["phase"] = task_phase
-        task["metadata"]["mode"] = task_mode
-        task_time = do_task(task,phase_handlers)
+        task_time = do_task(task_parameters,task,phase_handlers)
         print("(Task time: {:.2f} sec)".format(task_time))
 
         # tally
@@ -731,8 +747,14 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
     task_mode = task_parameters["mode"]
     task_pool = task_parameters["pool"]
 
+    # check that pool defined
+    if (task_mode in (TaskMode.kRun,TaskMode.kPrerun,TaskMode.kOffline)):
+        if (task_pool == None):
+            print("Exiting without doing anything, since no pool specified.")
+            return
+
     # special run modes
-    if (task_mode == "toc"):
+    if (task_mode == TaskMode.kTOC):
         # update toc file
         toc_filename = write_toc(task_list,len(phase_handlers))
         # replicate toc file contents to stdout
@@ -740,23 +762,17 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
             print()
             sys.stdout.writelines(toc_stream.readlines())
             print()
-    elif (task_mode == "unlock"):
+    elif (task_mode == TaskMode.kUnlock):
         task_unlock()
-    elif (task_mode == "archive"):
+    elif (task_mode == TaskMode.kArchive):
         write_toc(task_list,len(phase_handlers))  # update toc for archive
         do_archive(task_parameters,archive_phase_handlers)
-    elif (task_mode in ("setup","normal")):
-        # check that pool defined
-        if (task_pool == None):
-            print("Exiting without doing anything, since no pool specified.")
-            return
-        # process tasks
-        if (task_mode == "setup"):
-            invoke_tasks_setup(task_parameters,task_list,phase_handlers)
-        elif (task_mode == "normal"):
-            invoke_tasks_normal(task_parameters,task_list,phase_handlers)
+    elif (task_mode == TaskMode.kPrerun):
+        invoke_tasks_prerun(task_parameters,task_list,phase_handlers)
+    elif ((task_mode == TaskMode.kRun) or (task_mode == TaskMode.kOffline)):
+        invoke_tasks_run(task_parameters,task_list,phase_handlers)
     else:
-        raise(mcscript.ScriptError("unrecognized run mode: {}".format(task_mode)))
+        raise(mcscript.ScriptError("Unsupported run mode: {:s}".format(task_mode)))
 
 
 ################################################################
@@ -811,11 +827,10 @@ def init(
     for index in range(len(task_list)):
         task = task_list[index]
 
-        # legacy fields
+        # legacy descriptor field
+        # DEPRECATED in favor of ["metadata"]["descriptor"]
         # TODO -- remove legacy fields once sure nobody uses them
         task["descriptor"] = task_descriptor(task)
-        task["pool"] = task_pool(task)
-        task["mask"] = task_mask(task)
 
         # encapsulated metadata
         metadata = {

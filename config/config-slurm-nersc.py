@@ -61,10 +61,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     """
 
-    # assert not epar
-    if (args.epar is not None):
-        raise(ValueError("epar presently not supported by this scripting"))
-
     # start accumulating command line
     submission_invocation = [ "sbatch" ]
 
@@ -81,15 +77,12 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     license_list = ["SCRATCH","project"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
                         
-    # parallel environment
-    ## looks_parallel = not ( (args.epar is None) and (args.width == 1) and (args.depth == 1) and (args.nodesize == None) )
-
     # calculate number of needed cores and nodes
-    needed_cores = args.width * args.depth * args.spread
-    needed_nodes = (needed_cores // args.nodesize) + int((needed_cores % args.nodesize) != 0)
+    ## needed_cores = args.width * args.depth * args.spread
+    ## needed_nodes = (needed_cores // args.nodesize) + int((needed_cores % args.nodesize) != 0)
 
     # generate parallel environment specifier
-    submission_invocation += ["--nodes={}".format(needed_nodes)]
+    submission_invocation += ["--nodes={}".format(args.nodes)]
 
     # append user-specified arguments
     if (args.opt is not None):
@@ -183,11 +176,10 @@ def serial_invocation(base):
         #
         # Perhaps could run unwrapped on Cori?
         invocation = [
-            "env",
             "srun",
             "--ntasks={}".format(1),
             "--nodes={}".format(1),
-            "--cpus-per-task={}".format(mcscript.run.parallel_nodesize),
+            "--cpus-per-task={}".format(mcscript.run.hybrid_nodesize),
             "--export=ALL"
         ]
 
@@ -206,8 +198,9 @@ def hybrid_invocation(base):
     """
 
     # calculate number of needed cores and nodes
-    needed_cores = mcscript.run.parallel_width * mcscript.run.parallel_depth * mcscript.run.parallel_spread
-    needed_nodes = (needed_cores // mcscript.run.parallel_nodesize) + int((needed_cores % mcscript.run.parallel_nodesize) != 0)
+    undersubscription_factor = 1
+    needed_threads = mcscript.run.hybrid_rank * mcscript.run.hybrid_threads * undersubscription_factor
+    needed_nodes = (needed_threads // mcscript.run.hybrid_nodesize) + int((needed_threads % mcscript.run.hybrid_nodesize) != 0)
 
     # note: may need to be revised to enable hyperthreading, i.e.,
     # to provide different depth in OMP_NUM_THREADS and in srun
@@ -216,10 +209,10 @@ def hybrid_invocation(base):
     invocation = [
         "srun",
         "--cpu_bind=verbose",
-        "--ntasks={}".format(mcscript.run.parallel_width),
+        "--ntasks={}".format(mcscript.run.hybrid_ranks),
         "--nodes={}".format(needed_nodes),  # supposedly extraneous in Edison example scripts
         "--cpu_bind=cores",  # recommended for Cori Haswell, if MPI tasks per node do not divide 64, not exceeding physical CPUs (32/node)
-        "--cpus-per-task={}".format(mcscript.run.parallel_depth*mcscript.run.parallel_spread)  # basic Edison approach; needs modification on Cori if not "packed"
+        "--cpus-per-task={}".format(mcscript.run.hybrid_ranks*undersubscription_factor)  # basic Edison approach; needs modification on Cori if not "packed"
     ]
     invocation += base
 
@@ -236,10 +229,23 @@ def init():
     and changed the cwd to the scratch directory.
     """
 
+    # set node size based on environment
+    mcscript.run.hybrid_nodesize = None
+    if (os.getenv("NERSC_HOST")=="edison"):
+        mcscript.run.hybrid_nodesize = 24*2
+    elif (os.getenv("NERSC_HOST")=="cori"):
+        if (os.getenv("CRAY_CPU_TARGET")=="haswell"):
+            mcscript.run.hybrid_nodesize = 32*2
+        elif (os.getenv("CRAY_CPU_TARGET")=="haswell"):
+            mcscript.run.hybrid_nodesize = 64*4
+            
     # Cori recommended thread affinity settings
+
+    # TODO: wrap in special config command for offline support
     os.environ["OMP_PROC_BIND"] = "spread"
     os.environ["OMP_PLACES"] = "threads"
 
+    # determine node size
 
 def termination():
     """ Do any local termination tasks.

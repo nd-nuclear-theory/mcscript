@@ -124,31 +124,31 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation += ["-r","n"]  # job not restartable
                         
     # parallel environment
-    if (  not ( (args.epar is None) and (args.width == 1) and (args.depth == 1) and (args.nodesize == None) ) ):
+    if (  not ( (args.epar is None) and (args.hybrid_ranks == 1) and (args.hybrid_threads == 1) and (args.hybrid_nodesize == None) ) ):
 
         # check that nodesize was specified
-        if (args.nodesize is None):
+        if (args.hybrid_nodesize is None):
             print ("Please specify --nodesize for parallel run on NDCRC.")
             sys.exit(1)
 
         # calculate number of needed cores
-        needed_cores = args.width * args.depth
-        rounded_cores = args.nodesize * (needed_cores // args.nodesize)
-        if ((needed_cores % args.nodesize) != 0):
-            rounded_cores += args.nodesize
+        needed_cores = args.hybrid_ranks * args.hybrid_threads
+        rounded_cores = args.hybrid_nodesize * (needed_cores // args.hybrid_nodesize)
+        if ((needed_cores % args.hybrid_nodesize) != 0):
+            rounded_cores += args.hybrid_nodesize
 
         # generate parallel environment specifier
-        if (args.width != 1):
+        if (args.hybrid_ranks != 1):
             # handle mpi run
             submission_invocation += [
                 "-pe",
-                "mpi-{nodesize:d} {rounded_cores:d}".format(nodesize=args.nodesize,rounded_cores=rounded_cores)
+                "mpi-{nodesize:d} {rounded_cores:d}".format(nodesize=args.hybrid_nodesize,rounded_cores=rounded_cores)
             ]
-        elif (args.depth != 1):
+        elif (args.hybrid_threads != 1):
             # handle smp run
             submission_invocation += [
                 "-pe",
-                "smp {nodesize:d}".format(nodesize=args.nodesize)
+                "smp {nodesize:d}".format(nodesize=args.hybrid_nodesize)
             ]
 
     # append user-specified arguments
@@ -231,8 +231,8 @@ def hybrid_invocation(base):
     invocation = [
         "mpiexec",
         "--report-bindings",
-        "--n","{:d}".format(mcscript.run.parallel_width),
-        "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(mcscript.run.parallel_depth)  # TODO fix up use of new binding syntax
+        "--n","{:d}".format(mcscript.run.hybrid_ranks),
+        "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(mcscript.run.hybrid_ranks)  # TODO fix up use of new binding syntax
     ]
     ##print("WARNING: TODO still need to fix binding syntax for parallel depth in config-uge-ndcrc")
     invocation += base

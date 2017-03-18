@@ -218,7 +218,7 @@ def call(
         openmp_setup(run.serial_threads)
         invocation = config.serial_invocation(base)
     elif (mode==call.hybrid):
-        openmp_setup(run.parallel_depth)
+        openmp_setup(run.hybrid_threads)
         invocation = config.hybrid_invocation(base)
     else:
         raise(ValueError("invalid invocation mode"))
@@ -289,6 +289,14 @@ def call(
     return stdout_string
 
 # convenience definitions for enumerated type
+#
+# Ex: mcscript.call.local
+#
+# Is this really any better than direct reference???
+#
+# Ex: mcscript.CallMode.kLocal
+
+
 call.local = CallMode.kLocal
 call.serial = CallMode.kSerial
 call.hybrid = CallMode.kHybrid

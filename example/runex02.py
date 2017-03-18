@@ -98,6 +98,7 @@
   1/8/17 (mac): Add renamed results file.  Rename to runex02.py.
   1/20/17 (mac): Add second phase to example.
   3/16/17 (mac): Add generic archive handler.
+  3/18/17 (mac): Update to use task descriptor from metadata record.
 
 """
 
@@ -195,7 +196,7 @@ def say_hello(task):
 
     # save results file to common results directory
     print("Saving renamed output file...")
-    results_filename = "{}-hello-{:s}.txt".format(mcscript.run.name,task["descriptor"])
+    results_filename = "{}-hello-{:s}.txt".format(mcscript.run.name,task["metadata"]["descriptor"])
     mcscript.call(
         [
             "cp",
@@ -238,7 +239,7 @@ def say_goodbye(task):
 
     # save results file to common results directory
     print("Saving renamed output file...")
-    results_filename = "{}-goodbye-{:s}.txt".format(mcscript.run.name,task["descriptor"])
+    results_filename = "{}-goodbye-{:s}.txt".format(mcscript.run.name,task["metadata"]["descriptor"])
     mcscript.call(
         [
             "cp",

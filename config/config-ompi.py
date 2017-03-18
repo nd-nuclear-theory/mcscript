@@ -120,7 +120,7 @@ def hybrid_invocation(base):
     # for ompi
     invocation = [
         "mpiexec",
-        "--n","{:d}".format(mcscript.run.parallel_width)
+        "--n","{:d}".format(mcscript.run.hybrid_ranks)
     ]
     invocation += base
 
