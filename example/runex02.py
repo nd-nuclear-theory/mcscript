@@ -190,13 +190,13 @@ def say_hello(task):
             "Dear {world_name},".format(**task),
             "   Hello!",
             "Your script",
-            mcscript.run.name
+            mcscript.parameters.run.name
             ]
         )
 
     # save results file to common results directory
     print("Saving renamed output file...")
-    results_filename = "{}-hello-{:s}.txt".format(mcscript.run.name,task["metadata"]["descriptor"])
+    results_filename = "{}-hello-{:s}.txt".format(mcscript.parameters.run.name,task["metadata"]["descriptor"])
     mcscript.call(
         [
             "cp",

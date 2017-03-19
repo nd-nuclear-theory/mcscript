@@ -31,9 +31,7 @@ def init():
         run (RunParameters): Record of run parameters from environment.
     """
 
-    ################################################################
     # retrieve job information
-    ################################################################
 
     mcscript.parameters.run.populate()
     mcscript.parameters.run.job_id = mcscript.config.job_id()
@@ -46,15 +44,15 @@ def init():
         print(mcscript.utils.time_stamp()),
         sys.stdout.flush()
 
-    ################################################################
     # make and cd to scratch directory
-    ################################################################
 
     if (not os.path.exists(mcscript.parameters.run.work_dir)):
         subprocess.call(["mkdir","--parents",mcscript.parameters.run.work_dir])
     os.chdir(mcscript.parameters.run.work_dir)
 
+    # invoke local init
 
+    mcscript.config.init()
 
 ################################################################
 # termination code
@@ -66,6 +64,7 @@ def termination():
 
     # invoke local termination
     mcscript.config.termination()
+
     # provide verbose ending
     #   only if top-level invocation of job file, not epar daughter
     if (mcscript.parameters.run.verbose):

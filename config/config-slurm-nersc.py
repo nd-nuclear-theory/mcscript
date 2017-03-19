@@ -209,7 +209,7 @@ def hybrid_invocation(base):
     requested_threads_per_rank = mcscript.parameters.run.hybrid_threads*undersubscription_factor
     invocation = [
         "srun",
-        "--cpu_bind=verbose",
+        ## "--cpu_bind=verbose",
         "--ntasks={}".format(mcscript.parameters.run.hybrid_ranks),
         "--cpus-per-task={}".format(requested_threads_per_rank),
         "--cpu_bind=cores",
