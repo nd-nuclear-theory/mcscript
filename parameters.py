@@ -11,14 +11,13 @@
     - Move run_data_string into RunParameters as method.
     - Eliminate load-time construction of global run object.
   + 1/16/17 (mac): Add support for serial_threads attribute.
-  + 3/18/17 (mac): Revise to support updated hybrid run parameters.
+  + 3/18/17 (mac):
+    - Revise to support updated hybrid run parameters.
+    - Move run parameters object instantiation back into this module.
 
 """
 
 import os
-
-import mcscript.config as config
-import mcscript.utils as utils
 
 ################################################################
 # run parameters object
@@ -84,7 +83,9 @@ class RunParameters(object):
         self.hybrid_nodesize = int(os.environ["MCSCRIPT_HYBRID_NODESIZE"])
 
         # generate local definitions
-        self.job_id = config.job_id()
+        #
+        # To be provided by local configuration init.
+        self.job_id = None
 
         # verbosity level
         #
@@ -118,3 +119,6 @@ class RunParameters(object):
             )
 
         return message
+
+# instantiate, but don't populate, since qsubm won't have needed variables in environment
+run = RunParameters()

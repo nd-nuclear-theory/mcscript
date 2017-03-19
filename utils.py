@@ -32,7 +32,7 @@ import subprocess
 import time
 import numbers
 
-import mcscript # for ScriptError
+import mcscript.exception
 
 ################################################################
 # input file generation
@@ -230,7 +230,7 @@ def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=F
         (str): first match
 
     Raises:
-         ScriptError: if no match is found
+         mcscript.exception.ScriptError: if no match is found
     """
 
     # process arguments
@@ -257,7 +257,7 @@ def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=F
 
     # fallthrough
     print("  No matching filename found...")
-    raise mcscript.ScriptError("no filename match on filename".format(filename))
+    raise mcscript.exception.ScriptError("no filename match on filename".format(filename))
 
 ################################################################
 # dictionary management

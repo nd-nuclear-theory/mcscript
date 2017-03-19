@@ -15,17 +15,14 @@ import os
 import subprocess
 import enum
 
-import mcscript.config as config
-import mcscript.parameters as parameters
-import mcscript.utils as utils
+import mcscript.config
+import mcscript.parameters
+import mcscript.utils
 
 
 ################################################################
 # initialization code
 ################################################################
-
-# force run into namespace before invocation of init()
-run = parameters.RunParameters()
 
 def init():
     """ Carry out run setup.
@@ -38,23 +35,24 @@ def init():
     # retrieve job information
     ################################################################
 
-    run.populate()
+    mcscript.parameters.run.populate()
+    mcscript.parameters.run.job_id = mcscript.config.job_id()
 
-    if (run.verbose):
+    if (mcscript.parameters.run.verbose):
         print("")
         print("-"*64),
-        print(run.run_data_string())
+        print(mcscript.parameters.run.run_data_string())
         print("-"*64),
-        print(utils.time_stamp()),
+        print(mcscript.utils.time_stamp()),
         sys.stdout.flush()
 
     ################################################################
     # make and cd to scratch directory
     ################################################################
 
-    if (not os.path.exists(run.work_dir)):
-        subprocess.call(["mkdir","--parents",run.work_dir])
-    os.chdir(run.work_dir)
+    if (not os.path.exists(mcscript.parameters.run.work_dir)):
+        subprocess.call(["mkdir","--parents",mcscript.parameters.run.work_dir])
+    os.chdir(mcscript.parameters.run.work_dir)
 
 
 
@@ -67,14 +65,14 @@ def termination():
     """Do global termination tasks."""
 
     # invoke local termination
-    config.termination()
+    mcscript.config.termination()
     # provide verbose ending
     #   only if top-level invocation of job file, not epar daughter
-    if (run.verbose):
+    if (mcscript.parameters.run.verbose):
         sys.stdout.flush()
         print("-"*64)
         print("End script")
-        print(utils.time_stamp())
+        print(mcscript.utils.time_stamp())
         print("-"*64)
     sys.stdout.flush()
 
@@ -131,13 +129,6 @@ def module(args):
 ################################################################
 # subprocess execution
 ################################################################
-
-# exception class for errors in script execution
-class ScriptError(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
 
 # enumerated type
 class CallMode(enum.Enum):
@@ -215,11 +206,11 @@ def call(
     if (mode is call.local):
         invocation = base
     elif (mode==call.serial):
-        openmp_setup(run.serial_threads)
-        invocation = config.serial_invocation(base)
+        openmp_setup(mcscript.parameters.run.serial_threads)
+        invocation = mcscript.config.serial_invocation(base)
     elif (mode==call.hybrid):
-        openmp_setup(run.hybrid_threads)
-        invocation = config.hybrid_invocation(base)
+        openmp_setup(mcscript.parameters.run.hybrid_threads)
+        invocation = mcscript.config.hybrid_invocation(base)
     else:
         raise(ValueError("invalid invocation mode"))
 
@@ -243,7 +234,7 @@ def call(
     print ("Running %s" % str(invocation))
     print ("Given standard input:")
     print (stdin_string)
-    utils.time_stamp()
+    mcscript.utils.time_stamp()
     print ("----------------------------------------------------------------")
     sys.stdout.flush()
 
@@ -278,7 +269,7 @@ def call(
 
     # finish logging
     print ("----------------------------------------------------------------")
-    utils.time_stamp()
+    mcscript.utils.time_stamp()
     print ("----------------------------------------------------------------")
     sys.stdout.flush()  # just for good measure
 

@@ -23,6 +23,11 @@
 #   import package.submodule
 #   from package.submodule import *
 
+# load parameters
+import mcscript.parameters
+
+# load local hooks
+import mcscript.config
 
 # load control functions
 #   imported into global namespace
@@ -35,4 +40,3 @@ import mcscript.utils
 
 # load task machinery submodule
 import mcscript.task
-

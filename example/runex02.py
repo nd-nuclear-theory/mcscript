@@ -239,7 +239,7 @@ def say_goodbye(task):
 
     # save results file to common results directory
     print("Saving renamed output file...")
-    results_filename = "{}-goodbye-{:s}.txt".format(mcscript.run.name,task["metadata"]["descriptor"])
+    results_filename = "{}-goodbye-{:s}.txt".format(mcscript.parameters.run.name,task["metadata"]["descriptor"])
     mcscript.call(
         [
             "cp",

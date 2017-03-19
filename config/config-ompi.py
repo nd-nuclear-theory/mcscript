@@ -16,6 +16,8 @@
 import os
 import sys
 
+import mcscript.parameters
+
 ################################################################
 ################################################################
 # scripting submission (qsubm)
@@ -62,10 +64,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 # serial jobs: nothing special
 # MPI jobs: standard mpiexec, TODO OMP
 # epar jobs: TODO
-
-
-# circular import of mcscript
-import mcscript
 
 ################################################################
 # job identification
@@ -120,7 +118,7 @@ def hybrid_invocation(base):
     # for ompi
     invocation = [
         "mpiexec",
-        "--n","{:d}".format(mcscript.run.hybrid_ranks)
+        "--n","{:d}".format(mcscript.parameters.run.hybrid_ranks)
     ]
     invocation += base
 

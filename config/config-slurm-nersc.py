@@ -13,7 +13,7 @@
 
 # Edison: 2 sockets * 12 cores * 2 hyperthreads; SLURM "CPU" is logical core (hyperthread)
 #
-#   When not hyperthreading, just take nodesize to be 24.
+#   When not hyperthreading, just take nodesize to be 24???
 #
 #   http://www.nersc.gov/users/computational-systems/edison/running-jobs/example-batch-scripts/
 
@@ -27,6 +27,9 @@
 
 import os
 import sys
+
+import mcscript.parameters
+
 
 ################################################################
 ################################################################
@@ -74,7 +77,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation += ["--time={}".format(args.wall)]
 
     # miscellaneous options
-    license_list = ["SCRATCH","project"]
+    license_list = ["SCRATCH","cscratch1","project"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
                         
     # calculate number of needed cores and nodes
@@ -112,11 +115,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 # scripting runtime (user script)
 ################################################################
 ################################################################
-
-# circular import of mcscript
-#
-# Provides access to parameters in mcscript.run.
-import mcscript
 
 ################################################################
 # job identification
@@ -167,7 +165,7 @@ def serial_invocation(base):
     #
     #   srun --export=ALL ...
 
-    if (not mcscript.run.batch_mode):
+    if (not mcscript.parameters.run.batch_mode):
         # run on front end (though might sometimes want to run on compute
         # node if have interactive allocation)
         invocation = base
@@ -179,7 +177,8 @@ def serial_invocation(base):
             "srun",
             "--ntasks={}".format(1),
             "--nodes={}".format(1),
-            "--cpus-per-task={}".format(mcscript.run.hybrid_nodesize),
+            "--cpus-per-task={}".format(mcscript.parameters.run.hybrid_nodesize),
+            "--cpu_bind=cores",
             "--export=ALL"
         ]
 
@@ -199,20 +198,22 @@ def hybrid_invocation(base):
 
     # calculate number of needed cores and nodes
     undersubscription_factor = 1
-    needed_threads = mcscript.run.hybrid_rank * mcscript.run.hybrid_threads * undersubscription_factor
-    needed_nodes = (needed_threads // mcscript.run.hybrid_nodesize) + int((needed_threads % mcscript.run.hybrid_nodesize) != 0)
+    needed_threads = mcscript.parameters.run.hybrid_ranks * mcscript.parameters.run.hybrid_threads * undersubscription_factor
+    print("nodesize",mcscript.parameters.run.hybrid_nodesize)
+    needed_nodes = (needed_threads // mcscript.parameters.run.hybrid_nodesize) + int((needed_threads % mcscript.parameters.run.hybrid_nodesize) != 0)
 
     # note: may need to be revised to enable hyperthreading, i.e.,
     # to provide different depth in OMP_NUM_THREADS and in srun
 
     # for ompi
+    requested_threads_per_rank = mcscript.parameters.run.hybrid_threads*undersubscription_factor
     invocation = [
         "srun",
         "--cpu_bind=verbose",
-        "--ntasks={}".format(mcscript.run.hybrid_ranks),
-        "--nodes={}".format(needed_nodes),  # supposedly extraneous in Edison example scripts
-        "--cpu_bind=cores",  # recommended for Cori Haswell, if MPI tasks per node do not divide 64, not exceeding physical CPUs (32/node)
-        "--cpus-per-task={}".format(mcscript.run.hybrid_ranks*undersubscription_factor)  # basic Edison approach; needs modification on Cori if not "packed"
+        "--ntasks={}".format(mcscript.parameters.run.hybrid_ranks),
+        "--cpus-per-task={}".format(requested_threads_per_rank),
+        "--cpu_bind=cores",
+        "--export=ALL"
     ]
     invocation += base
 
@@ -230,22 +231,20 @@ def init():
     """
 
     # set node size based on environment
-    mcscript.run.hybrid_nodesize = None
+    mcscript.parameters.run.hybrid_nodesize = None
     if (os.getenv("NERSC_HOST")=="edison"):
-        mcscript.run.hybrid_nodesize = 24*2
+        mcscript.parameters.run.hybrid_nodesize = 24*2
     elif (os.getenv("NERSC_HOST")=="cori"):
         if (os.getenv("CRAY_CPU_TARGET")=="haswell"):
-            mcscript.run.hybrid_nodesize = 32*2
+            mcscript.parameters.run.hybrid_nodesize = 32*2
         elif (os.getenv("CRAY_CPU_TARGET")=="haswell"):
-            mcscript.run.hybrid_nodesize = 64*4
+            mcscript.parameters.run.hybrid_nodesize = 64*4
             
     # Cori recommended thread affinity settings
 
     # TODO: wrap in special config command for offline support
     os.environ["OMP_PROC_BIND"] = "spread"
     os.environ["OMP_PLACES"] = "threads"
-
-    # determine node size
 
 def termination():
     """ Do any local termination tasks.

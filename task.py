@@ -45,9 +45,11 @@ import os
 import sys
 import time
 
-# Circular import:
-#   Should load after mcscript base definitions and utilities are already loaded.
-import mcscript
+
+import mcscript.control
+import mcscript.exception
+import mcscript.parameters
+import mcscript.utils
 
 ################################################################
 # task special run modes
@@ -105,8 +107,8 @@ def task_read_env():
     task_parameters["mode"] = TaskMode(int(os.environ["MCSCRIPT_TASK_MODE"]))
     task_parameters["phase"] = int(os.environ.get("MCSCRIPT_TASK_PHASE",0))
     task_parameters["pool"] = os.environ.get("MCSCRIPT_TASK_POOL")
-    task_parameters["count_limit"] = os.environ.get("MCSCRIPT_TASK_COUNT_LIMIT")
-    task_parameters["start_index"] = os.environ.get("MCSCRIPT_TASK_START_INDEX",0)
+    task_parameters["count_limit"] = int(os.environ.get("MCSCRIPT_TASK_COUNT_LIMIT",-1))
+    task_parameters["start_index"] = int(os.environ.get("MCSCRIPT_TASK_START_INDEX",0))
     task_parameters["redirect"] = bool(os.environ.get("MCSCRIPT_TASK_REDIRECT"))
 
     return task_parameters
@@ -181,24 +183,24 @@ def archive_handler_generic():
     # make archive -- whole dir
     work_dir_parent = os.path.join(task_root_dir,"..")
     archive_filename = os.path.join(
-        mcscript.task.archive_dir,
-        "{:s}-archive-{:s}.tgz".format(mcscript.run.name, mcscript.utils.date_tag())
+        archive_dir,
+        "{:s}-archive-{:s}.tgz".format(mcscript.parameters.run.name, mcscript.utils.date_tag())
         )
-    toc_filename = "{}.toc".format(mcscript.run.name)
+    toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     filename_list = [
-        os.path.join(mcscript.run.name,toc_filename),
-        os.path.join(mcscript.run.name,"flags"),
-        os.path.join(mcscript.run.name,"output"),
-        os.path.join(mcscript.run.name,"batch"),
-        os.path.join(mcscript.run.name,"results")
+        os.path.join(mcscript.parameters.run.name,toc_filename),
+        os.path.join(mcscript.parameters.run.name,"flags"),
+        os.path.join(mcscript.parameters.run.name,"output"),
+        os.path.join(mcscript.parameters.run.name,"batch"),
+        os.path.join(mcscript.parameters.run.name,"results")
         ]
-    mcscript.call(
+    mcscript.control.call(
         ["tar", "zcvf", archive_filename ] + filename_list,
         cwd=work_dir_parent,check_return=True
         )
 
     # copy archive out to home results archive directory
-    ## mcscript.call(["cp","-v",archive_filename,"-t",ncsm_config.data_dir_results_archive], cwd=mcscript.task.results_dir)
+    ## mcscript.control.call(["cp","-v",archive_filename,"-t",ncsm_config.data_dir_results_archive], cwd=mcscript.task.results_dir)
 
     ## # put to hsi
     ## hsi_subdir = "2013"
@@ -222,7 +224,7 @@ def archive_handler_hsi():
         archive_directory=os.path.dirname(archive_filename),
         hsi_subdir=hsi_subdir
     )
-    mcscript.call(["hsi",hsi_argument])
+    mcscript.control.call(["hsi",hsi_argument])
 
     return archive_filename
 
@@ -258,7 +260,7 @@ def task_toc(task_list,phases):
     """
 
     lines = [
-        "Run: {:s}".format(mcscript.run.name),
+        "Run: {:s}".format(mcscript.parameters.run.name),
         "{:s}".format(time.asctime()),
         "Tasks: {:d}".format(len(task_list)),
         ]
@@ -364,21 +366,21 @@ def get_lock(task_index,task_phase):
 
     # preliminary lock
     lock_stream = open(flag_base+".lock", "w")
-    lock_stream.write("{}".format(mcscript.run.job_id))  # omit newline since will do string comparison below
+    lock_stream.write("{}".format(mcscript.parameters.run.job_id))  # omit newline since will do string comparison below
     lock_stream.close()
     # make sure lock was successful
-    if (mcscript.run.batch_mode):
+    if (mcscript.parameters.run.batch_mode):
         # only need to worry about locking clash when jobs start simultaneously in batch mode
         wait_time = 3
         time.sleep(wait_time)
         lock_stream = open(flag_base+".lock", "r")
         line = lock_stream.readline()
         lock_stream.close()
-        if (line == mcscript.run.job_id):
+        if (line == mcscript.parameters.run.job_id):
             print("Lock was apparently successful...")
         else:
-            print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(mcscript.run.job_id,line))
-            raise mcscript.ScriptError("Yielding lock to other instance")
+            print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(mcscript.parameters.run.job_id,line))
+            raise mcscript.exception.ScriptError("Yielding lock to other instance")
 
     # write expanded lock contents
     lock_stream = open(flag_base+".lock","a")
@@ -437,7 +439,7 @@ def write_toc(task_list,phases):
     """
     
     # write current toc
-    toc_filename = "{}.toc".format(mcscript.run.name)
+    toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     toc_stream = open(toc_filename, "w")
     toc_stream.write(task_toc(task_list,phases))
     toc_stream.close()
@@ -510,7 +512,7 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
     remaining_pool_task_indices = [
         task_index
         for task_index in range(prior_task_index+1,len(task_list))
-        if ((task_list[task_index]["pool"] == task_pool) or (task_pool == "ALL"))
+        if ((task_list[task_index]["metadata"]["pool"] == task_pool) or (task_pool == "ALL"))
         ]
     ## DEBUG: print pool_task_indices
 
@@ -592,7 +594,7 @@ def do_task(task_parameters,task,phase_handlers):
         print("task {} phase {}".format(task_index,task_phase))
         print(task["metadata"]["descriptor"])
         print(64*"-")
-        print(mcscript.run.run_data_string())
+        print(mcscript.parameters.run.run_data_string())
         print(mcscript.utils.time_stamp())
         print(64*"-")
         print()
@@ -601,7 +603,7 @@ def do_task(task_parameters,task,phase_handlers):
     # invoke task handler
     try:
         phase_handlers[task_phase](task)
-    except mcscript.ScriptError as err:
+    except mcscript.exception.ScriptError as err:
         # on failure, flag failure and propagate exception so script terminates
         print("ScriptError:", err)
         if (task_mode == "normal"):
@@ -685,8 +687,8 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
     task_count_limit = task_parameters["count_limit"]
 
     # epar diagnostics
-    ## if (mcscript.run.parallel_epar != -1):
-    ##     print("In epar task_master ({:d})...".format(mcscript.run.epar_rank))
+    ## if (mcscript.parameters.run.parallel_epar != -1):
+    ##     print("In epar task_master ({:d})...".format(mcscript.parameters.run.epar_rank))
     ##     sys.stdout.flush()
 
     task_index = task_start_index-1  # "last run task" for seeking purposes
@@ -696,13 +698,13 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
     while (True):
 
         # check limits
-        if (not ( (task_count_limit is None) or (task_count < task_count_limit) ) ):
+        if (not ( (task_count_limit == -1) or (task_count < task_count_limit) ) ):
             print("Reached task count limit.")
             break
 
         # check remaining time
         loop_elapsed_time = time.time() - loop_start_time
-        remaining_time = mcscript.run.wall_time_sec - loop_elapsed_time
+        remaining_time = mcscript.parameters.run.wall_time_sec - loop_elapsed_time
         safety_factor = 1.1
         required_time = task_time*safety_factor
         print()
@@ -772,7 +774,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
     elif ((task_mode == TaskMode.kRun) or (task_mode == TaskMode.kOffline)):
         invoke_tasks_run(task_parameters,task_list,phase_handlers)
     else:
-        raise(mcscript.ScriptError("Unsupported run mode: {:s}".format(task_mode)))
+        raise(mcscript.exception.ScriptError("Unsupported run mode: {:s}".format(task_mode)))
 
 
 ################################################################
@@ -811,11 +813,11 @@ def init(
     # user code will need modification.
 
     global task_root_dir, flag_dir, output_dir, results_dir, archive_dir
-    task_root_dir = mcscript.run.work_dir
-    flag_dir = os.path.join(mcscript.run.work_dir,"flags")
-    output_dir = os.path.join(mcscript.run.work_dir,"output")
-    results_dir = os.path.join(mcscript.run.work_dir,"results")
-    archive_dir = os.path.join(mcscript.run.work_dir,"archive")
+    task_root_dir = mcscript.parameters.run.work_dir
+    flag_dir = os.path.join(mcscript.parameters.run.work_dir,"flags")
+    output_dir = os.path.join(mcscript.parameters.run.work_dir,"output")
+    results_dir = os.path.join(mcscript.parameters.run.work_dir,"results")
+    archive_dir = os.path.join(mcscript.parameters.run.work_dir,"archive")
 
     # task environment variable communication
     task_parameters = task_read_env()
