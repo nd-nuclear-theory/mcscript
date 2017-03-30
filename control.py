@@ -7,6 +7,7 @@
 
   6/13/16 (mac): Extract from mcscript.py.
   1/8/17 (mac): Simplify omp_setup to just set OMP_NUM_THREADS.
+  3/30/17 (pjf): Use fully-qualified name for mcscript.exception.ScriptError.
 
 """
 
@@ -18,6 +19,7 @@ import enum
 import mcscript.config
 import mcscript.parameters
 import mcscript.utils
+import mcscript.exception
 
 
 ################################################################
@@ -185,7 +187,7 @@ def call(
     Exceptions:
 
         If check_return is set and subprocess return is nonzero,
-        raises a ScriptError exception.  Also raises a ScriptError
+        raises a mcscript.exception.ScriptError exception.  Also raises a mcscript.exception.ScriptError
         exception if subprocess cannot be invoked in the first place.
 
     Limitations:
@@ -250,7 +252,7 @@ def call(
             )
     except OSError as err:
         print ("Execution failed:", err)
-        raise ScriptError("execution failure")
+        raise mcscript.exception.ScriptError("execution failure")
 
     # communicate with process
     (stdout_bytes,stderr_bytes) = process.communicate(input=stdin_bytes)
@@ -274,7 +276,7 @@ def call(
 
     # return (or abort)
     if ( check_return and (returncode != 0) ):
-        raise ScriptError("nonzero return")
+        raise mcscript.exception.ScriptError("nonzero return")
 
     return stdout_string
 
