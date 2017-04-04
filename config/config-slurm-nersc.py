@@ -212,9 +212,14 @@ def hybrid_invocation(base):
         ## "--cpu_bind=verbose",
         "--ntasks={}".format(mcscript.parameters.run.hybrid_ranks),
         "--cpus-per-task={}".format(requested_threads_per_rank),
-        "--cpu_bind=cores",
         "--export=ALL"
     ]
+    if (os.getenv("NERSC_HOST")=="cori"):
+        # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
+        invocation += [
+            "--cpu_bind=cores"
+        ]
+
     invocation += base
 
     return invocation
