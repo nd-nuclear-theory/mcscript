@@ -3,7 +3,7 @@
     Meant to be loaded as part of mcscript.  Provides the
     mcscript.task.* definitions in mcscript.
 
-    Globals: requires attributes of mcscript.run to be populated 
+    Globals: requires attributes of mcscript.run to be populated
 
     Language: Python 3
 
@@ -63,16 +63,16 @@ class TaskMode(enum.Enum):
     kPrerun = 4
     kOffline = 5
 
-## ################################################################
-## # global storage
-## ################################################################
-## 
-## # directory structure -- global definitions
-## task_root_dir = None
-## flag_dir = None
-## output_dir = None
-## results_dir = None
-## archive_dir = None
+################################################################
+# global storage
+################################################################
+
+# directory structure -- global definitions
+task_root_dir = None
+flag_dir = None
+output_dir = None
+results_dir = None
+archive_dir = None
 
 
 ################################################################
@@ -146,7 +146,7 @@ def archive_handler_generic():
     to the run's archive directory.
 
     A fresh TOC file is generated before archiving.
-    
+
     That is, the archive contains everything except the archive
     directory and task work directories.  The result is placed in the
     archive directory.  This is just a local archive in scratch, so
@@ -154,8 +154,8 @@ def archive_handler_generic():
     permanently to, e.g., a home directory or tape storage.
 
     The files in the archive are of the form runxxxx/results/*, etc.
-    
-    Known issue: The tar call is liable to failure with exit code 1, e.g.: 
+
+    Known issue: The tar call is liable to failure with exit code 1, e.g.:
 
        tar: run0235/flags: file changed as we read it
 
@@ -165,7 +165,7 @@ def archive_handler_generic():
     running archive phases in parallel with each other or, of course,
     runs of regular tasks.
 
-    Known issue: The tar call is *still* liable to failure with exit code 1, e.g.: 
+    Known issue: The tar call is *still* liable to failure with exit code 1, e.g.:
 
        tar: run0318/batch/1957945.edique02.ER: file changed as we read it
 
@@ -179,7 +179,7 @@ def archive_handler_generic():
             wrapped in larger task handler)
 
     """
-    
+
     # make archive -- whole dir
     work_dir_parent = os.path.join(task_root_dir,"..")
     archive_filename = os.path.join(
@@ -216,7 +216,7 @@ def archive_handler_hsi():
 
     # make archive -- whole dir
     archive_filename = mcscript.task.archive_handler_generic()
-   
+
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
     hsi_argument = "lcd {archive_directory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
@@ -285,7 +285,7 @@ def task_toc(task_list,phases):
 def task_unlock():
     """ Remove all lock and fail flags.
     """
-    
+
     flag_files = glob.glob(os.path.join(flag_dir,"task*.lock")) + glob.glob(os.path.join(flag_dir,"task*.fail"))
     print("Removing lock/fail files:", flag_files)
     for flag_file in flag_files:
@@ -437,19 +437,19 @@ def write_toc(task_list,phases):
     Returns:
         (str): toc filename, sans path (as convenience to caller)
     """
-    
+
     # write current toc
     toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     toc_stream = open(toc_filename, "w")
     toc_stream.write(task_toc(task_list,phases))
     toc_stream.close()
 
-    # return filename 
+    # return filename
     return toc_filename
 
 def do_archive(task_parameters,archive_phase_handlers):
     """ do_archive() --> time sets up the archive task/phase, calls its handler, and closes up
-    
+
     The phase handler is called
 
     Arguments:
@@ -477,7 +477,7 @@ def do_archive(task_parameters,archive_phase_handlers):
     sys.stdout = open(output_filename, "w")
     archive_phase_handlers[task_phase]()
     sys.stdout = saved_stdout
-    
+
     # process timing
     task_end_time = time.time()
     task_time = task_end_time - task_start_time
@@ -538,7 +538,7 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
 
 def do_task(task_parameters,task,phase_handlers):
     """ do_task() --> time sets up a task/phase, calls its handler, and closes up
-    
+
     The current working directory is changed to the task directory.
     A lock file is created for the task and phase.
     The phase handler is called.
@@ -741,7 +741,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
 
     Globals:
         ...
-    
+
     Arguments:
         ...
     """
@@ -821,7 +821,7 @@ def init(
 
     # task environment variable communication
     task_parameters = task_read_env()
-    
+
     # set up task directories
     make_task_dirs()
 
