@@ -2,28 +2,25 @@
 
   Example hybrid parallel hello world run.
 
-  Retrieve code from:
+  First compile hello-hybrid.cpp:
 
-    http://www.slac.stanford.edu/comp/unix/farm/mpi_and_openmp.html
+    mpicxx -fopenmp hello-hybrid.cpp -o hello-hybrid
 
-    mpicc -fopenmp hello_hybrid.c -o hello_hybrid
-    setenv OMP_NUM_THREADS 2
-    mpirun -n 2 -x OMP_NUM_THREADS ./hello_hybrid
-
-  Here are some parallelization possibilities (for the nodesize
-  option, you will usually want to use the number of cores per node):
+  Here are some parallelization possibilities (depending on your
+  mcscript local configuration, you might need to specify --nodes or
+  --nodesize options, too):
 
   Pure OpenMP...
 
-  % qsubm ex03 --depth=4 --nodesize=24
+  % qsubm ex03 --threads=4
 
   Pure MPI...
 
-  % qsubm ex03 --width=4 --nodesize=24
+  % qsubm ex03 --ranks=4
 
-  Hybrid MPI/OpenMP...
+  Hybrid MPI/OpenMP (on single node)...
 
-  % qsubm ex03 --width=2 --depth=2 --nodesize=24
+  % qsubm ex03 --ranks=2 --threads=4
 
   Language: Python 3
 
@@ -32,6 +29,7 @@
 
   11/22/16 (mac): Created (runex02.py).
   1/8/17 (mac): Rename to runex03.py.
+  4/22/17 (mac): Update to use our test code hello-hybrid.cpp.
 
 """
 
@@ -57,8 +55,8 @@ mcscript.init()
 #
 #   See the docstring for mcscript.call for further information.
 
-filename = os.path.join(os.environ["MCSCRIPT_DIR"],"example","hello_hybrid")
-mcscript.call([filename],mode=mcscript.call.hybrid)
+executable_filename = os.path.join(os.environ["MCSCRIPT_DIR"],"example","hello-hybrid")
+mcscript.call([executable_filename],mode=mcscript.call.hybrid)
 
 ################################################################
 # termination
