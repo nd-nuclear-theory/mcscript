@@ -2,79 +2,84 @@
 
     mcscript definitions for Univa Grid Engine at the Notre Dame CRC
 
-
-    Example:
-
-        # environment configuration -- put this in your .cshrc
-        setenv MCSCRIPT_DIR ${HOME}/projects/mcscript
-        setenv MCSCRIPT_RUN_HOME ${HOME}/runs
-        setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
-        setenv MCSCRIPT_RUN_PREFIX run
-        setenv MCSCRIPT_PYTHON python3
-        setenv PATH ${MCSCRIPT_DIR}/tools:${PATH}
-        setenv PYTHONPATH ${MCSCRIPT_DIR}/..:${PYTHONPATH}
-
-        # link to local config
-        cd projects/mcscript
-        ln -s config/config-uge-ndcrc.py config.py
- 
-        # build hybrid test program
-        cd example
-        module load ompi/1.10.2-gcc-4.9.2
-        mpicc -fopenmp hello_hybrid.c -o hello_hybrid
-        cd ..
-
-        # load python3
-        #   must do *after* loading gcc 4.9.2 due to version conflict
-        module load python/3.4.0
-        
-        qsubm ex00
-        qsubm ex01 --toc
-        qsubm ex01 --pool="greet"
-        qsubm ex02 --width=4
-        qsubm ex02 --width=4 --depth=2
-
-
     Language: Python 3
+
     Mark A. Caprio
     University of Notre Dame
 
     + 11/22/16 (mac): Created, based on qsubm_local_ndcrc.py and
       mcscript_local_ndcrc.py (originated ~7/13 and last modified
       ~12/14).
+    + 4/22/17 (mac):
+      - Update use of mcscript configuration variables.
+      - Add automatic queue sensing and revise calculation of run size parameters.
+      - Try out binding.
 
 """
 
+# Notes:
+#
+# Node size is calculated based on queue:
+#
+#   We currently ignore hyperthreading?
+#
+#   long/debug: 2x12=24
+#   infiniband: 2x4=8
+#
+# Wall time is not communicated in queue request but is passed on to script.
+#
+# Note: Currently only support mpi environment, not smp environment.
+#
+# We currently grab an integer number of nodes.  This doesn't support
+# cluster-style sharing of nodes by serial jobs.
+
+# Queues as of 4/22/17:
+#
+#   http://wiki.crc.nd.edu/wiki/index.php/Available_Hardware
+#   
+#   General Access Compute Clusters
+#   
+#   d12chas332-d12chas519.crc.nd.edu
+#   
+#    176 Dell PowerEdge R730 Servers 
+#    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
+#    256 GB RAM  -  1.4TB Solid State Disk - SSD
+#    Usage:  Queue syntax for job submission script:
+#       #$ -q long
+#       or
+#       #$ -q *@@general_access 
+#   
+#   d12chas520-d12chas543.crc.nd.edu
+#   
+#    24 Dell PowerEdge R730 Servers 
+#    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
+#    64 GB RAM  -  1.4TB Solid State Disk - SSD   
+#    Usage:  Queue syntax for job submission script:
+#       #$ -q debug 
+#       
+#   
+#   dqcneh075-104.crc.nd.edu CRC General Access (with Infiniband interconnection network, available upon request)
+#   
+#   30 IBM I-dataplex
+#   Dual Quad-core 2.53 GHz Intel Nehalem processors 
+#   Qlogic QDR Infiniband Non-Blocking  HBA
+#   12 GB RAM
+#   Usage:  Queue syntax for job submission script:
+#       #$ -q *@@dqcneh_253GHZ 
+
+
+
+
 import os
 import sys
+
+import mcscript.parameters
 
 ################################################################
 ################################################################
 # scripting submission (qsubm)
 ################################################################
 ################################################################
-
-#  NDCRC: To select hardware via pe request, set nodesize.  Then,
-#  optionally, specify width/depth.  These determine node reservation
-#  via pe request, plus they are passed to run script via environment
-#  to allow determination of MPI/OMP parameters.
-#
-#  Wall time is not communicated in queue request but is passed on to script.
-#
-#  Note: Currently only support mpi environment, not smp environment.
-#
-#  EX: MPI on HPC cluster (8-core)
-#
-#      qsubm 0290 long 1440 --width=231 --nodesize=8 --pool=Nmax06
-#
-#  EX: OpenMP on any available 12-core cluster (12-core)
-#
-#      qsubm 0298 long --depth=12 --nodesize=12 --pool=Nmax06 
-#
-#  EX: default single core request on long cluster (12-core),
-#  script MPI call uses default width 1
-#
-#      qsubm 0291 long 30 --pool=Nmax04
 
 def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     """Prepare submission command invocation.
@@ -103,18 +108,26 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     """
 
-    # assert not epar
-    if (args.epar is not None):
-        raise(ValueError("epar presently not supported by this scripting"))
+    # deduce queue properties
+    queues = {
+        "long" : ("*@@general_access",24),
+        "debug" : ("debug",24),
+        "infiniband" : ("*@@dqcneh_253GHZ",8)
+    }
+    if (args.queue not in queues):
+        raise(ValueError("unrecognized queue name"))
+    (queue_identifier,nodesize) = queues[args.queue]
+    print("Deduced queue properties: identifier {}, nodesize {}".format(queue_identifier,nodesize))
+    environment_definitions.append("MCSCRIPT_HYBRID_NODESIZE={:d}".format(nodesize))
 
     # start accumulating command line
     submission_invocation = [ "qsub" ]
 
     # job name
-    submission_invocation += ["-N", "%s" % job_name]
+    submission_invocation += ["-N {}".format(job_name)]
 
     # queue
-    submission_invocation += ["-q", "%s" % args.queue]
+    submission_invocation += ["-q {}".format(queue_identifier)]
 
     # wall time
     pass  # enforced by queue
@@ -122,34 +135,18 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # miscellaneous options
     submission_invocation += ["-j","y"]  # merge standard error
     submission_invocation += ["-r","n"]  # job not restartable
-                        
-    # parallel environment
-    if (  not ( (args.epar is None) and (args.hybrid_ranks == 1) and (args.hybrid_threads == 1) and (args.hybrid_nodesize == None) ) ):
 
-        # check that nodesize was specified
-        if (args.hybrid_nodesize is None):
-            print ("Please specify --nodesize for parallel run on NDCRC.")
-            sys.exit(1)
+    # generate parallel environment specifier
+    needed_cores = args.ranks * args.threads
+    rounded_cores = nodesize * (needed_cores // nodesize)
+    if ((needed_cores % nodesize) != 0):
+        rounded_cores += nodesize
 
-        # calculate number of needed cores
-        needed_cores = args.hybrid_ranks * args.hybrid_threads
-        rounded_cores = args.hybrid_nodesize * (needed_cores // args.hybrid_nodesize)
-        if ((needed_cores % args.hybrid_nodesize) != 0):
-            rounded_cores += args.hybrid_nodesize
-
-        # generate parallel environment specifier
-        if (args.hybrid_ranks != 1):
-            # handle mpi run
-            submission_invocation += [
-                "-pe",
-                "mpi-{nodesize:d} {rounded_cores:d}".format(nodesize=args.hybrid_nodesize,rounded_cores=rounded_cores)
-            ]
-        elif (args.hybrid_threads != 1):
-            # handle smp run
-            submission_invocation += [
-                "-pe",
-                "smp {nodesize:d}".format(nodesize=args.hybrid_nodesize)
-            ]
+    # generate parallel environment specifier
+    submission_invocation += [
+        "-pe",
+        "mpi-{nodesize:d} {rounded_cores:d}".format(nodesize=nodesize,rounded_cores=rounded_cores)
+    ]
 
     # append user-specified arguments
     if (args.opt is not None):
@@ -161,13 +158,17 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         ",".join(environment_definitions)
     ]
 
+    # wrapper call
+    #
+    # calls interpreter explicitly, so do not have to rely upon default python
+    #   version or shebang line in script
     submission_invocation += [
-        os.path.join(qsubm_path,"csh_job_wrapper.csh"),  # csh wrapper required at NDCRC
-        os.environ["MCSCRIPT_PYTHON"], # call interpreter, so py file does not need to be executable
+        os.path.join(qsubm_path,"csh_job_wrapper.csh"),
+        os.environ["MCSCRIPT_PYTHON"],
         job_file
     ]
 
-    # stdin to qsubm
+    # standard input for submission
     submission_string = ""
 
     return (submission_invocation,submission_string)
@@ -178,9 +179,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 # scripting runtime (user script)
 ################################################################
 ################################################################
-
-# circular import of mcscript
-import mcscript
 
 ################################################################
 # job identification
@@ -228,13 +226,71 @@ def hybrid_invocation(base):
     """
 
     # for ompi
-    invocation = [
-        "mpiexec",
-        "--report-bindings",
-        "--n","{:d}".format(mcscript.run.hybrid_ranks),
-        "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(mcscript.run.hybrid_ranks)  # TODO fix up use of new binding syntax
-    ]
-    ##print("WARNING: TODO still need to fix binding syntax for parallel depth in config-uge-ndcrc")
+    #
+    # https://www.mail-archive.com/users@lists.open-mpi.org/msg28276.html
+    #
+    # Ex: ppr:2:socket:pe=7
+    #   "processes per resource" -- resource=socket, processes=2
+    #   "processing elements" -- threads=7
+
+    # Why does this fail?
+    #
+    #   "--map-by","ppr:{:d}:node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource,processing_elements_per_rank)
+
+    #
+    # An invalid value was given for the number of processes
+    # per resource (ppr) to be mapped on each node:
+    # 
+    #   PPR:  6:node:pe=4
+    # 
+    # The specification must be a comma-separated list containing
+    # combinations of number, followed by a colon, followed
+    # by the resource type. For example, a value of "1:socket" indicates that
+    # one process is to be mapped onto each socket. Values are supported
+    # for hwthread, core, L1-3 caches, socket, numa, and node. Note that
+    # enough characters must be provided to clearly specify the desired
+    # resource (e.g., "nu" for "numa").
+
+    # Works but bad mapping, since ignores proper spacing and binding...
+    #             "--map-by","ppr:{:d}:node:NOOVERSUBSCRIBE".format(processes_per_resource)
+
+    # This may work, but gets warning message on one node and untested on multiple nodes...
+    #
+    #   WARNING: a request was made to bind a process. While the system
+    #   supports binding the process itself, at least one node does NOT
+    #   support binding memory to the process location.
+    
+    #             "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
+
+
+    # TODO:
+    #   - redo binding by socket (default)
+    #   - fix PE thread spacing
+    #   - consider hyperthreading? 
+
+    undersubscription_factor = 1
+    processing_elements_per_rank = mcscript.parameters.run.hybrid_threads*undersubscription_factor
+    processes_per_resource = mcscript.parameters.run.hybrid_nodesize // processing_elements_per_rank
+
+    if (processes_per_resource > 1):
+        print("WARNING: NDCRC mpiexec binding is not yet set up properly for more than one thread per process!!!")
+
+    if (not mcscript.parameters.run.batch_mode):
+        # run on front end
+        #
+        # skip bindings
+        invocation = [
+            "mpiexec",
+            "--n","{:d}".format(mcscript.parameters.run.hybrid_ranks),
+        ]
+    else:
+        # run on compute node
+        invocation = [
+            "mpiexec",
+            "--report-bindings",
+            "--n","{:d}".format(mcscript.parameters.run.hybrid_ranks),
+            "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
+        ]
     invocation += base
 
     return invocation
@@ -249,6 +305,10 @@ def init():
     Invoked after mcscript sets the various configuration variables
     and changed the cwd to the scratch directory.
     """
+
+    # thread affinity settings
+    os.environ["OMP_PROC_BIND"] = "spread"
+    os.environ["OMP_PLACES"] = "threads"
 
     pass
 

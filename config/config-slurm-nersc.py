@@ -3,24 +3,28 @@
     mcscript definitions for SLURM at NERSC
 
     Language: Python 3
+
     Mark A. Caprio
     University of Notre Dame
 
     + 12/29/16 (mac): Created, based on config-uge-ndcrc.py.
-
+    + 3/18/17 (mac):
+      - Update use of mcscript configuration variables.  
+      - Fix pass-through of environment variables.
+      - Switch to node-based allocation.
+    + 4/3/17 (mac): Disable cpu binding for edison.
 """
 
-
+# Notes:
+#
 # Edison: 2 sockets * 12 cores * 2 hyperthreads; SLURM "CPU" is logical core (hyperthread)
 #
-#   When not hyperthreading, just take nodesize to be 24???
-#
 #   http://www.nersc.gov/users/computational-systems/edison/running-jobs/example-batch-scripts/
-
+#
 # Cori Haswell
 #
 # http://www.nersc.gov/users/computational-systems/cori/running-jobs/general-running-jobs-recommendations/
-
+#
 # Common options:
 #
 # --opt="--mail-type=ALL"
@@ -104,7 +108,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         job_file
     ]
 
-    # stdin to qsubm
+    # standard input for submission
     submission_string = ""
 
     return (submission_invocation,submission_string)
