@@ -113,12 +113,18 @@ Department of Physics, University of Notre Dame
   from your .cshrc file.
 
   || @NDCRC: We need to load all required run modules at run time --
-  || python, ompi, etc.  Experimental solution:
+  || python, ompi, etc.  We don't have an elegant, general solution
+  || yet.  The ad hoc solution is simply to load the relevant modules
+  || from your .cshrc file:
   ||
   ||  setenv MCSCRIPT_SOURCE ${HOME}/projects/shell/config/module-load-ndcrc.csh
   ||
-  || But it may be more appropriate to define a per-job module
-  || load/swap/unload list to be handled within mcscript.init.
+  || Of course, this assumes you always want these modules loaded, for
+  || whatever code you might be running.  You may not be so lucky.
+  ||
+  || Future code development: It may therefore be more appropriate to
+  || define a per-job module load/swap/unload list to be handled
+  || within mcscript.init.
 
 4) Basic tests
 
