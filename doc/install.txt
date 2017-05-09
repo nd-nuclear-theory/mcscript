@@ -7,7 +7,7 @@ Department of Physics, University of Notre Dame
 1/18/17 (mac): Remove MFDn environment example.
 2/23/17 (mac): Clarify configuration instructions.
 2/25/17 (mac): Add note about python availability on compute node.
-5/9/17 (mac): Add bash instructions.
+5/9/17 (mac): Add bash instructions.  Expand discussion of examples.
 
 ----------------------------------------------------------------
 
@@ -132,7 +132,12 @@ Department of Physics, University of Notre Dame
   % ln -s ${MCSCRIPT_DIR}/example/runex02.py
   % ln -s ${MCSCRIPT_DIR}/example/runex03.py
 
-  The first example does not require any special options, e.g.,
+  - - - -
+
+  Example 01
+
+  This is a simple "hello world" example.  It does not require any
+  special options, e.g.,
 
   % qsubm ex01
 
@@ -140,12 +145,36 @@ Department of Physics, University of Notre Dame
   about your current working directory.  It will look for the scripts
   in ${MCSCRIPT_RUN_HOME} regardless.
 
-  For the subsequent examples, see the docstring at the top comments
-  in each of these example files for information on which arguments to
-  try out when invoking them, e.g.,
+  - - - -
+
+  Example 02
+
+  This is an expanded "hello world" example, which demonstrates the
+  "multi-task" functionality of mcscript.
+
+  Please read the detailed instructions in the docstring at the top of
+  example/runex02.py.  You will want to try out the various options to
+  qsubm, as outlined in the instructions for the example, e.g.,
 
   % qsubm ex02 --toc
 
-  To run the hybrid parallel example (runex03.py), you will need to
-  first obtain and compile the example code hello_hybrid.c as
-  described in the docstring of example/runex02.py.
+  - - - -
+
+  Example 03
+
+  This is a simple test for hybrid parallel (OpenMP/MPI) execution.
+
+  Please read the detailed instructions in the docstring at the top of
+  example/runex03.py.
+
+  Note that you will first need to first compile the example code
+  hello-hybrid.cpp, as described in the docstring of
+  example/runex03.py.
+
+  - - - -
+
+  Example 04
+
+  This is mainly a debugging script to use if you are uncertain which
+  environment variables are being passed through to the batch
+  environment, in various operating modes.
