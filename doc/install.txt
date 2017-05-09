@@ -7,6 +7,7 @@ Department of Physics, University of Notre Dame
 1/18/17 (mac): Remove MFDn environment example.
 2/23/17 (mac): Clarify configuration instructions.
 2/25/17 (mac): Add note about python availability on compute node.
+5/9/17 (mac): Add bash instructions.
 
 ----------------------------------------------------------------
 
@@ -70,7 +71,8 @@ Department of Physics, University of Notre Dame
 3) Environment variables
 
   In your csh initialization file, define initialization as follows
-  (adjusting directory names to match your choices as appropriate):
+  (adjusting directory names to match your own choices as
+  appropriate):
 
     # mcscript
     setenv MCSCRIPT_DIR ${HOME}/projects/mcscript
@@ -79,6 +81,18 @@ Department of Physics, University of Notre Dame
     setenv MCSCRIPT_RUN_PREFIX run
     setenv MCSCRIPT_PYTHON python3
     source ${MCSCRIPT_DIR}/mcscript_init.csh
+
+  Alternatively, if your default shell is bash (we translate the
+  setenv statements above into export statements and invoke the
+  alternative initialization script file mcscript_init.sh):
+
+    # mcscript
+    export MCSCRIPT_DIR=${HOME}/projects/mcscript
+    export MCSCRIPT_RUN_HOME=${HOME}/runs
+    export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
+    export MCSCRIPT_RUN_PREFIX=run
+    export MCSCRIPT_PYTHON=python3
+    source ${MCSCRIPT_DIR}/mcscript_init.sh
 
   A description of these (and other) environment variables may be
   found by invoking the qsubm help:
