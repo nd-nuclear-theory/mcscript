@@ -295,7 +295,7 @@ if (args.start is not None):
     environment_definitions.append("MCSCRIPT_TASK_START_INDEX={:d}".format(args.start))
 if (args.limit is not None):
     environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT={:d}".format(args.limit))
-environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:b}".format(args.redirect=="True"))
+environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:s}".format(args.redirect))
 
 
 # set user-specified variable definitions

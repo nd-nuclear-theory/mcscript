@@ -36,6 +36,7 @@
     + 3/18/17 (mac):
         - Define task modes as enum.
         - Rename "setup" mode to "prerun".
+    + 5/22/17 (mac): Fix processing of boolean option MCSCRIPT_TASK_REDIRECT.
 """
 
 import datetime
@@ -109,7 +110,7 @@ def task_read_env():
     task_parameters["pool"] = os.environ.get("MCSCRIPT_TASK_POOL")
     task_parameters["count_limit"] = int(os.environ.get("MCSCRIPT_TASK_COUNT_LIMIT",-1))
     task_parameters["start_index"] = int(os.environ.get("MCSCRIPT_TASK_START_INDEX",0))
-    task_parameters["redirect"] = bool(os.environ.get("MCSCRIPT_TASK_REDIRECT"))
+    task_parameters["redirect"] = os.environ.get("MCSCRIPT_TASK_REDIRECT")=="True"
 
     return task_parameters
 
