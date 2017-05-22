@@ -1,14 +1,16 @@
 """ control.py -- provide overall scripting control code
 
-  Language: Python 3
+    Language: Python 3
 
-  M. A. Caprio
-  Department of Physics, University of Notre Dame
+    M. A. Caprio
+    Department of Physics, University of Notre Dame
 
-  6/13/16 (mac): Extract from mcscript.py.
-  1/8/17 (mac): Simplify omp_setup to just set OMP_NUM_THREADS.
-  3/30/17 (pjf): Use fully-qualified name for mcscript.exception.ScriptError.
-  5/22/17 (mac): Reformat output from call, including adding wall time.
+    - 6/13/16 (mac): Extract from mcscript.py.
+    - 1/8/17 (mac): Simplify omp_setup to just set OMP_NUM_THREADS.
+    - 3/30/17 (pjf): Use fully-qualified name for mcscript.exception.ScriptError.
+    - 5/22/17 (mac):
+        + Reformat output from call, including adding wall time.
+        + Deprecate aliases to call mode.
 
 """
 
@@ -206,7 +208,7 @@ def call(
         >>> mcscript.call(["cat"],input_lines=["a","b"]) # basic
         >>> mcscript.call(["catx"],input_lines=["a","b"]) # for execution failure
         >>> mcscript.call(["cat","badfile"],input_lines=["a","b"]) # for nonzero return
-        >>> mcscript.call(["cat","badfile"],input_lines=["a","b"],mode=mcscript.call.serial) # specifying run mode
+        >>> mcscript.call(["cat","badfile"],input_lines=["a","b"],mode=mcscript.CallMode.kSerial) # specifying run mode
 
     """
 
@@ -302,6 +304,8 @@ def call(
     return stdout_string
 
 # convenience definitions for enumerated type
+#
+# DEPRECATED
 #
 # Is this really any better than direct reference???
 #

@@ -56,7 +56,7 @@ mcscript.init()
 #   See the docstring for mcscript.call for further information.
 
 executable_filename = os.path.join(os.environ["MCSCRIPT_DIR"],"example","hello-hybrid")
-mcscript.call([executable_filename],mode=mcscript.call.hybrid)
+mcscript.call([executable_filename],mode=mcscript.CallMode.kHybrid)
 
 ################################################################
 # termination
