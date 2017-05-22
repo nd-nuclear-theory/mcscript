@@ -27,16 +27,17 @@
     + 3/16/17 (mac):
         - Add --setup option.
         - Change environment interface to pass MCSCRIPT_TASK_MODE.
-  + 3/18/17 (mac):
+    + 3/18/17 (mac):
         - Revise to support updated hybrid run parameters.
         - Rename option --setup to --prerun.
+    + 5/22/17 (mac): Fix processing of boolean option --redirect.
 """
 
-import sys
-import os
 import argparse
-import subprocess
+import os
 import shutil
+import subprocess
+import sys
 
 import config  # local configuration (usually symlink)
 import mcscript.utils
@@ -133,7 +134,7 @@ parser.add_argument("--pool",help="Multi-task run: Set task pool (or ALL) for ta
 parser.add_argument("--phase",type=int,default=0,help="Multi-task run: Set task phase for task selection")
 parser.add_argument("--start",type=int,help="Multi-task run: Set starting task number for task selection")
 parser.add_argument("--limit",type=int,help="Multi-task run: Set task count limit for task selection")
-parser.add_argument("--redirect",type=bool,default=True,help="Multi-task run: Allow redirection of standard"
+parser.add_argument("--redirect",default="True",choices=["True","False"],help="Multi-task run: Allow redirection of standard"
                     " output/error to file (may want to disable for interactive debugging)")
 
 # some special options (deprecated?)
@@ -294,7 +295,7 @@ if (args.start is not None):
     environment_definitions.append("MCSCRIPT_TASK_START_INDEX={:d}".format(args.start))
 if (args.limit is not None):
     environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT={:d}".format(args.limit))
-environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:b}".format(args.redirect))
+environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:b}".format(args.redirect=="True"))
 
 
 # set user-specified variable definitions
