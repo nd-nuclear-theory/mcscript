@@ -71,13 +71,23 @@ def write_input(filename,input_lines=[],verbose=True):
 ################################################################
 
 def time_stamp():
-    """ Returns time stamp string.
+    """Returns time stamp string.
+
+    This is currently just a wrapper to time.asctime, but we are
+    keeping it since (a) it saves loading the time module, and (b) it
+    allows future flexibility in the preferred logging format.
+
+    Returns:
+        (str): text for use as time stamp
     """
 
     return time.asctime()
 
 def date_tag():
     """ Returns date tag string "YYMMDD".
+
+    Returns:
+        (str): date string
     """
     return time.strftime("%y%m%d")
 

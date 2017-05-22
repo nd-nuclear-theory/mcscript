@@ -8,13 +8,15 @@
   6/13/16 (mac): Extract from mcscript.py.
   1/8/17 (mac): Simplify omp_setup to just set OMP_NUM_THREADS.
   3/30/17 (pjf): Use fully-qualified name for mcscript.exception.ScriptError.
+  5/22/17 (mac): Reformat output from call, including adding wall time.
 
 """
 
-import sys
+import enum
 import os
 import subprocess
-import enum
+import sys
+import time
 
 import mcscript.config
 import mcscript.parameters
@@ -117,7 +119,7 @@ def module(args):
 
     """
 
-    print ("module"," ".join(args))
+    print("module"," ".join(args))
     module_command = os.path.join(os.environ["MODULESHOME"],"bin","modulecmd")
     module_code_string = subprocess.check_output([ module_command, "python" ] + args)
     if (module_code_string != ""):
@@ -125,7 +127,7 @@ def module(args):
         module_code = compile(module_code_string,"<string>","exec")
         eval(module_code)  # eval can crash on raw string, so compile first
     else:
-        print ("  No module code to execute...")
+        print("  No module code to execute...")
 
 ################################################################
 # subprocess execution
@@ -139,10 +141,13 @@ class CallMode(enum.Enum):
 
 def call(
         base,
+        shell=False,
         mode=CallMode.kLocal,
         input_lines=[],
-        shell=False,cwd=None,
-        print_stdout=True,check_return=True
+        cwd=None,
+        check_return=True,
+        print_stdout=True,
+        print_timing=True
 ):
     """Invoke subprocess with simple batch input and output via
     POpen.communicate.  The subprocess arguments are obtained by
@@ -153,7 +158,10 @@ def call(
 
         base (list of str): list of arguments for subprocess invocation
 
-        mode (int): mode of invocation for code
+        shell (boolean, optional): whether or not to launch subshell
+        (pass-through to POpen)
+
+        mode (CallMode, optional): mode of invocation for code
 
             mcscript.call.local: lightweight code for direct invocation under script
             (e.g., a simple os command)
@@ -165,18 +173,17 @@ def call(
 
             mcscript.call.hybrid: code requiring mpi launch
 
-        input_lines (list of str): list of lines to be given to the
+        input_lines (list of str, optional): list of lines to be given to the
         subprocess as standard input (i.e., as list of strings, each
         of which is to be treated as one input line)
 
-        print_stdout (boolean): or not to print subprocess's captured
-        output to stdout
-
-        check_resturn (boolean): whether or not to check subprocess's return value
+        check_return (boolean, optional): whether or not to check subprocess's return value
         (and raise exception if nonzero)
 
-        shell (boolean): whether or not to launch subshell
-        (pass-through to POpen)
+        print_timing (boolean, optional): or not to print wall time
+
+        print_stdout (boolean, optional): or not to print subprocess's captured
+        output to stdout
 
         cwd (str or None): current working directory (pass-through to
         POpen)
@@ -231,15 +238,19 @@ def call(
     stdin_bytes = bytes(stdin_string,encoding="ascii",errors="ignore")
 
     # log header output
-    print ("----------------------------------------------------------------")
-    print ("Running %s" % str(invocation))
-    print ("Given standard input:")
-    print (stdin_string)
-    mcscript.utils.time_stamp()
-    print ("----------------------------------------------------------------")
+    print("----------------------------------------------------------------")
+    print("Executing external code")
+    print("Command line: {:s}".format(str(invocation)))
+    print("Call mode: {:s}".format(str(mode)))
+    print("Start time: {:s}".format(mcscript.utils.time_stamp()))
+    if (input_lines!=[]):
+        print("----------------")
+        print("Given standard input:")
+        print(stdin_string)
     sys.stdout.flush()
 
     # invoke
+    subprocess_start_time = time.time()
     try:
         # launch process
         process = subprocess.Popen(
@@ -251,27 +262,37 @@ def call(
             close_fds=True             # for extra neatness and protection
             )
     except OSError as err:
-        print ("Execution failed:", err)
+        print("Execution failed:", err)
         raise mcscript.exception.ScriptError("execution failure")
 
     # communicate with process
     (stdout_bytes,stderr_bytes) = process.communicate(input=stdin_bytes)
 
+    # conclude timing
+    subprocess_end_time = time.time()
+    subprocess_time = subprocess_end_time - subprocess_start_time
+
     # process output
-    # result of process.communicate was bytes (under Python 3)
+    # result of process.communicate consists of bytes (under Python 3)
     stdout_string = stdout_bytes.decode(encoding="ascii",errors="ignore")
     stderr_string = stderr_bytes.decode(encoding="ascii",errors="ignore")
     if (print_stdout):
-        print (stdout_string)
-    print (stderr_string)
+        print("----------------")
+        print("Standard output:")
+        print(stdout_string)
+        if (len(stderr_string)>0):
+            print("----------------")
+            print("Standard error:")
+            print(stderr_string)
+
+    print("----------------")
+    if (print_timing):
+        print("Wall time: {:.2f}".format(subprocess_time))
     # handle return value
     returncode = process.returncode
-    print ("Return code:", returncode)
-
+    print("Return code: {}".format(returncode))
     # finish logging
-    print ("----------------------------------------------------------------")
-    mcscript.utils.time_stamp()
-    print ("----------------------------------------------------------------")
+    print("----------------------------------------------------------------")
     sys.stdout.flush()  # just for good measure
 
     # return (or abort)
@@ -282,12 +303,15 @@ def call(
 
 # convenience definitions for enumerated type
 #
-# Ex: mcscript.call.local
-#
 # Is this really any better than direct reference???
 #
-# Ex: mcscript.CallMode.kLocal
-
+# Ex:
+#
+#   mscript.control.call(...,mode=mcscript.CallMode.kLocal)
+#
+#   vs.
+#
+#   mscript.control.call(...,mode=mcscript.call.local)
 
 call.local = CallMode.kLocal
 call.serial = CallMode.kSerial
