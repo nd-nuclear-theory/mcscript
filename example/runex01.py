@@ -9,6 +9,7 @@
   6/13/16 (mac): Created (runex00.py).
   11/22/16 (mac): Update after restructuring mcscript.
   1/8/17 (mac): Rename to runex01.py.
+  5/26/17 (mac): Update mcscript syntax.
 
 """
 
@@ -48,7 +49,7 @@ mcscript.utils.write_input(
         "",
         "Your faithful script,",
         # note use of run parameters from mcscript.run
-        mcscript.run.name
+        mcscript.parameters.run.name
         ]
     )
 
