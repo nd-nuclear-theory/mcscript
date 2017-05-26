@@ -48,7 +48,7 @@ mcscript.utils.write_input(
         "   Hello!",
         "",
         "Your faithful script,",
-        # note use of run parameters from mcscript.run
+        # note use of run parameters from mcscript.parameters.run
         mcscript.parameters.run.name
         ]
     )
