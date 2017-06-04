@@ -262,6 +262,67 @@ def hybrid_invocation(base):
     
     #             "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
 
+    # 6/3/17 (mac): using binding on compute nodes causes mess for SU3RME, so disable...
+
+    #   ----------------------------------------------------------------
+    #   Setting OMP_NUM_THREADS to 1.
+    #   WARNING: NDCRC mpiexec binding is not yet set up properly for more than one thread per process!!!
+    #   ----------------------------------------------------------------
+    #   Executing external code
+    #   Command line: ['mpiexec', '--report-bindings', '--n', '1', '--map-by', 'node:PE=24:NOOVERSUBSCRIBE', '/afs/crc.nd.edu/user/m/mcaprio/code/lsu3shell/programs/tools/SU3RME_MP
+    #   I', 'model_space.dat', 'model_space.dat', 'relative_operators.dat']
+    #   Call mode: CallMode.kHybrid
+    #   Start time: Sat Jun  3 22:45:19 2017
+    #   ----------------
+    #   Standard output:
+    #   --------------------------------------------------------------------------
+    #   WARNING: a request was made to bind a process. While the system
+    #   supports binding the process itself, at least one node does NOT
+    #   support binding memory to the process location.
+    #   
+    #     Node:  d12chas417
+    #   
+    #   Open MPI uses the "hwloc" library to perform process and memory
+    #   binding. This error message means that hwloc has indicated that
+    #   processor binding support is not available on this machine.
+    #   
+    #   On OS X, processor and memory binding is not available at all (i.e.,
+    #   the OS does not expose this functionality).
+    #   
+    #   On Linux, lack of the functionality can mean that you are on a
+    #   platform where processor and memory affinity is not supported in Linux
+    #   itself, or that hwloc was built without NUMA and/or processor affinity
+    #   support. When building hwloc (which, depending on your Open MPI
+    #   installation, may be embedded in Open MPI itself), it is important to
+    #   have the libnuma header and library files available. Different linux
+    #   distributions package these files under different names; look for
+    #   packages with the word "numa" in them. You may also need a developer
+    #   version of the package (e.g., with "dev" or "devel" in the name) to
+    #   obtain the relevant header files.
+    #   
+    #   If you are getting this message on a non-OS X, non-Linux platform,
+    #   then hwloc does not support processor / memory affinity on this
+    #   platform. If the OS/platform does actually support processor / memory
+    #   affinity, then you should contact the hwloc maintainers:
+    #   https://github.com/open-mpi/hwloc.
+    #   
+    #   This is a warning only; your job will continue, though performance may
+    #   be degraded.
+    #   --------------------------------------------------------------------------
+    #   --------------------------------------------------------------------------
+    #   MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
+    #   with errorcode 1.
+    #   
+    #   NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+    #   You may or may not see output from other processes, depending on
+    #   exactly when Open MPI kills them.
+    #   --------------------------------------------------------------------------
+    #   
+    #   ----------------
+    #   Standard error:
+    #   [d12chas417.crc.nd.edu:07260] MCW rank 0 is not bound (or bound to all available processors)
+    #   Master-slave program requires at least 2 MPI processes!
+
 
     # TODO:
     #   - redo binding by socket (default)
@@ -287,9 +348,9 @@ def hybrid_invocation(base):
         # run on compute node
         invocation = [
             "mpiexec",
-            "--report-bindings",
+            ## "--report-bindings",
             "--n","{:d}".format(mcscript.parameters.run.hybrid_ranks),
-            "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
+            ## "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
         ]
     invocation += base
 
