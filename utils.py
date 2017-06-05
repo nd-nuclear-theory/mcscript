@@ -22,15 +22,17 @@
     1/30/17 (mac): Add function dict_union (from spreadsheet.py).
     2/21/17 (pjf): Add CoefficientDict class.
     2/23/17 (mac): Add function mkdir to provide alternative to os.mkdir.
+    6/4/17 (mac): Overhaul search_in_directories and add optional custom error message.
 
 """
 
 import glob
 import math
+import numbers
+import itertools
 import os
 import subprocess
 import time
-import numbers
 
 import mcscript.exception
 
@@ -225,49 +227,67 @@ def ifelse(cond,a,b):
 # path search utilities
 ################################################################
 
-def search_in_subdirectories(base_path_or_list,subdirectory_list,filename,base=False):
-    """ Search for file in any of several subdirectories to given base path.
+def search_in_subdirectories(
+        base_path_or_list,subdirectory_list,filename,
+        base=False,error_message=None
+):
+    """Search for file in a list of subdirectories, beneath a given base
+    path (or list of base paths).
 
     Arguments:
         base_path_or_list (str or list of str): base path in which to search
             subdirectories (may alternatively be list of base paths)
         subdirectory_list (list of str): subdirectories to search
         filename (str): file name (or base file name) to match
-        base (bool, optional): whether to accept filename as base name rather than
-            exact match (then just return this base in the result)
+        base (bool, optional): whether to accept given search string
+            as filename root rather than exact match (then just return
+            this base in the result)
+        error_message (str, optional): custom error message to display on
+            file not found
 
     Returns:
         (str): first match
 
     Raises:
          mcscript.exception.ScriptError: if no match is found
+
     """
 
     # process arguments
+    print("----------------------------------------------------------------")
     if (type(base_path_or_list)==str):
         base_path_list = [base_path_or_list]
     else:
         base_path_list = list(base_path_or_list)
     print("Searching for file name...")
-    print("  Base path(s):",base_path_or_list)
+    print("  Base directories:",base_path_or_list)
     print("  Subdirectories:",subdirectory_list)
     print("  Filename:",filename)
 
     # search in successive directories
-    for base_path in base_path_list:
-        for subdirectory in subdirectory_list:
-            qualified_name = os.path.join(base_path,subdirectory,filename)
-            if (base):
-                success = len(glob.glob(qualified_name+"*")>0)
-            else:
-                success = os.path.exists(qualified_name)
-            if (success):
-                print("  ->", qualified_name)
-                return qualified_name
+    for (base_path,subdirectory) in itertools.product(base_path_list,subdirectory_list):
+        qualified_name = os.path.join(base_path,subdirectory,filename)
+        if (base):
+            success = len(glob.glob(qualified_name+"*")>0)
+        else:
+            success = os.path.exists(qualified_name)
+        if (success):
+            break
 
-    # fallthrough
-    print("  No matching filename found...")
-    raise mcscript.exception.ScriptError("no filename match on filename".format(filename))
+    # document success or failure
+    if (success):
+        print("  ->", qualified_name)
+    else:
+        if (error_message is None):
+            print("  ERROR: No matching filename found...")
+        else:
+            print("  ERROR: {}".format(error_message))
+    print("----------------------------------------------------------------")
+
+    # handle return for success or failure
+    if (not success):
+        raise mcscript.exception.ScriptError("no match on filename".format(filename))
+    return qualified_name
 
 ################################################################
 # dictionary management
