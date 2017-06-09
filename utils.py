@@ -23,7 +23,7 @@
     2/21/17 (pjf): Add CoefficientDict class.
     2/23/17 (mac): Add function mkdir to provide alternative to os.mkdir.
     6/4/17 (mac): Overhaul search_in_directories and add optional custom error message.
-
+    6/8/17 (pjf): Add write_namelist.
 """
 
 import glob
@@ -67,6 +67,58 @@ def write_input(filename,input_lines=[],verbose=True):
     data_file = open(filename,"w")
     data_file.write(stdin_string)
     data_file.close()
+
+
+def write_namelist(filename, input_dict={}, verbose=True):
+    """Generate Fortran namelist file from dictionary representation.
+
+    Arguments:
+        input_dict (dict of dicts): each key names a namelist, with contents given
+            by the inner dictionary
+        verbose (bool, optional): whether or not to provide diagnostic output
+          (on by default, but might want to suppress, e.g., for large sets
+           of files)
+    """
+    formatters = {
+        int:   (lambda n: "{:d}".format(n)),
+        float: (lambda x: "{:e}".format(x).replace("e", "d")),
+        bool:  (lambda b: ifelse(b, ".true.", ".false.")),
+        str:   (lambda s: "{:s}".format(s)),
+    }
+
+    def format_val(x):
+        if type(x) not in formatters.keys():
+            raise mcscript.exception.ScriptError(
+                "{} of type {} cannot be written to namelist".format(x, type(x))
+                )
+        return formatters[type(x)](x)
+
+    lines = []
+
+    for (name, namelist) in input_dict.items():
+        # start Fortran namelist
+        lines.append("&{:s}".format(name))
+        # loop over contents
+        for (key, val) in namelist.items():
+            # sanity check
+            if type(key) is not str:
+                raise mcscript.exception.ScriptError("invalid namelist variable: {}".format(key))
+
+            # loop over lists and map them to arrays
+            if type(val) is list:
+                for i, item in enumerate(val):
+                    lines.append("{key:s}({i:d}) = {value},".format(key=key, i=i+1, value=format_val(item)))
+            # write out scalar variables
+            else:
+                lines.append("{key:s} = {value},".format(key=key, value=format_val(val)))
+
+        # trim last comma and add namelist termination
+        lines[-1] = lines[-1].rstrip(',')
+        lines.append("/")
+
+    # write file
+    return write_input(filename, lines, verbose)
+
 
 ################################################################
 # timestamp utilities
