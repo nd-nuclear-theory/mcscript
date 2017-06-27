@@ -24,6 +24,7 @@
     2/23/17 (mac): Add function mkdir to provide alternative to os.mkdir.
     6/4/17 (mac): Overhaul search_in_directories and add optional custom error message.
     6/8/17 (pjf): Add write_namelist.
+    6/27/17 (mac): Add option for search_in_subdirectories to fail gracefully.
 """
 
 import glob
@@ -281,7 +282,7 @@ def ifelse(cond,a,b):
 
 def search_in_subdirectories(
         base_path_or_list,subdirectory_list,filename,
-        base=False,error_message=None
+        base=False,fail_on_not_found=True,error_message=None
 ):
     """Search for file in a list of subdirectories, beneath a given base
     path (or list of base paths).
@@ -294,8 +295,11 @@ def search_in_subdirectories(
         base (bool, optional): whether to accept given search string
             as filename root rather than exact match (then just return
             this base in the result)
+        fail_on_not_found (bool, optional): whether to raise exception on
+            failure to match (else returns None)
         error_message (str, optional): custom error message to display on
             file not found
+
 
     Returns:
         (str): first match
@@ -338,7 +342,10 @@ def search_in_subdirectories(
 
     # handle return for success or failure
     if (not success):
-        raise mcscript.exception.ScriptError("no match on filename".format(filename))
+        if (fail_on_not_found):
+            raise mcscript.exception.ScriptError("no match on filename".format(filename))
+        else:
+            return None
     return qualified_name
 
 ################################################################
