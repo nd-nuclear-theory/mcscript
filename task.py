@@ -37,6 +37,7 @@
         - Define task modes as enum.
         - Rename "setup" mode to "prerun".
     + 5/22/17 (mac): Fix processing of boolean option MCSCRIPT_TASK_REDIRECT.
+    + 6/28/17 (mac): Add archive handler archive_handler_no_results.
 """
 
 import datetime
@@ -143,7 +144,7 @@ def make_task_dirs ():
 ################################################################
 
 
-def archive_handler_generic():
+def archive_handler_generic(include_results=True):
     """Make generic archive of all metadata and results directories,
     to the run's archive directory.
 
@@ -173,7 +174,7 @@ def archive_handler_generic():
 
     if run in batch mode, since batch system may update output in
     batch directory.  A solution would be to run archive phase from
-    archive subdiretory rather than batch subdirectory.
+    archive subdirectory rather than batch subdirectory.
 
 
     Returns:
@@ -193,9 +194,10 @@ def archive_handler_generic():
         os.path.join(mcscript.parameters.run.name,toc_filename),
         os.path.join(mcscript.parameters.run.name,"flags"),
         os.path.join(mcscript.parameters.run.name,"output"),
-        os.path.join(mcscript.parameters.run.name,"batch"),
-        os.path.join(mcscript.parameters.run.name,"results")
-        ]
+        os.path.join(mcscript.parameters.run.name,"batch")
+    ]
+    if (include_results):
+        filename_list.append(os.path.join(mcscript.parameters.run.name,"results"))
     mcscript.control.call(
         ["tar", "zcvf", archive_filename ] + filename_list,
         cwd=work_dir_parent,check_return=True
@@ -211,6 +213,8 @@ def archive_handler_generic():
 
     return archive_filename
 
+def archive_handler_no_results():
+    archive_handler_generic(include_results=False)
 
 def archive_handler_hsi():
     """ Generate standard archive and save to tape.
