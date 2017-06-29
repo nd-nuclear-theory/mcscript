@@ -158,30 +158,39 @@ def archive_handler_generic(include_results=True):
 
     The files in the archive are of the form runxxxx/results/*, etc.
 
-    Known issue: The tar call is liable to failure with exit code 1, e.g.:
-
-       tar: run0235/flags: file changed as we read it
-
-    The problem arises since since the archive phase produces lock and
-    redirected output files.  One could ignore the error, but this is
-    clearly perilous.  The problem is usually avoided by avoiding
-    running archive phases in parallel with each other or, of course,
-    runs of regular tasks.
-
-    Known issue: The tar call is *still* liable to failure with exit code 1, e.g.:
-
-       tar: run0318/batch/1957945.edique02.ER: file changed as we read it
-
-    if run in batch mode, since batch system may update output in
-    batch directory.  A solution would be to run archive phase from
-    archive subdirectory rather than batch subdirectory.
-
-
     Returns:
         (str): archive filename (for convenience of calling function if
             wrapped in larger task handler)
 
     """
+
+    # Debugging note: The tar call is liable to failure with exit code 1, e.g.:
+    # 
+    #    tar: run0235/flags: file changed as we read it
+    # 
+    # The problem arises since since the archive phase produces lock and
+    # redirected output files.  One could ignore all error return codes
+    # from tar, but this is clearly perilous.
+    # 
+    # The problem is usually
+    # avoided by avoiding running archive phases in parallel with each
+    # other or, of course, runs of regular tasks.
+    # 
+    # However: The tar call is *still* liable to failure with exit code
+    # 1, e.g.:
+    # 
+    #    tar: run0318/batch/1957945.edique02.ER: file changed as we read it
+    # 
+    # if run in batch mode, since batch system may update output in
+    # batch directory.  A solution would be to run archive phase from
+    # archive subdirectory rather than batch subdirectory.
+    # 
+    # And it reared its head again locally on cygwin due to logging of
+    # the standard output to task-ARCH-*.out.
+    # 
+    # Ah, robust solution is simply to exclude files "task-ARCH-*" from
+    # the tar archive.
+
 
     # make archive -- whole dir
     work_dir_parent = os.path.join(task_root_dir,"..")
@@ -199,7 +208,12 @@ def archive_handler_generic(include_results=True):
     if (include_results):
         filename_list.append(os.path.join(mcscript.parameters.run.name,"results"))
     mcscript.control.call(
-        ["tar", "zcvf", archive_filename ] + filename_list,
+        [
+            "tar",
+            "zcvf",
+            archive_filename,
+            "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
+        ] + filename_list,
         cwd=work_dir_parent,check_return=True
         )
 
