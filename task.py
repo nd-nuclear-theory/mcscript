@@ -166,7 +166,7 @@ def archive_handler_generic(include_results=True):
 
     # Debugging note: The tar call is liable to failure with exit code 1, e.g.:
     # 
-    #    tar: run0235/flags: file changed as we read it
+    #     tar: run0235/flags: file changed as we read it
     # 
     # The problem arises since since the archive phase produces lock and
     # redirected output files.  One could ignore all error return codes
@@ -179,14 +179,16 @@ def archive_handler_generic(include_results=True):
     # However: The tar call is *still* liable to failure with exit code
     # 1, e.g.:
     # 
-    #    tar: run0318/batch/1957945.edique02.ER: file changed as we read it
+    #     tar: run0318/batch/1957945.edique02.ER: file changed as we read it
     # 
     # if run in batch mode, since batch system may update output in
     # batch directory.  A solution would be to run archive phase from
     # archive subdirectory rather than batch subdirectory.
     # 
     # And it reared its head again locally on cygwin due to logging of
-    # the standard output to task-ARCH-*.out.
+    # the standard output to task-ARCH-*.out:
+    #
+    #     tar: runxxxx/output/task-ARCH-0.out: file changed as we read it
     # 
     # Ah, robust solution is simply to exclude files "task-ARCH-*" from
     # the tar archive.

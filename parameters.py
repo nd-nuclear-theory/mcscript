@@ -114,7 +114,7 @@ class RunParameters(object):
             "Batch mode: {}".format(self.batch_mode),
             "Batch launch directory: {}".format(self.launch_dir),
             "Work directory: {}".format(self.work_dir),
-            "Wall time (sec): {}".format(self.wall_time_sec)
+                "Wall time: {} sec (={:.2f} min)".format(self.wall_time_sec,self.wall_time_sec/60)
             ]
             )
 

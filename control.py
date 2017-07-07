@@ -320,6 +320,8 @@ def call(
     """Invoke subprocess.  The subprocess arguments are obtained by
     joining the prefix list to the base list.
 
+    TODO: suport redirection to /dev/null to hide large output
+
     Programming note: In the future, consider upgrading to Python 3.5
     subprocess.run(...,input=...) interface.
 
@@ -476,7 +478,7 @@ def call(
 
     print("----------------")
     if (print_timing):
-        print("Wall time: {:.2f}".format(subprocess_time))
+        print("Wall time: {:.2f} sec (={:.2f} min)".format(subprocess_time,subprocess_time/60))
     # handle return value
     returncode = process.returncode
     print("Return code: {}".format(returncode))
