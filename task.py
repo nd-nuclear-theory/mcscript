@@ -38,6 +38,7 @@
         - Rename "setup" mode to "prerun".
     + 5/22/17 (mac): Fix processing of boolean option MCSCRIPT_TASK_REDIRECT.
     + 6/28/17 (mac): Add archive handler archive_handler_no_results.
+    + 6/29/17 (pjf): Fix archive handler trying to archive its own log.
 """
 
 import datetime
@@ -494,7 +495,12 @@ def do_archive(task_parameters,archive_phase_handlers):
     # handle task
     # with output redirection
     saved_stdout = sys.stdout
-    output_filename = task_output_filename(task_index,task_phase)
+    ## output_filename = task_output_filename(task_index,task_phase)
+    output_filename = os.path.join(
+        archive_dir,
+        "{:s}-archive-{:s}.out".format(mcscript.parameters.run.name, mcscript.utils.date_tag())
+        )
+
     print("Redirecting to", output_filename)
     sys.stdout = open(output_filename, "w")
     archive_phase_handlers[task_phase]()

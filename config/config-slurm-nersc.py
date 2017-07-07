@@ -13,6 +13,9 @@
       - Fix pass-through of environment variables.
       - Switch to node-based allocation.
     + 4/3/17 (mac): Disable cpu binding for edison.
+    + 6/14/17 (pjf):
+      - Add "--constraint" to select node type on cori.
+      - Disable cpu binding for serial jobs on edison.
 """
 
 # Notes:
@@ -76,6 +79,9 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     # queue
     submission_invocation += ["--partition={}".format(args.queue)]
+
+    # target cpu
+    submission_invocation += ["--constraint={}".format(os.environ["CRAY_CPU_TARGET"])]
 
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
@@ -182,9 +188,14 @@ def serial_invocation(base):
             "--ntasks={}".format(1),
             "--nodes={}".format(1),
             "--cpus-per-task={}".format(mcscript.parameters.run.hybrid_nodesize),
-            "--cpu_bind=cores",
             "--export=ALL"
         ]
+
+        if (os.getenv("NERSC_HOST")=="cori"):
+            # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
+            invocation += [
+                "--cpu_bind=cores"
+            ]
 
         invocation += base
 
