@@ -197,9 +197,13 @@ def archive_handler_generic(include_results=True):
 
     # make archive -- whole dir
     work_dir_parent = os.path.join(task_root_dir,"..")
+    if (include_results):
+        mode_flag = ""
+    else:
+        mode_flag = "-nores"
     archive_filename = os.path.join(
         archive_dir,
-        "{:s}-archive-{:s}.tgz".format(mcscript.parameters.run.name, mcscript.utils.date_tag())
+        "{:s}-archive-{:s}{:s}.tgz".format(mcscript.parameters.run.name,mcscript.utils.date_tag(),mode_flag)
         )
     toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     filename_list = [
