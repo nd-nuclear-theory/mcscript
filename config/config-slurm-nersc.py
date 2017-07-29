@@ -212,7 +212,7 @@ def hybrid_invocation(base):
     """
 
     # calculate number of needed cores and nodes
-    undersubscription_factor = 1
+    undersubscription_factor = 2  
     needed_threads = mcscript.parameters.run.hybrid_ranks * mcscript.parameters.run.hybrid_threads * undersubscription_factor
     print("nodesize",mcscript.parameters.run.hybrid_nodesize)
     needed_nodes = (needed_threads // mcscript.parameters.run.hybrid_nodesize) + int((needed_threads % mcscript.parameters.run.hybrid_nodesize) != 0)
@@ -229,11 +229,11 @@ def hybrid_invocation(base):
         "--cpus-per-task={}".format(requested_threads_per_rank),
         "--export=ALL"
     ]
-    if (os.getenv("NERSC_HOST")=="cori"):
-        # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
-        invocation += [
-            "--cpu_bind=cores"
-        ]
+    # 4/3/17 (mac): cpu_bind=cores is recommended for cori but degrades performance on edison
+    # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
+    invocation += [
+        "--cpu_bind=cores"
+    ]
 
     invocation += base
 
