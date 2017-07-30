@@ -212,7 +212,7 @@ def hybrid_invocation(base):
     """
 
     # calculate number of needed cores and nodes
-    undersubscription_factor = 2  
+    undersubscription_factor = 1
     needed_threads = mcscript.parameters.run.hybrid_ranks * mcscript.parameters.run.hybrid_threads * undersubscription_factor
     print("nodesize",mcscript.parameters.run.hybrid_nodesize)
     needed_nodes = (needed_threads // mcscript.parameters.run.hybrid_nodesize) + int((needed_threads % mcscript.parameters.run.hybrid_nodesize) != 0)
