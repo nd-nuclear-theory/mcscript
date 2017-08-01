@@ -9,13 +9,15 @@
 
     + 12/29/16 (mac): Created, based on config-uge-ndcrc.py.
     + 3/18/17 (mac):
-      - Update use of mcscript configuration variables.  
+      - Update use of mcscript configuration variables.
       - Fix pass-through of environment variables.
       - Switch to node-based allocation.
     + 4/3/17 (mac): Disable cpu binding for edison.
     + 6/14/17 (pjf):
       - Add "--constraint" to select node type on cori.
       - Disable cpu binding for serial jobs on edison.
+    + 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
+    + 8/01/17 (pjf): Add basic config for knl,quad,cache.
 """
 
 # Notes:
@@ -50,11 +52,11 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     Arguments:
 
         job_name (str): job name string
-    
+
         job_file (str): job script file
-    
+
         qsubm_path (str): path to qsubm files (for locating wrapper script)
-    
+
         environment_definitions (list of str): list of environment variable definitions
         to include in queue submission arguments
 
@@ -81,7 +83,11 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation += ["--partition={}".format(args.queue)]
 
     # target cpu
-    submission_invocation += ["--constraint={}".format(os.environ["CRAY_CPU_TARGET"])]
+    if os.environ["NERSC_HOST"] == "cori":
+        if os.environ["CRAY_CPU_TARGET"] == "haswell":
+            submission_invocation += ["--constraint=haswell"]
+        elif os.environ["CRAY_CPU_TARGET"] == "mic-knl":
+            submission_invocation += ["--constraint=knl,quad,cache"]
 
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
@@ -89,7 +95,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # miscellaneous options
     license_list = ["SCRATCH","cscratch1","project"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
-                        
+
     # calculate number of needed cores and nodes
     ## needed_cores = args.width * args.depth * args.spread
     ## needed_nodes = (needed_cores // args.nodesize) + int((needed_cores % args.nodesize) != 0)
@@ -162,7 +168,7 @@ def serial_invocation(base):
     # sbatch has been given an --environment argument, srun does *not*
     # behave as advertised:
     #
-    # --export=<environment variables | NONE> 
+    # --export=<environment variables | NONE>
     #   ... By default all environment variables are propagated. ...
     #
     # Instead, only environment variables which were explicitly passed
@@ -191,11 +197,11 @@ def serial_invocation(base):
             "--export=ALL"
         ]
 
-        if (os.getenv("NERSC_HOST")=="cori"):
-            # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
-            invocation += [
-                "--cpu_bind=cores"
-            ]
+        # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
+        # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
+        invocation += [
+            "--cpu_bind=cores"
+        ]
 
         invocation += base
 
@@ -257,9 +263,9 @@ def init():
     elif (os.getenv("NERSC_HOST")=="cori"):
         if (os.getenv("CRAY_CPU_TARGET")=="haswell"):
             mcscript.parameters.run.hybrid_nodesize = 32*2
-        elif (os.getenv("CRAY_CPU_TARGET")=="haswell"):
+        elif (os.getenv("CRAY_CPU_TARGET")=="mic-knl"):
             mcscript.parameters.run.hybrid_nodesize = 64*4
-            
+
     # Cori recommended thread affinity settings
 
     # TODO: wrap in special config command for offline support
@@ -269,5 +275,5 @@ def init():
 def termination():
     """ Do any local termination tasks.
     """
-    
+
     pass
