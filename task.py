@@ -47,7 +47,6 @@ import glob
 import os
 import sys
 import time
-import copy
 
 
 import mcscript.control
@@ -690,7 +689,7 @@ def invoke_tasks_prerun(task_parameters,task_list,phase_handlers):
         if (task_index is None):
             print("No more available tasks in pool", task_pool)
             break
-        task = copy.deepcopy(task_list[task_index])
+        task = task_list[task_index]
 
         # display diagnostic header for task
         #     this goes to global (unredirected) output
@@ -753,7 +752,7 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
         if (task_index is None):
             print("No more available tasks in pool", task_pool)
             break
-        task = copy.deepcopy(task_list[task_index])
+        task = task_list[task_index]
 
         # display diagnostic header for task
         #     this goes to global (unredirected) output
