@@ -266,6 +266,11 @@ def init():
         elif (os.getenv("CRAY_CPU_TARGET")=="mic-knl"):
             mcscript.parameters.run.hybrid_nodesize = 64*4
 
+    # set install prefix based on environment
+    mcscript.parameters.run.install_dir = os.path.join(
+        mcscript.parameters.run.install_dir, os.getenv("CRAY_CPU_TARGET")
+        )
+
     # Cori recommended thread affinity settings
 
     # TODO: wrap in special config command for offline support

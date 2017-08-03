@@ -28,19 +28,21 @@ class RunParameters(object):
 
     Defines several variables based on information provided by qsubm
     through the environment:
-    
+
         run: run identifier, provided in environment by qsubm, e.g.,
         run0001
-    
+
         batch_mode: True if running in batch mode, False if running
         interactively, provided in environment by qsubm
-    
+
         work_dir: scratch directory for run, e.g.,
         /scratch/mcaprio/runs/run0001
 
         launch_dir: directory in which run was launched (batch mode)
         or current working directory in which it is running
         (interactive), e.g., /home/mcaprio/runs/run0001
+
+        install_dir: install prefix for executables used by a run
 
         job_file,wall_time_sec,parallel_width,parallel_depth,...: job
         information from qsubm.py
@@ -56,9 +58,9 @@ class RunParameters(object):
         pass
 
     def populate(self):
-        
+
         ################################################################
-        # environment information 
+        # environment information
         ################################################################
 
         # basic run information
@@ -72,6 +74,9 @@ class RunParameters(object):
         # job details
         self.job_file = os.environ["MCSCRIPT_JOB_FILE"]
         self.wall_time_sec = int(os.environ["MCSCRIPT_WALL_SEC"])
+
+        # environment definitions: executable install prefix
+        self.install_dir = os.environ["MCSCRIPT_INSTALL_DIR"]
 
         # environment definitions: serial run parameters
         self.serial_threads = int(os.environ["MCSCRIPT_SERIAL_THREADS"])
@@ -93,7 +98,7 @@ class RunParameters(object):
         self.verbose = True
 
         ## # adjust verbosity level for epar
-        ## self.verbose = ( self.verbose and 
+        ## self.verbose = ( self.verbose and
         ##                 ((self.epar_rank == None) or (self.epar_rank == 1))
         ##                 )
 
@@ -114,6 +119,7 @@ class RunParameters(object):
             "Batch mode: {}".format(self.batch_mode),
             "Batch launch directory: {}".format(self.launch_dir),
             "Work directory: {}".format(self.work_dir),
+            "Install directory: {}".format(self.install_dir),
                 "Wall time: {} sec (={:.2f} min)".format(self.wall_time_sec,self.wall_time_sec/60)
             ]
             )
