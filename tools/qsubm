@@ -1,2 +1,2 @@
-#!/bin/csh
-${MCSCRIPT_PYTHON} ${MCSCRIPT_DIR}/qsubm.py ${argv}
+#!/bin/bash
+${MCSCRIPT_PYTHON} ${MCSCRIPT_DIR}/qsubm.py ${*}

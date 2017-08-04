@@ -115,7 +115,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
     submission_invocation += [
-        os.path.join(qsubm_path,"csh_job_wrapper.csh"),
+        os.path.join(qsubm_path,"bash_job_wrapper.sh"),
         os.environ["MCSCRIPT_PYTHON"],
         job_file
     ]
