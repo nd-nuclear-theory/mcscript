@@ -8,6 +8,7 @@ Department of Physics, University of Notre Dame
 2/23/17 (mac): Clarify configuration instructions.
 2/25/17 (mac): Add note about python availability on compute node.
 5/9/17 (mac): Add bash instructions.  Expand discussion of examples.
+8/28/17 (pjf): Add environment for mcscript-managed executables.
 
 ----------------------------------------------------------------
 
@@ -76,6 +77,7 @@ Department of Physics, University of Notre Dame
 
     # mcscript
     setenv MCSCRIPT_DIR ${HOME}/projects/mcscript
+    setenv MCSCRIPT_INSTALL_DIR ${HOME}/projects/install
     setenv MCSCRIPT_RUN_HOME ${HOME}/runs
     setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
     setenv MCSCRIPT_RUN_PREFIX run
@@ -88,6 +90,7 @@ Department of Physics, University of Notre Dame
 
     # mcscript
     export MCSCRIPT_DIR=${HOME}/projects/mcscript
+    export MCSCRIPT_INSTALL_DIR=${HOME}/projects/install
     export MCSCRIPT_RUN_HOME=${HOME}/runs
     export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
     export MCSCRIPT_RUN_PREFIX=run
