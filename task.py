@@ -10,35 +10,38 @@
     M. A. Caprio
     University of Notre Dame
 
-    + 3/2/13 (mac): Originated as task.py.
-    + 5/28/13 (mac): Updated to recognize ScriptError exception.
-    + 6/5/13 (mac): Absorbed into mcscript package.
-    + 11/1/13 (mac): Add local archive dir in scratch to help circumvent home space overruns.
-    + 1/22/14 (mac): Python 3 update.
-    + 7/3/14 (mac): Add generic archiving support.
-    + 5/14/15 (mac): Insert "future" statements and convert print to write
+    + 03/02/13 (mac): Originated as task.py.
+    + 05/28/13 (mac): Updated to recognize ScriptError exception.
+    + 06/05/13 (mac): Absorbed into mcscript package.
+    + 11/01/13 (mac): Add local archive dir in scratch to help circumvent home space overruns.
+    + 01/22/14 (mac): Python 3 update.
+    + 07/03/14 (mac): Add generic archiving support.
+    + 05/14/15 (mac): Insert "future" statements and convert print to write
           for Python 2 legacy support.  Upgrade string formatting to
           Python 2.7 format method.
-    + 6/4/15 (mac): Add check for locking clashes.
-    + 6/25/15 (mac): Simplify task interface to single init() function.
-    + 6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
-    + 1/18/17 (mac):
+    + 06/04/15 (mac): Add check for locking clashes.
+    + 06/25/15 (mac): Simplify task interface to single init() function.
+    + 06/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
+    + 01/18/17 (mac):
           - Update archive handler.
           - Rename optional argument archive_handler_list to archive_phase_handler_list.
-    + 1/21/17 (mac): Fix spurious argument on archive_handler_hsi.
-    + 2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
-    + 3/16/17 (mac):
+    + 01/21/17 (mac): Fix spurious argument on archive_handler_hsi.
+    + 02/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
+    + 03/16/17 (mac):
         - Restructure to avoid most global variables.
         - Upgrade docstrings.
         - Change environment interface to expect MCSCRIPT_TASK_MODE.
         - Allow for "setup" task mode.
         - Define task "metadata" field.
-    + 3/18/17 (mac):
+    + 03/18/17 (mac):
         - Define task modes as enum.
         - Rename "setup" mode to "prerun".
-    + 5/22/17 (mac): Fix processing of boolean option MCSCRIPT_TASK_REDIRECT.
-    + 6/28/17 (mac): Add archive handler archive_handler_no_results.
-    + 6/29/17 (pjf): Fix archive handler trying to archive its own log.
+    + 05/22/17 (mac): Fix processing of boolean option MCSCRIPT_TASK_REDIRECT.
+    + 06/28/17 (mac): Add archive handler archive_handler_no_results.
+    + 06/29/17 (pjf): Fix archive handler trying to archive its own log.
+    + 09/24/17 (pjf):
+        - Catch all exceptions (not just ScriptError) to ensure .fail files are created.
+        - Check task_mode against TaskMode.kRun rather than "normal"
 """
 
 import datetime
@@ -165,31 +168,31 @@ def archive_handler_generic(include_results=True):
     """
 
     # Debugging note: The tar call is liable to failure with exit code 1, e.g.:
-    # 
+    #
     #     tar: run0235/flags: file changed as we read it
-    # 
+    #
     # The problem arises since since the archive phase produces lock and
     # redirected output files.  One could ignore all error return codes
     # from tar, but this is clearly perilous.
-    # 
+    #
     # The problem is usually
     # avoided by avoiding running archive phases in parallel with each
     # other or, of course, runs of regular tasks.
-    # 
+    #
     # However: The tar call is *still* liable to failure with exit code
     # 1, e.g.:
-    # 
+    #
     #     tar: run0318/batch/1957945.edique02.ER: file changed as we read it
-    # 
+    #
     # if run in batch mode, since batch system may update output in
     # batch directory.  A solution would be to run archive phase from
     # archive subdirectory rather than batch subdirectory.
-    # 
+    #
     # And it reared its head again locally on cygwin due to logging of
     # the standard output to task-ARCH-*.out:
     #
     #     tar: runxxxx/output/task-ARCH-0.out: file changed as we read it
-    # 
+    #
     # Ah, robust solution is simply to exclude files "task-ARCH-*" from
     # the tar archive.
 
@@ -634,11 +637,14 @@ def do_task(task_parameters,task,phase_handlers):
     # invoke task handler
     try:
         phase_handlers[task_phase](task)
-    except mcscript.exception.ScriptError as err:
+    except Exception as err:
         # on failure, flag failure and propagate exception so script terminates
-        print("ScriptError:", err)
-        if (task_mode == "normal"):
-            fail_lock(task_index,task_phase)
+        print("Exception:", err)
+        if task_mode is TaskMode.kRun:
+            # process timing
+            task_end_time = time.time()
+            task_time = task_end_time - task_start_time
+            fail_lock(task_index, task_phase, task_time)
         raise
 
     # undo output redirection
