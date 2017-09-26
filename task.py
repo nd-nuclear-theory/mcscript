@@ -42,6 +42,7 @@
     + 09/24/17 (pjf):
         - Catch all exceptions (not just ScriptError) to ensure .fail files are created.
         - Check task_mode against TaskMode.kRun rather than "normal"
+    + 09/25/17 (pjf): Improve archive_handler_generic() with tar --transform.
 """
 
 import datetime
@@ -198,7 +199,6 @@ def archive_handler_generic(include_results=True):
 
 
     # make archive -- whole dir
-    work_dir_parent = os.path.join(task_root_dir,"..")
     if (include_results):
         mode_flag = ""
     else:
@@ -209,42 +209,41 @@ def archive_handler_generic(include_results=True):
         )
     toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     filename_list = [
-        os.path.join(mcscript.parameters.run.name,toc_filename),
-        os.path.join(mcscript.parameters.run.name,"flags"),
-        os.path.join(mcscript.parameters.run.name,"output"),
-        os.path.join(mcscript.parameters.run.name,"batch")
+        toc_filename,
+        "flags",
+        "output",
+        "batch"
     ]
     if (include_results):
-        filename_list.append(os.path.join(mcscript.parameters.run.name,"results"))
+        filename_list += ["results"]
     mcscript.control.call(
         [
             "tar",
             "zcvf",
             archive_filename,
+            "--transform=s,^,{:s}/,".format(mcscript.parameters.run.name),  # prepend run name as directory
+            "--show-transformed",
             "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
         ] + filename_list,
-        cwd=work_dir_parent,check_return=True
+        cwd=mcscript.parameters.run.work_dir, check_return=True
         )
-
-    # copy archive out to home results archive directory
-    ## mcscript.control.call(["cp","-v",archive_filename,"-t",ncsm_config.data_dir_results_archive], cwd=mcscript.task.results_dir)
-
-    ## # put to hsi
-    ## hsi_subdir = "2013"
-    ## hsi_arg = "lcd %s; cd %s; put %s" % (os.path.dirname(archive_filename), hsi_subdir, os.path.basename(archive_filename))
-    ## subprocess.call(["hsi",hsi_arg])
 
     return archive_filename
 
 def archive_handler_no_results():
     archive_handler_generic(include_results=False)
 
-def archive_handler_hsi():
-    """ Generate standard archive and save to tape.
+def archive_handler_hsi(archive_filename=None):
+    """ Save archive to tape.
+
+    Arguments:
+        archive_filename: (str, optional) name of file to move to tape; generate
+            standard archive if omitted
     """
 
     # make archive -- whole dir
-    archive_filename = mcscript.task.archive_handler_generic()
+    if archive_filename is None:
+        archive_filename = mcscript.task.archive_handler_generic()
 
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
