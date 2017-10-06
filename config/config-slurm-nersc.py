@@ -82,26 +82,32 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # queue
     submission_invocation += ["--partition={}".format(args.queue)]
 
-    # target cpu
-    if os.environ["NERSC_HOST"] == "cori":
-        if os.environ["CRAY_CPU_TARGET"] == "haswell":
-            submission_invocation += ["--constraint=haswell"]
-        elif os.environ["CRAY_CPU_TARGET"] == "mic-knl":
-            submission_invocation += ["--constraint=knl,quad,cache"]
-
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
 
-    # miscellaneous options
-    license_list = ["SCRATCH","cscratch1","project"]
-    submission_invocation += ["--licenses={}".format(",".join(license_list))]
+    if args.queue == "xfer":
+        if os.environ["NERSC_HOST"] == "cori":
+            submission_invocation += ["--clusters=escori"]
+        elif os.environ["NERSC_HOST"] == "edison":
+            submission_invocation += ["--clusters=esedison"]
+    else:
+        # target cpu
+        if os.environ["NERSC_HOST"] == "cori":
+            if os.environ["CRAY_CPU_TARGET"] == "haswell":
+                submission_invocation += ["--constraint=haswell"]
+            elif os.environ["CRAY_CPU_TARGET"] == "mic-knl":
+                submission_invocation += ["--constraint=knl,quad,cache"]
 
-    # calculate number of needed cores and nodes
-    ## needed_cores = args.width * args.depth * args.spread
-    ## needed_nodes = (needed_cores // args.nodesize) + int((needed_cores % args.nodesize) != 0)
+        # miscellaneous options
+        license_list = ["SCRATCH","cscratch1","project"]
+        submission_invocation += ["--licenses={}".format(",".join(license_list))]
 
-    # generate parallel environment specifier
-    submission_invocation += ["--nodes={}".format(args.nodes)]
+        # calculate number of needed cores and nodes
+        ## needed_cores = args.width * args.depth * args.spread
+        ## needed_nodes = (needed_cores // args.nodesize) + int((needed_cores % args.nodesize) != 0)
+
+        # generate parallel environment specifier
+        submission_invocation += ["--nodes={}".format(args.nodes)]
 
     # append user-specified arguments
     if (args.opt is not None):
