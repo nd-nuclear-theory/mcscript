@@ -18,6 +18,7 @@
       - Disable cpu binding for serial jobs on edison.
     + 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
     + 8/01/17 (pjf): Add basic config for knl,quad,cache.
+    + 10/11/17 (pjf): Add switch constraint.
 """
 
 # Notes:
@@ -36,6 +37,7 @@
 
 import os
 import sys
+import math
 
 import mcscript.parameters
 
@@ -91,16 +93,17 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         elif os.environ["NERSC_HOST"] == "edison":
             submission_invocation += ["--clusters=esedison"]
     else:
-        # target cpu
         if os.environ["NERSC_HOST"] == "cori":
+            # target cpu
             if os.environ["CRAY_CPU_TARGET"] == "haswell":
                 submission_invocation += ["--constraint=haswell"]
             elif os.environ["CRAY_CPU_TARGET"] == "mic-knl":
                 submission_invocation += ["--constraint=knl,quad,cache"]
 
-        # miscellaneous options
-        license_list = ["SCRATCH","cscratch1","project"]
-        submission_invocation += ["--licenses={}".format(",".join(license_list))]
+            # ask for compactness (correct number of switches)
+            nodes_per_switch = 3*16*4
+            needed_switches = math.ceil(args.nodes/nodes_per_switch)
+            submission_invocation += ["--switches={:d}@{:s}".format(needed_switches, args.switchwaittime)]
 
         # calculate number of needed cores and nodes
         ## needed_cores = args.width * args.depth * args.spread
@@ -108,6 +111,10 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
         # generate parallel environment specifier
         submission_invocation += ["--nodes={}".format(args.nodes)]
+
+    # miscellaneous options
+    license_list = ["SCRATCH","cscratch1","project"]
+    submission_invocation += ["--licenses={}".format(",".join(license_list))]
 
     # append user-specified arguments
     if (args.opt is not None):
@@ -270,7 +277,7 @@ def init():
         if (os.getenv("CRAY_CPU_TARGET")=="haswell"):
             mcscript.parameters.run.hybrid_nodesize = 32*2
         elif (os.getenv("CRAY_CPU_TARGET")=="mic-knl"):
-            mcscript.parameters.run.hybrid_nodesize = 64*4
+            mcscript.parameters.run.hybrid_nodesize = 68*4
 
     # set install prefix based on environment
     mcscript.parameters.run.install_dir = os.path.join(

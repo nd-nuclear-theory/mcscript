@@ -31,6 +31,7 @@
         - Revise to support updated hybrid run parameters.
         - Rename option --setup to --prerun.
     + 5/22/17 (mac): Fix processing of boolean option --redirect.
+    + 10/11/17 (pjf): Add --switchwaittime option.
 """
 
 import argparse
@@ -120,6 +121,7 @@ parser.add_argument("--ranks",type=int,default=1,help="Hybrid parallel run: numb
 parser.add_argument("--threads",type=int,default=1,help="Hybrid parallel run: OMP threads per rank)")
 parser.add_argument("--nodesize",type=int,default=0,help="Hybrid parallel run: logical threads available per node"
                     " (might instead be interpreted physical CPUs depending on local config file)")
+parser.add_argument("--switchwaittime",type=str,default="2:00:00",help="Hybrid parallel run: maximum time to wait for switch count")
 ##parser.add_argument("--undersubscription",type=int,default=1,help="Hybrid parallel run: undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 
 # multi-task interface: invocation modes
