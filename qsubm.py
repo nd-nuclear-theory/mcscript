@@ -106,7 +106,7 @@ parser.add_argument("--here",action="store_true",help="Force run in current work
 parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
 ## parser.add_argument("--stat",action="store_true",help="Display queue status information")
 parser.add_argument("--num",type=int,default=1,help="Number of repetitions")
-parser.add_argument("--opt",action="append",help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
+parser.add_argument("--opt",action="append",help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=ALL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
 
 # serial run parallelization parameters
 parser.add_argument("--serialthreads",type=int,default=1,help="Serial compute run (single-node, non-MPI): OMP threads")
