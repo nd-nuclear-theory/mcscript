@@ -10,35 +10,40 @@
     M. A. Caprio
     University of Notre Dame
 
-    + 3/2/13 (mac): Originated as task.py.
-    + 5/28/13 (mac): Updated to recognize ScriptError exception.
-    + 6/5/13 (mac): Absorbed into mcscript package.
-    + 11/1/13 (mac): Add local archive dir in scratch to help circumvent home space overruns.
-    + 1/22/14 (mac): Python 3 update.
-    + 7/3/14 (mac): Add generic archiving support.
-    + 5/14/15 (mac): Insert "future" statements and convert print to write
+    + 03/02/13 (mac): Originated as task.py.
+    + 05/28/13 (mac): Updated to recognize ScriptError exception.
+    + 06/05/13 (mac): Absorbed into mcscript package.
+    + 11/01/13 (mac): Add local archive dir in scratch to help circumvent home space overruns.
+    + 01/22/14 (mac): Python 3 update.
+    + 07/03/14 (mac): Add generic archiving support.
+    + 05/14/15 (mac): Insert "future" statements and convert print to write
           for Python 2 legacy support.  Upgrade string formatting to
           Python 2.7 format method.
-    + 6/4/15 (mac): Add check for locking clashes.
-    + 6/25/15 (mac): Simplify task interface to single init() function.
-    + 6/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
-    + 1/18/17 (mac):
+    + 06/04/15 (mac): Add check for locking clashes.
+    + 06/25/15 (mac): Simplify task interface to single init() function.
+    + 06/13/16 (mac): Rename environment variables TASK_* to MCSCRIPT_TASK_*. Restructure subpackages.
+    + 01/18/17 (mac):
           - Update archive handler.
           - Rename optional argument archive_handler_list to archive_phase_handler_list.
-    + 1/21/17 (mac): Fix spurious argument on archive_handler_hsi.
-    + 2/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
-    + 3/16/17 (mac):
+    + 01/21/17 (mac): Fix spurious argument on archive_handler_hsi.
+    + 02/23/17 (mac): Switch from os.mkdir to mcscript.utils.mkdir.
+    + 03/16/17 (mac):
         - Restructure to avoid most global variables.
         - Upgrade docstrings.
         - Change environment interface to expect MCSCRIPT_TASK_MODE.
         - Allow for "setup" task mode.
         - Define task "metadata" field.
-    + 3/18/17 (mac):
+    + 03/18/17 (mac):
         - Define task modes as enum.
         - Rename "setup" mode to "prerun".
-    + 5/22/17 (mac): Fix processing of boolean option MCSCRIPT_TASK_REDIRECT.
-    + 6/28/17 (mac): Add archive handler archive_handler_no_results.
-    + 6/29/17 (pjf): Fix archive handler trying to archive its own log.
+    + 05/22/17 (mac): Fix processing of boolean option MCSCRIPT_TASK_REDIRECT.
+    + 06/28/17 (mac): Add archive handler archive_handler_no_results.
+    + 06/29/17 (pjf): Fix archive handler trying to archive its own log.
+    + 09/24/17 (pjf):
+        - Catch all exceptions (not just ScriptError) to ensure .fail files are created.
+        - Check task_mode against TaskMode.kRun rather than "normal"
+    + 09/25/17 (pjf): Improve archive_handler_generic() with tar --transform.
+    + 09/21/17 (pjf): Output phase docstring summary lines in toc.
 """
 
 import datetime
@@ -47,6 +52,7 @@ import glob
 import os
 import sys
 import time
+import inspect
 
 
 import mcscript.control
@@ -165,37 +171,36 @@ def archive_handler_generic(include_results=True):
     """
 
     # Debugging note: The tar call is liable to failure with exit code 1, e.g.:
-    # 
+    #
     #     tar: run0235/flags: file changed as we read it
-    # 
+    #
     # The problem arises since since the archive phase produces lock and
     # redirected output files.  One could ignore all error return codes
     # from tar, but this is clearly perilous.
-    # 
+    #
     # The problem is usually
     # avoided by avoiding running archive phases in parallel with each
     # other or, of course, runs of regular tasks.
-    # 
+    #
     # However: The tar call is *still* liable to failure with exit code
     # 1, e.g.:
-    # 
+    #
     #     tar: run0318/batch/1957945.edique02.ER: file changed as we read it
-    # 
+    #
     # if run in batch mode, since batch system may update output in
     # batch directory.  A solution would be to run archive phase from
     # archive subdirectory rather than batch subdirectory.
-    # 
+    #
     # And it reared its head again locally on cygwin due to logging of
     # the standard output to task-ARCH-*.out:
     #
     #     tar: runxxxx/output/task-ARCH-0.out: file changed as we read it
-    # 
+    #
     # Ah, robust solution is simply to exclude files "task-ARCH-*" from
     # the tar archive.
 
 
     # make archive -- whole dir
-    work_dir_parent = os.path.join(task_root_dir,"..")
     if (include_results):
         mode_flag = ""
     else:
@@ -206,42 +211,41 @@ def archive_handler_generic(include_results=True):
         )
     toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     filename_list = [
-        os.path.join(mcscript.parameters.run.name,toc_filename),
-        os.path.join(mcscript.parameters.run.name,"flags"),
-        os.path.join(mcscript.parameters.run.name,"output"),
-        os.path.join(mcscript.parameters.run.name,"batch")
+        toc_filename,
+        "flags",
+        "output",
+        "batch"
     ]
     if (include_results):
-        filename_list.append(os.path.join(mcscript.parameters.run.name,"results"))
+        filename_list += ["results"]
     mcscript.control.call(
         [
             "tar",
             "zcvf",
             archive_filename,
+            "--transform=s,^,{:s}/,".format(mcscript.parameters.run.name),  # prepend run name as directory
+            "--show-transformed",
             "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
         ] + filename_list,
-        cwd=work_dir_parent,check_return=True
+        cwd=mcscript.parameters.run.work_dir, check_return=True
         )
-
-    # copy archive out to home results archive directory
-    ## mcscript.control.call(["cp","-v",archive_filename,"-t",ncsm_config.data_dir_results_archive], cwd=mcscript.task.results_dir)
-
-    ## # put to hsi
-    ## hsi_subdir = "2013"
-    ## hsi_arg = "lcd %s; cd %s; put %s" % (os.path.dirname(archive_filename), hsi_subdir, os.path.basename(archive_filename))
-    ## subprocess.call(["hsi",hsi_arg])
 
     return archive_filename
 
 def archive_handler_no_results():
     archive_handler_generic(include_results=False)
 
-def archive_handler_hsi():
-    """ Generate standard archive and save to tape.
+def archive_handler_hsi(archive_filename=None):
+    """ Save archive to tape.
+
+    Arguments:
+        archive_filename: (str, optional) name of file to move to tape; generate
+            standard archive if omitted
     """
 
     # make archive -- whole dir
-    archive_filename = mcscript.task.archive_handler_generic()
+    if archive_filename is None:
+        archive_filename = mcscript.task.archive_handler_generic()
 
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
@@ -274,12 +278,12 @@ def index_str(task_index):
     else:
         return str(task_index)
 
-def task_toc(task_list,phases):
+def task_toc(task_list,phase_handlers):
     """ Generate a task status report as a newline-delimited string.
 
     Arguments:
         task_list (dict): task list
-        phases (int): number of phases
+        phase_handlers (list of callables): phase handlers
 
     Returns:
         (str): table of contents
@@ -288,8 +292,16 @@ def task_toc(task_list,phases):
     lines = [
         "Run: {:s}".format(mcscript.parameters.run.name),
         "{:s}".format(time.asctime()),
-        "Tasks: {:d}".format(len(task_list)),
+        "Phases: {:d}".format(len(phase_handlers))
         ]
+    
+    for task_phase in range(len(phase_handlers)):
+        # retrieve phase handler docstring
+        phase_docstring = inspect.getdoc(phase_handlers[task_phase])
+        phase_summary = "{}".format(phase_docstring).splitlines()[0]
+        lines.append("  Phase {:d} summary: {:s}".format(task_phase, phase_summary))
+
+    lines.append("Tasks: {:d}".format(len(task_list)))
     for task_index in range(len(task_list)):
 
         # retrieve task properties
@@ -300,7 +312,7 @@ def task_toc(task_list,phases):
 
         # assemble line
         fields = [ index_str(task_index), task_pool]
-        fields += [task_status(task_index,task_phase,task_mask) for task_phase in range(phases)]
+        fields += [task_status(task_index,task_phase,task_mask) for task_phase in range(len(phase_handlers))]
         fields += [ task_descriptor ]
 
         # accumulate line
@@ -453,12 +465,12 @@ def finalize_lock(task_index,task_phase,task_time):
 # special runs: archive
 ################################################################
 
-def write_toc(task_list,phases):
+def write_toc(task_list,phase_handlers):
     """ Write current table of contents to file runxxxx.toc.
 
     Arguments:
         task_list (dict): task list
-        phases (int): number of phases
+        phase_handlers (list of callables): phase handlers
 
     Returns:
         (str): toc filename, sans path (as convenience to caller)
@@ -467,7 +479,7 @@ def write_toc(task_list,phases):
     # write current toc
     toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     toc_stream = open(toc_filename, "w")
-    toc_stream.write(task_toc(task_list,phases))
+    toc_stream.write(task_toc(task_list,phase_handlers))
     toc_stream.close()
 
     # return filename
@@ -634,11 +646,14 @@ def do_task(task_parameters,task,phase_handlers):
     # invoke task handler
     try:
         phase_handlers[task_phase](task)
-    except mcscript.exception.ScriptError as err:
+    except Exception as err:
         # on failure, flag failure and propagate exception so script terminates
-        print("ScriptError:", err)
-        if (task_mode == "normal"):
-            fail_lock(task_index,task_phase)
+        print("Exception:", err)
+        if task_mode is TaskMode.kRun:
+            # process timing
+            task_end_time = time.time()
+            task_time = task_end_time - task_start_time
+            fail_lock(task_index, task_phase, task_time)
         raise
 
     # undo output redirection
@@ -789,7 +804,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
     # special run modes
     if (task_mode == TaskMode.kTOC):
         # update toc file
-        toc_filename = write_toc(task_list,len(phase_handlers))
+        toc_filename = write_toc(task_list,phase_handlers)
         # replicate toc file contents to stdout
         with open(toc_filename) as toc_stream:
             print()
@@ -798,7 +813,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
     elif (task_mode == TaskMode.kUnlock):
         task_unlock()
     elif (task_mode == TaskMode.kArchive):
-        write_toc(task_list,len(phase_handlers))  # update toc for archive
+        write_toc(task_list,phase_handlers)  # update toc for archive
         do_archive(task_parameters,archive_phase_handlers)
     elif (task_mode == TaskMode.kPrerun):
         invoke_tasks_prerun(task_parameters,task_list,phase_handlers)

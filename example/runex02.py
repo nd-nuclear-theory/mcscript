@@ -7,7 +7,7 @@
    do-nothing test run (for syntax only) on front end, just to make
    sure it doesn't crash in the setup phase, i.e., as it generates the
    task list:
-   
+
        % qsubm ex02
 
    But, actually, probably at the same time you would print a table of
@@ -20,7 +20,7 @@
    resources and take approximately the same amount of time.  Here,
    for instance, we try to run the tasks in the pool for inner planets
    ("inner"), still on front end:
-   
+
        % qsubm ex02 --pool=inner --phase=0
 
    Now if you generate a table of contents again, you should see some
@@ -80,7 +80,7 @@
    If you are on a cluster, on the other hand, you can go ahead and
    run these jobs on some appropriate queue, with some time limit (the
    details are cluster specific), for instance:
-   
+
 
    Note:
 
@@ -156,14 +156,14 @@ def task_descriptor_world(task):
 def task_pool_world(task):
     """ Create task pool identifier.
     """
-    
+
     if (task["world_name"] in ["Mercury", "Venus", "Earth", "Mars"]):
         pool = "inner"
     else:
         pool = "outer"
-        
+
     if (task["world_name"]=="Pluto"):
-        raise(ValueError("no longer a valid world name"))
+        raise ValueError("no longer a valid world name")
 
     return pool
 
@@ -204,7 +204,7 @@ def say_hello(task):
             "hello.txt",
             results_filename
         ]
-    ) 
+    )
     mcscript.call(
         [
             "cp",
@@ -247,7 +247,7 @@ def say_goodbye(task):
             "goodbye.txt",
             results_filename
         ]
-    ) 
+    )
     mcscript.call(
         [
             "cp",
