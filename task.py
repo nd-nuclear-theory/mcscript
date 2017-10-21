@@ -43,6 +43,7 @@
         - Catch all exceptions (not just ScriptError) to ensure .fail files are created.
         - Check task_mode against TaskMode.kRun rather than "normal"
     + 09/25/17 (pjf): Improve archive_handler_generic() with tar --transform.
+    + 09/21/17 (pjf): Output phase docstring summary lines in toc.
 """
 
 import datetime
@@ -51,6 +52,7 @@ import glob
 import os
 import sys
 import time
+import inspect
 
 
 import mcscript.control
@@ -276,12 +278,12 @@ def index_str(task_index):
     else:
         return str(task_index)
 
-def task_toc(task_list,phases):
+def task_toc(task_list,phase_handlers):
     """ Generate a task status report as a newline-delimited string.
 
     Arguments:
         task_list (dict): task list
-        phases (int): number of phases
+        phase_handlers (list of callables): phase handlers
 
     Returns:
         (str): table of contents
@@ -290,8 +292,16 @@ def task_toc(task_list,phases):
     lines = [
         "Run: {:s}".format(mcscript.parameters.run.name),
         "{:s}".format(time.asctime()),
-        "Tasks: {:d}".format(len(task_list)),
+        "Phases: {:d}".format(len(phase_handlers))
         ]
+    
+    for task_phase in range(len(phase_handlers)):
+        # retrieve phase handler docstring
+        phase_docstring = inspect.getdoc(phase_handlers[task_phase])
+        phase_summary = "{}".format(phase_docstring).splitlines()[0]
+        lines.append("  Phase {:d} summary: {:s}".format(task_phase, phase_summary))
+
+    lines.append("Tasks: {:d}".format(len(task_list)))
     for task_index in range(len(task_list)):
 
         # retrieve task properties
@@ -302,7 +312,7 @@ def task_toc(task_list,phases):
 
         # assemble line
         fields = [ index_str(task_index), task_pool]
-        fields += [task_status(task_index,task_phase,task_mask) for task_phase in range(phases)]
+        fields += [task_status(task_index,task_phase,task_mask) for task_phase in range(len(phase_handlers))]
         fields += [ task_descriptor ]
 
         # accumulate line
@@ -455,12 +465,12 @@ def finalize_lock(task_index,task_phase,task_time):
 # special runs: archive
 ################################################################
 
-def write_toc(task_list,phases):
+def write_toc(task_list,phase_handlers):
     """ Write current table of contents to file runxxxx.toc.
 
     Arguments:
         task_list (dict): task list
-        phases (int): number of phases
+        phase_handlers (list of callables): phase handlers
 
     Returns:
         (str): toc filename, sans path (as convenience to caller)
@@ -469,7 +479,7 @@ def write_toc(task_list,phases):
     # write current toc
     toc_filename = "{}.toc".format(mcscript.parameters.run.name)
     toc_stream = open(toc_filename, "w")
-    toc_stream.write(task_toc(task_list,phases))
+    toc_stream.write(task_toc(task_list,phase_handlers))
     toc_stream.close()
 
     # return filename
@@ -794,7 +804,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
     # special run modes
     if (task_mode == TaskMode.kTOC):
         # update toc file
-        toc_filename = write_toc(task_list,len(phase_handlers))
+        toc_filename = write_toc(task_list,phase_handlers)
         # replicate toc file contents to stdout
         with open(toc_filename) as toc_stream:
             print()
@@ -803,7 +813,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
     elif (task_mode == TaskMode.kUnlock):
         task_unlock()
     elif (task_mode == TaskMode.kArchive):
-        write_toc(task_list,len(phase_handlers))  # update toc for archive
+        write_toc(task_list,phase_handlers)  # update toc for archive
         do_archive(task_parameters,archive_phase_handlers)
     elif (task_mode == TaskMode.kPrerun):
         invoke_tasks_prerun(task_parameters,task_list,phase_handlers)
