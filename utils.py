@@ -25,6 +25,7 @@
     6/4/17 (mac): Overhaul search_in_directories and add optional custom error message.
     6/8/17 (pjf): Add write_namelist.
     6/27/17 (mac): Add option for search_in_subdirectories to fail gracefully.
+    11/03/17 (pjf): Quote strings in namelist output.
 """
 
 import glob
@@ -84,7 +85,7 @@ def write_namelist(filename, input_dict={}, verbose=True):
         int:   (lambda n: "{:d}".format(n)),
         float: (lambda x: "{:e}".format(x).replace("e", "d")),
         bool:  (lambda b: ifelse(b, ".true.", ".false.")),
-        str:   (lambda s: "{:s}".format(s)),
+        str:   (lambda s: "'{:s}'".format(s)),
     }
 
     def format_val(x):
