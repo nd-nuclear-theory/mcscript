@@ -46,6 +46,7 @@ Department of Physics, University of Notre Dame
   you can use the generic configuration file config-ompi.py in
   mcscript/config:
 
+  % cd mcscript
   % ln -s config/config-ompi.py config.py
 
   Othereise, whenever you move to a new cluster, you will have to
@@ -58,10 +59,12 @@ Department of Physics, University of Notre Dame
 
   || @NDCRC:
   ||
+  || % cd mcscript
   || % ln -s config/config-uge-ndcrc.py config.py
 
   || @NERSC:
   ||
+  || % cd mcscript
   || % ln -s config/config-slurm-nersc.py config.py
 
   You will need to follow these models to define the batch submission
