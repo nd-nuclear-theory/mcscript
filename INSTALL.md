@@ -13,7 +13,7 @@ Department of Physics, University of Notre Dame
 
 ----------------------------------------------------------------
 
-1. Retrieving source
+# 1. Retrieving source
 
   Change to the directory where you want the repository to be installed,
   e.g.,
@@ -40,7 +40,7 @@ Department of Physics, University of Notre Dame
   % git pull
   ~~~~~~~~~~~~~~~~
 
-3. Local configuration
+# 2. Local configuration
 
   You need to create a symbolic link `config.py` to point to the
   correct configuration file for the system or cluster you are running
@@ -54,7 +54,7 @@ Department of Physics, University of Notre Dame
   % ln -s config/config-ompi.py config.py
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Othereise, whenever you move to a new cluster, you will have to
+  Otherwise, whenever you move to a new cluster, you will have to
   write such a file, to take into account the pecularities of the
   batch submission software and queue structure of that cluster.
 
@@ -77,7 +77,7 @@ Department of Physics, University of Notre Dame
   srun, etc.) invocations appropriate to your cluster and your running
   needs.
 
-3. Environment variables
+# 3. Environment variables
 
   In your csh initialization file, define initialization as follows
   (adjusting directory names to match your own choices as
@@ -140,7 +140,7 @@ Department of Physics, University of Notre Dame
   > define a per-job module load/swap/unload list to be handled
   > within `mcscript.init`.
 
-4. Basic tests
+# 4. Basic tests
 
   Basic test scripts may be found in `mcscript/example`.  But qsubm will
   be looking for tem in your "run" directory.  So you can start by
