@@ -36,9 +36,9 @@ Department of Physics, University of Notre Dame
   all the following steps.
 
   a. Subsequently updating source
-    ~~~~~~~~~~~~~~~~
-    % git pull
-    ~~~~~~~~~~~~~~~~
+  ~~~~~~~~~~~~~~~~
+  % git pull
+  ~~~~~~~~~~~~~~~~
 
 3. Local configuration
 
@@ -82,30 +82,30 @@ Department of Physics, University of Notre Dame
   In your csh initialization file, define initialization as follows
   (adjusting directory names to match your own choices as
   appropriate):
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # mcscript
-    setenv MCSCRIPT_DIR ${HOME}/code/mcscript
-    setenv MCSCRIPT_INSTALL_DIR ${HOME}/code/install
-    setenv MCSCRIPT_RUN_HOME ${HOME}/runs
-    setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
-    setenv MCSCRIPT_RUN_PREFIX run
-    setenv MCSCRIPT_PYTHON python3
-    source ${MCSCRIPT_DIR}/mcscript_init.csh
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # mcscript
+  setenv MCSCRIPT_DIR ${HOME}/code/mcscript
+  setenv MCSCRIPT_INSTALL_DIR ${HOME}/code/install
+  setenv MCSCRIPT_RUN_HOME ${HOME}/runs
+  setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
+  setenv MCSCRIPT_RUN_PREFIX run
+  setenv MCSCRIPT_PYTHON python3
+  source ${MCSCRIPT_DIR}/mcscript_init.csh
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   Alternatively, if your default shell is bash (we translate the
   `setenv` statements above into `export` statements and invoke the
   alternative initialization script file `mcscript_init.sh`):
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # mcscript
-    export MCSCRIPT_DIR=${HOME}/code/mcscript
-    export MCSCRIPT_INSTALL_DIR=${HOME}/code/install
-    export MCSCRIPT_RUN_HOME=${HOME}/runs
-    export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
-    export MCSCRIPT_RUN_PREFIX=run
-    export MCSCRIPT_PYTHON=python3
-    source ${MCSCRIPT_DIR}/mcscript_init.sh
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # mcscript
+  export MCSCRIPT_DIR=${HOME}/code/mcscript
+  export MCSCRIPT_INSTALL_DIR=${HOME}/code/install
+  export MCSCRIPT_RUN_HOME=${HOME}/runs
+  export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
+  export MCSCRIPT_RUN_PREFIX=run
+  export MCSCRIPT_PYTHON=python3
+  source ${MCSCRIPT_DIR}/mcscript_init.sh
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   A description of these (and other) environment variables may be
   found by invoking the qsubm help:
@@ -130,9 +130,9 @@ Department of Physics, University of Notre Dame
   > python, ompi, etc.  We don't have an elegant, general solution
   > yet.  The ad hoc solution is simply to load the relevant modules
   > from your `.cshrc` file:
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    setenv MCSCRIPT_SOURCE ${HOME}/code/shell/config/module-load-ndcrc.csh
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  setenv MCSCRIPT_SOURCE ${HOME}/code/shell/config/module-load-ndcrc.csh
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   > Of course, this assumes you always want these modules loaded, for
   > whatever code you might be running.  You may not be so lucky.
   >
