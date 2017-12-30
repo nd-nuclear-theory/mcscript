@@ -40,7 +40,7 @@ import shutil
 import subprocess
 import sys
 
-import config  # local configuration (usually symlink)
+import mcscript.config  # local configuration (usually symlink)
 import mcscript.utils
 
 ################################################################
