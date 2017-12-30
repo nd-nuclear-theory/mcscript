@@ -425,6 +425,9 @@ class CoefficientDict(dict):
         if not (isinstance(rhs, numbers.Number)):
             raise TypeError("unsupported operand type(s) for *: 'CoefficientDict' and "+type_as_str(rhs))
         out = CoefficientDict()
+        # return empty dict if multiplied by zero
+        if rhs == 0:
+            return out
         for key in self.keys():
             out[key] = self[key] * rhs
         return out
