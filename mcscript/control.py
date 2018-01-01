@@ -22,11 +22,12 @@ import subprocess
 import sys
 import time
 
-import mcscript.config
-import mcscript.parameters
-import mcscript.utils
-import mcscript.exception
-
+from . import (
+    config,
+    parameters,
+    utils,
+    exception,
+)
 
 ################################################################
 # initialization code
@@ -41,26 +42,26 @@ def init():
 
     # retrieve job information
 
-    mcscript.parameters.run.populate()
-    mcscript.parameters.run.job_id = mcscript.config.job_id()
+    parameters.run.populate()
+    parameters.run.job_id = config.job_id()
 
-    if (mcscript.parameters.run.verbose):
+    if (parameters.run.verbose):
         print("")
         print("-"*64),
-        print(mcscript.parameters.run.run_data_string())
+        print(parameters.run.run_data_string())
         print("-"*64),
-        print(mcscript.utils.time_stamp()),
+        print(utils.time_stamp()),
         sys.stdout.flush()
 
     # make and cd to scratch directory
 
-    if (not os.path.exists(mcscript.parameters.run.work_dir)):
-        subprocess.call(["mkdir","--parents",mcscript.parameters.run.work_dir])
-    os.chdir(mcscript.parameters.run.work_dir)
+    if (not os.path.exists(parameters.run.work_dir)):
+        subprocess.call(["mkdir","--parents",parameters.run.work_dir])
+    os.chdir(parameters.run.work_dir)
 
     # invoke local init
 
-    mcscript.config.init()
+    config.init()
 
 ################################################################
 # termination code
@@ -71,15 +72,15 @@ def termination():
     """Do global termination tasks."""
 
     # invoke local termination
-    mcscript.config.termination()
+    config.termination()
 
     # provide verbose ending
     #   only if top-level invocation of job file, not epar daughter
-    if (mcscript.parameters.run.verbose):
+    if (parameters.run.verbose):
         sys.stdout.flush()
         print("-"*64)
         print("End script")
-        print(mcscript.utils.time_stamp())
+        print(utils.time_stamp())
         print("-"*64)
     sys.stdout.flush()
 
@@ -143,170 +144,6 @@ class CallMode(enum.Enum):
     kSerial = 1
     kHybrid = 2
 
-## def call_old(
-##         base,
-##         shell=False,
-##         mode=CallMode.kLocal,
-##         input_lines=[],
-##         cwd=None,
-##         check_return=True,
-##         print_stdout=True,
-##         print_timing=True
-## ):
-##     """Invoke subprocess with simple batch input and output via
-##     POpen.communicate.  The subprocess arguments are obtained by
-##     joining the prefix list to the base list.  Input lines and
-##     captured output are logged to stdout.
-## 
-##     OLD version -- stdout all stored by POpen.communicate before
-##     finally being dumped.
-## 
-##     Arguments:
-## 
-##         base (list of str): list of arguments for subprocess invocation
-## 
-##         shell (boolean, optional): whether or not to launch subshell
-##         (pass-through to POpen)
-## 
-##         mode (CallMode, optional): mode of invocation for code
-## 
-##             mcscript.CallMode.kLocal: lightweight code for direct invocation under script
-##             (e.g., a simple os command)
-## 
-##             mcscript.CallMode.kSerial: "serial" compute code (may be
-##             directly invoked under script or shipped to compute node;
-##             also had special treatment under epar jobs); number of OMP
-##             threads set separately from OMP width for hybrid runs
-## 
-##             mcscript.CallMode.kHybrid: code requiring mpi launch
-## 
-##         input_lines (list of str, optional): list of lines to be given to the
-##         subprocess as standard input (i.e., as list of strings, each
-##         of which is to be treated as one input line)
-## 
-##         check_return (boolean, optional): whether or not to check subprocess's return value
-##         (and raise exception if nonzero)
-## 
-##         print_timing (boolean, optional): or not to print wall time
-## 
-##         print_stdout (boolean, optional): or not to print subprocess's captured
-##         output to stdout
-## 
-##         cwd (str or None): current working directory (pass-through to
-##         POpen)
-## 
-##     Returns:
-##         (str): subprocess's captured output
-## 
-##     Exceptions:
-## 
-##         If check_return is set and subprocess return is nonzero,
-##         raises a mcscript.exception.ScriptError exception.  Also raises a mcscript.exception.ScriptError
-##         exception if subprocess cannot be invoked in the first place.
-## 
-##     Limitations:
-## 
-##         All captured output is lost if process crashes.
-## 
-##     Examples:
-## 
-##         >>> mcscript.call(["cat"],input_lines=["a","b"]) # basic
-##         >>> mcscript.call(["catx"],input_lines=["a","b"]) # for execution failure
-##         >>> mcscript.call(["cat","badfile"],input_lines=["a","b"]) # for nonzero return
-##         >>> mcscript.call(["cat","badfile"],input_lines=["a","b"],mode=mcscript.CallMode.kSerial) # specifying run mode
-## 
-##     """
-## 
-##     # set up invocation
-##     if (mode is CallMode.kLocal):
-##         invocation = base
-##     elif (mode==CallMode.kSerial):
-##         openmp_setup(mcscript.parameters.run.serial_threads)
-##         invocation = mcscript.config.serial_invocation(base)
-##     elif (mode==CallMode.kHybrid):
-##         openmp_setup(mcscript.parameters.run.hybrid_threads)
-##         invocation = mcscript.config.hybrid_invocation(base)
-##     else:
-##         raise(ValueError("invalid invocation mode"))
-## 
-##     # make a single string if running under subshell
-##     if shell:
-##         invocation = " ".join(invocation)
-## 
-##     # set up input
-##     stdin_string = "".join([s + "\n" for s in input_lines])
-##     # encode as bytes
-##     #   else communicate complains under Python 3: 'str' does not
-##     #   support the buffer interface
-##     # caveat: bytes(stdin_string, "ascii") fails Python 2 backward compatibility,
-##     # but encoding is required by Python 3
-##     #
-##     # "ascii" encoding will choke on newer gnu utilities utf-8 output
-##     stdin_bytes = bytes(stdin_string,encoding="ascii",errors="ignore")
-## 
-##     # log header output
-##     print("----------------------------------------------------------------")
-##     print("Executing external code")
-##     print("Command line: {:s}".format(str(invocation)))
-##     print("Call mode: {:s}".format(str(mode)))
-##     print("Start time: {:s}".format(mcscript.utils.time_stamp()))
-##     if (input_lines!=[]):
-##         print("----------------")
-##         print("Given standard input:")
-##         print(stdin_string)
-##     sys.stdout.flush()
-## 
-##     # invoke
-##     subprocess_start_time = time.time()
-##     try:
-##         # launch process
-##         process = subprocess.Popen(
-##             invocation,
-##             stdin=subprocess.PIPE,     # to take input from communicate
-##             stdout=subprocess.PIPE,    # to send output to communicate
-##             stderr=subprocess.PIPE,    # separate stderr
-##             shell=shell,cwd=cwd,       # pass-through arguments
-##             close_fds=True             # for extra neatness and protection
-##             )
-##     except OSError as err:
-##         print("Execution failed:", err)
-##         raise mcscript.exception.ScriptError("execution failure")
-## 
-##     # communicate with process
-##     (stdout_bytes,stderr_bytes) = process.communicate(input=stdin_bytes)
-## 
-##     # conclude timing
-##     subprocess_end_time = time.time()
-##     subprocess_time = subprocess_end_time - subprocess_start_time
-## 
-##     # process output
-##     # result of process.communicate consists of bytes (under Python 3)
-##     stdout_string = stdout_bytes.decode(encoding="ascii",errors="ignore")
-##     stderr_string = stderr_bytes.decode(encoding="ascii",errors="ignore")
-##     if (print_stdout):
-##         print("----------------")
-##         print("Standard output:")
-##         print(stdout_string)
-##         if (len(stderr_string)>0):
-##             print("----------------")
-##             print("Standard error:")
-##             print(stderr_string)
-## 
-##     print("----------------")
-##     if (print_timing):
-##         print("Wall time: {:.2f}".format(subprocess_time))
-##     # handle return value
-##     returncode = process.returncode
-##     print("Return code: {}".format(returncode))
-##     # finish logging
-##     print("----------------------------------------------------------------")
-##     sys.stdout.flush()  # just for good measure
-## 
-##     # return (or abort)
-##     if ( check_return and (returncode != 0) ):
-##         raise mcscript.exception.ScriptError("nonzero return")
-## 
-##     return stdout_string
 
 def call(
         base,
@@ -334,15 +171,15 @@ def call(
 
         mode (CallMode, optional): mode of invocation for code
 
-            mcscript.CallMode.kLocal: lightweight code for direct invocation under script
+            CallMode.kLocal: lightweight code for direct invocation under script
             (e.g., a simple os command)
 
-            mcscript.CallMode.kSerial: "serial" compute code (may be
+            CallMode.kSerial: "serial" compute code (may be
             directly invoked under script or shipped to compute node;
             also had special treatment under epar jobs); number of OMP
             threads set separately from OMP width for hybrid runs
 
-            mcscript.CallMode.kHybrid: code requiring mpi launch
+            CallMode.kHybrid: code requiring mpi launch
 
         input_lines (list of str, optional): list of lines to be given to the
         subprocess as standard input (i.e., as list of strings, each
@@ -376,11 +213,11 @@ def call(
     if (mode is CallMode.kLocal):
         invocation = base
     elif (mode==CallMode.kSerial):
-        openmp_setup(mcscript.parameters.run.serial_threads)
-        invocation = mcscript.config.serial_invocation(base)
+        openmp_setup(parameters.run.serial_threads)
+        invocation = config.serial_invocation(base)
     elif (mode==CallMode.kHybrid):
-        openmp_setup(mcscript.parameters.run.hybrid_threads)
-        invocation = mcscript.config.hybrid_invocation(base)
+        openmp_setup(parameters.run.hybrid_threads)
+        invocation = config.hybrid_invocation(base)
     else:
         raise(ValueError("invalid invocation mode"))
 
@@ -405,7 +242,7 @@ def call(
     print("Executing external code")
     print("Command line: {:s}".format(str(invocation)))
     print("Call mode: {:s}".format(str(mode)))
-    print("Start time: {:s}".format(mcscript.utils.time_stamp()))
+    print("Start time: {:s}".format(utils.time_stamp()))
     if (input_lines!=[]):
         print("----------------")
         print("Given standard input:")
@@ -429,11 +266,11 @@ def call(
     ##         )
     ## except OSError as err:
     ##     print("Execution failed:", err)
-    ##     raise mcscript.exception.ScriptError("execution failure")
-    ## 
+    ##     raise exception.ScriptError("execution failure")
+    ##
     ## # communicate with process
     ## (stdout_bytes,stderr_bytes) = process.communicate(input=stdin_bytes)
-    
+
     # head output
     print("----------------")
     print("Output:")
@@ -452,10 +289,10 @@ def call(
             )
     except OSError as err:
         print("Execution failed:", err)
-        raise mcscript.exception.ScriptError("execution failure")
+        raise exception.ScriptError("execution failure")
 
     # launch process
-    process.communicate(input=stdin_bytes)    
+    process.communicate(input=stdin_bytes)
     ## process.stdin.write(stdin_bytes)
     ## process.wait()
 
@@ -488,6 +325,6 @@ def call(
 
     # return (or abort)
     if ( check_return and (returncode != 0) ):
-        raise mcscript.exception.ScriptError("nonzero return")
+        raise exception.ScriptError("nonzero return")
 
     ## return stdout_string

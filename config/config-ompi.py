@@ -16,7 +16,7 @@
 import os
 import sys
 
-import mcscript.parameters
+from . import parameters
 
 ################################################################
 ################################################################
@@ -31,11 +31,11 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     Arguments:
 
         job_name (str): job name string
-    
+
         job_file (str): job script file
-    
+
         qsubm_path (str): path to qsubm files (for locating wrapper script)
-    
+
         environment_definitions (list of str): list of environment variable definitions
         to include in queue submission arguments
 
@@ -95,7 +95,7 @@ def serial_invocation(base):
     Returns:
         (list of str): full invocation
     """
-    
+
     invocation = base
 
     return base
@@ -118,7 +118,7 @@ def hybrid_invocation(base):
     # for ompi
     invocation = [
         "mpiexec",
-        "--n","{:d}".format(mcscript.parameters.run.hybrid_ranks)
+        "--n","{:d}".format(parameters.run.hybrid_ranks)
     ]
     invocation += base
 
@@ -140,5 +140,5 @@ def init():
 def termination():
     """ Do any local termination tasks.
     """
-    
+
     pass

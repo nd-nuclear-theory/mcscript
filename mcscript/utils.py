@@ -36,7 +36,7 @@ import os
 import subprocess
 import time
 
-import mcscript.exception
+from . import exception
 
 ################################################################
 # input file generation

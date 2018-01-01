@@ -39,7 +39,7 @@ import os
 import sys
 import math
 
-import mcscript.parameters
+from . import parameters
 
 
 ################################################################
@@ -194,7 +194,7 @@ def serial_invocation(base):
     #
     #   srun --export=ALL ...
 
-    if (not mcscript.parameters.run.batch_mode):
+    if (not parameters.run.batch_mode):
         # run on front end (though might sometimes want to run on compute
         # node if have interactive allocation)
         invocation = base
@@ -206,7 +206,7 @@ def serial_invocation(base):
             "srun",
             "--ntasks={}".format(1),
             "--nodes={}".format(1),
-            "--cpus-per-task={}".format(mcscript.parameters.run.hybrid_nodesize),
+            "--cpus-per-task={}".format(parameters.run.hybrid_nodesize),
             "--export=ALL"
         ]
 
@@ -232,19 +232,17 @@ def hybrid_invocation(base):
 
     # calculate number of needed cores and nodes
     undersubscription_factor = 1
-    needed_threads = mcscript.parameters.run.hybrid_ranks * mcscript.parameters.run.hybrid_threads * undersubscription_factor
-    print("nodesize",mcscript.parameters.run.hybrid_nodesize)
-    needed_nodes = (needed_threads // mcscript.parameters.run.hybrid_nodesize) + int((needed_threads % mcscript.parameters.run.hybrid_nodesize) != 0)
+    print("nodesize", parameters.run.hybrid_nodesize)
 
     # note: may need to be revised to enable hyperthreading, i.e.,
     # to provide different depth in OMP_NUM_THREADS and in srun
 
     # for ompi
-    requested_threads_per_rank = mcscript.parameters.run.hybrid_threads*undersubscription_factor
+    requested_threads_per_rank = parameters.run.hybrid_threads*undersubscription_factor
     invocation = [
         "srun",
         ## "--cpu_bind=verbose",
-        "--ntasks={}".format(mcscript.parameters.run.hybrid_ranks),
+        "--ntasks={}".format(parameters.run.hybrid_ranks),
         "--cpus-per-task={}".format(requested_threads_per_rank),
         "--export=ALL"
     ]
@@ -270,18 +268,18 @@ def init():
     """
 
     # set node size based on environment
-    mcscript.parameters.run.hybrid_nodesize = None
+    parameters.run.hybrid_nodesize = None
     if (os.getenv("NERSC_HOST")=="edison"):
-        mcscript.parameters.run.hybrid_nodesize = 24*2
+        parameters.run.hybrid_nodesize = 24*2
     elif (os.getenv("NERSC_HOST")=="cori"):
         if (os.getenv("CRAY_CPU_TARGET")=="haswell"):
-            mcscript.parameters.run.hybrid_nodesize = 32*2
+            parameters.run.hybrid_nodesize = 32*2
         elif (os.getenv("CRAY_CPU_TARGET")=="mic-knl"):
-            mcscript.parameters.run.hybrid_nodesize = 68*4
+            parameters.run.hybrid_nodesize = 68*4
 
     # set install prefix based on environment
-    mcscript.parameters.run.install_dir = os.path.join(
-        mcscript.parameters.run.install_dir, os.getenv("CRAY_CPU_TARGET")
+    parameters.run.install_dir = os.path.join(
+        parameters.run.install_dir, os.getenv("CRAY_CPU_TARGET")
         )
 
     # Cori recommended thread affinity settings

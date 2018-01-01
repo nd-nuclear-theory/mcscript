@@ -24,19 +24,19 @@
 #   from package.submodule import *
 
 # load parameters
-import mcscript.parameters
+from . import parameters
 
 # load local hooks
-import mcscript.config
+from . import config
 
 # load control functions
 #   imported into global namespace
-import mcscript.control
-from mcscript.control import *
+from . import control
+from .control import *
 
 # load utilities submodule
-import mcscript.utils
+from . import utils
 ## from mcscript.utils import *
 
 # load task machinery submodule
-import mcscript.task
+from . import task

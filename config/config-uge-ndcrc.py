@@ -36,36 +36,36 @@
 # Queues as of 4/22/17:
 #
 #   http://wiki.crc.nd.edu/wiki/index.php/Available_Hardware
-#   
+#
 #   General Access Compute Clusters
-#   
+#
 #   d12chas332-d12chas519.crc.nd.edu
-#   
-#    176 Dell PowerEdge R730 Servers 
+#
+#    176 Dell PowerEdge R730 Servers
 #    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
 #    256 GB RAM  -  1.4TB Solid State Disk - SSD
 #    Usage:  Queue syntax for job submission script:
 #       #$ -q long
 #       or
-#       #$ -q *@@general_access 
-#   
+#       #$ -q *@@general_access
+#
 #   d12chas520-d12chas543.crc.nd.edu
-#   
-#    24 Dell PowerEdge R730 Servers 
+#
+#    24 Dell PowerEdge R730 Servers
 #    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
-#    64 GB RAM  -  1.4TB Solid State Disk - SSD   
+#    64 GB RAM  -  1.4TB Solid State Disk - SSD
 #    Usage:  Queue syntax for job submission script:
-#       #$ -q debug 
-#       
-#   
+#       #$ -q debug
+#
+#
 #   dqcneh075-104.crc.nd.edu CRC General Access (with Infiniband interconnection network, available upon request)
-#   
+#
 #   30 IBM I-dataplex
-#   Dual Quad-core 2.53 GHz Intel Nehalem processors 
+#   Dual Quad-core 2.53 GHz Intel Nehalem processors
 #   Qlogic QDR Infiniband Non-Blocking  HBA
 #   12 GB RAM
 #   Usage:  Queue syntax for job submission script:
-#       #$ -q *@@dqcneh_253GHZ 
+#       #$ -q *@@dqcneh_253GHZ
 
 
 
@@ -73,7 +73,8 @@
 import os
 import sys
 
-import mcscript.parameters
+from . import parameters
+
 
 ################################################################
 ################################################################
@@ -87,11 +88,11 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     Arguments:
 
         job_name (str): job name string
-    
+
         job_file (str): job script file
-    
+
         qsubm_path (str): path to qsubm files (for locating wrapper script)
-    
+
         environment_definitions (list of str): list of environment variable definitions
         to include in queue submission arguments
 
@@ -192,6 +193,7 @@ def job_id():
 
     return os.environ.get("JOB_ID","0")
 
+
 ################################################################
 # serial and parallel code launching definitions
 ################################################################
@@ -210,10 +212,11 @@ def serial_invocation(base):
     Returns:
         (list of str): full invocation
     """
-    
+
     invocation = base
 
     return base
+
 
 def hybrid_invocation(base):
     """ Generate subprocess invocation arguments for parallel run.
@@ -240,9 +243,9 @@ def hybrid_invocation(base):
     #
     # An invalid value was given for the number of processes
     # per resource (ppr) to be mapped on each node:
-    # 
+    #
     #   PPR:  6:node:pe=4
-    # 
+    #
     # The specification must be a comma-separated list containing
     # combinations of number, followed by a colon, followed
     # by the resource type. For example, a value of "1:socket" indicates that
@@ -259,7 +262,7 @@ def hybrid_invocation(base):
     #   WARNING: a request was made to bind a process. While the system
     #   supports binding the process itself, at least one node does NOT
     #   support binding memory to the process location.
-    
+
     #             "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
 
     # 6/3/17 (mac): using binding on compute nodes causes mess for SU3RME, so disable...
@@ -279,16 +282,16 @@ def hybrid_invocation(base):
     #   WARNING: a request was made to bind a process. While the system
     #   supports binding the process itself, at least one node does NOT
     #   support binding memory to the process location.
-    #   
+    #
     #     Node:  d12chas417
-    #   
+    #
     #   Open MPI uses the "hwloc" library to perform process and memory
     #   binding. This error message means that hwloc has indicated that
     #   processor binding support is not available on this machine.
-    #   
+    #
     #   On OS X, processor and memory binding is not available at all (i.e.,
     #   the OS does not expose this functionality).
-    #   
+    #
     #   On Linux, lack of the functionality can mean that you are on a
     #   platform where processor and memory affinity is not supported in Linux
     #   itself, or that hwloc was built without NUMA and/or processor affinity
@@ -299,25 +302,25 @@ def hybrid_invocation(base):
     #   packages with the word "numa" in them. You may also need a developer
     #   version of the package (e.g., with "dev" or "devel" in the name) to
     #   obtain the relevant header files.
-    #   
+    #
     #   If you are getting this message on a non-OS X, non-Linux platform,
     #   then hwloc does not support processor / memory affinity on this
     #   platform. If the OS/platform does actually support processor / memory
     #   affinity, then you should contact the hwloc maintainers:
     #   https://github.com/open-mpi/hwloc.
-    #   
+    #
     #   This is a warning only; your job will continue, though performance may
     #   be degraded.
     #   --------------------------------------------------------------------------
     #   --------------------------------------------------------------------------
     #   MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
     #   with errorcode 1.
-    #   
+    #
     #   NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
     #   You may or may not see output from other processes, depending on
     #   exactly when Open MPI kills them.
     #   --------------------------------------------------------------------------
-    #   
+    #
     #   ----------------
     #   Standard error:
     #   [d12chas417.crc.nd.edu:07260] MCW rank 0 is not bound (or bound to all available processors)
@@ -327,34 +330,35 @@ def hybrid_invocation(base):
     # TODO:
     #   - redo binding by socket (default)
     #   - fix PE thread spacing
-    #   - consider hyperthreading? 
+    #   - consider hyperthreading?
 
     undersubscription_factor = 1
-    processing_elements_per_rank = mcscript.parameters.run.hybrid_threads*undersubscription_factor
-    processes_per_resource = mcscript.parameters.run.hybrid_nodesize // processing_elements_per_rank
+    processing_elements_per_rank = parameters.run.hybrid_threads*undersubscription_factor
+    processes_per_resource = parameters.run.hybrid_nodesize // processing_elements_per_rank
 
     if (processes_per_resource > 1):
         print("WARNING: NDCRC mpiexec binding is not yet set up properly for more than one thread per process!!!")
 
-    if (not mcscript.parameters.run.batch_mode):
+    if (not parameters.run.batch_mode):
         # run on front end
         #
         # skip bindings
         invocation = [
             "mpiexec",
-            "--n","{:d}".format(mcscript.parameters.run.hybrid_ranks),
+            "--n","{:d}".format(parameters.run.hybrid_ranks),
         ]
     else:
         # run on compute node
         invocation = [
             "mpiexec",
             ## "--report-bindings",
-            "--n","{:d}".format(mcscript.parameters.run.hybrid_ranks),
+            "--n","{:d}".format(parameters.run.hybrid_ranks),
             ## "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
         ]
     invocation += base
 
     return invocation
+
 
 ################################################################
 # local setup and termination hooks
@@ -373,8 +377,9 @@ def init():
 
     pass
 
+
 def termination():
     """ Do any local termination tasks.
     """
-    
+
     pass
