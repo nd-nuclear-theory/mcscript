@@ -10,10 +10,11 @@ Department of Physics, University of Notre Dame
 + 5/9/17 (mac): Add bash instructions.  Expand discussion of examples.
 + 8/28/17 (pjf): Add environment for mcscript-managed executables.
 + 12/21/17 (pjf): Move to INSTALL.md and update to Markdown.
++ 01/01/17 (pjf): Update for installation with `pip`.
 
 ----------------------------------------------------------------
 
-# 1. Retrieving source
+# 1. Retrieving and installing source
 
   Change to the directory where you want the repository to be installed,
   e.g.,
@@ -32,7 +33,12 @@ Department of Physics, University of Notre Dame
   % git clone https://github.com/nd-nuclear-theory/mcscript.git
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Then change your working directory (cd) to the project directory for
+  Setup the package in your `PYTHONPATH` by running `pip` (or `pip3` on Debian):
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  % pip install --user --editable mcscript/
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Then change your working directory (`cd`) to the project directory for
   all the following steps.
 
   a. Subsequently updating source

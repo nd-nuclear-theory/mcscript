@@ -8,6 +8,6 @@
 # 12/30/16 (mac): Created.
 
 setenv PATH ${MCSCRIPT_DIR}/tools:${PATH}
-setenv PYTHONPATH ${MCSCRIPT_DIR}:${PYTHONPATH}
+# setenv PYTHONPATH ${MCSCRIPT_DIR}:${PYTHONPATH}
 
 alias cdr 'cd ${MCSCRIPT_WORK_HOME}/${MCSCRIPT_RUN_PREFIX}\!*'

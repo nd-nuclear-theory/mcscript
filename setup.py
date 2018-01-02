@@ -1,5 +1,3 @@
-import inspect
-import mcscript
 from setuptools import setup
 
 setup(
@@ -9,6 +7,5 @@ setup(
     description=("Scripting setup, utilities, and task control for cluster runs"),
     license="MIT",
     packages=['mcscript'],
-    long_description=inspect.getdoc(mcscript),
     classifiers=[],
 )
