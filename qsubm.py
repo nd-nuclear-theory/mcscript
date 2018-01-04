@@ -268,6 +268,11 @@ environment_definitions += [
     "MCSCRIPT_HYBRID_NODESIZE={:d}".format(args.nodesize)
 ]
 
+if os.environ.get("MCSCRIPT_SOURCE"):
+    environment_definitions += [
+        "MCSCRIPT_SOURCE={:s}".format(os.environ["MCSCRIPT_SOURCE"])
+    ]
+
 # set repetition parameter
 repetitions = args.num
 
