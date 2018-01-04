@@ -33,13 +33,21 @@ Department of Physics, University of Notre Dame
   % git clone https://github.com/nd-nuclear-theory/mcscript.git
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+  Change your working directory to the repository for the following steps:
+  ~~~~~~~~~~~~~~~~
+  % cd mcscript
+  ~~~~~~~~~~~~~~~~
+
+  If you want the bleeding-edge, potentially broken version, check out the
+  `develop` branch:
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  % git checkout -t origin/develop
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
   Setup the package in your `PYTHONPATH` by running `pip` (or `pip3` on Debian):
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  % pip install --user --editable mcscript/
+  % pip install --user --editable .
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  Then change your working directory (`cd`) to the project directory for
-  all the following steps.
 
   a. Subsequently updating source
   ~~~~~~~~~~~~~~~~
