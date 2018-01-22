@@ -78,11 +78,14 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # start accumulating command line
     submission_invocation = [ "sbatch" ]
 
+    # deadline (end of allocation year)
+    submission_invocation += ["--deadline=2019-01-07T23:59:59"]
+
     # job name
     submission_invocation += ["--job-name={}".format(job_name)]
 
     # queue
-    submission_invocation += ["--partition={}".format(args.queue)]
+    submission_invocation += ["--qos={}".format(args.queue)]
 
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
@@ -92,7 +95,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             submission_invocation += ["--clusters=escori"]
         elif os.environ["NERSC_HOST"] == "edison":
             submission_invocation += ["--clusters=esedison"]
-    else:
+    if args.queue in ["debug", "regular", "premium", "shared"]:
         if os.environ["NERSC_HOST"] == "cori":
             # target cpu
             if os.environ["CRAY_CPU_TARGET"] == "haswell":
