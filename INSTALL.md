@@ -10,7 +10,8 @@ Department of Physics, University of Notre Dame
 + 5/9/17 (mac): Add bash instructions.  Expand discussion of examples.
 + 8/28/17 (pjf): Add environment for mcscript-managed executables.
 + 12/21/17 (pjf): Move to INSTALL.md and update to Markdown.
-+ 01/01/17 (pjf): Update for installation with `pip`.
++ 01/01/18 (pjf): Update for installation with `pip`.
++ 02/06/18 (pjf): Update MCSCRIPT_SOURCE file path.
 
 ----------------------------------------------------------------
 
@@ -145,7 +146,7 @@ Department of Physics, University of Notre Dame
   > yet.  The ad hoc solution is simply to load the relevant modules
   > from your `.cshrc` file:
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  setenv MCSCRIPT_SOURCE ${HOME}/code/shell/config/module-load-ndcrc.csh
+  setenv MCSCRIPT_SOURCE ${HOME}/code/ndconfig/env-intel-ndcrc.csh
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   > Of course, this assumes you always want these modules loaded, for
   > whatever code you might be running.  You may not be so lucky.
