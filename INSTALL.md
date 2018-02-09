@@ -189,12 +189,11 @@ Department of Physics, University of Notre Dame
   on the compute node (this depends on your batch system).  The
   simplest solution, which works in most circumstances, is to load a
   python3 module from your login shell initialization file.
-  Alternatively, you may use the `MCSCRIPT_SOURCE` hook (see `qsubm
-  --help`) to ensure that a python3 module is loaded when your batch
-  job starts and/or to reset `MCSCRIPT_PYTHON` to give a valid
-  filename for a Python executable accessible from the compute node.
+  Alternatively, you may use the `MCSCRIPT_SOURCE` hook to ensure that
+  a python3 module is loaded when your batch job starts and/or to
+  reset `MCSCRIPT_PYTHON` to give a valid filename for a Python
+  executable accessible from the compute node.
 
-  
   > @NDCRC: We need to load all required runtime libraries are loaded
   > on the compute node at run time (ompi, etc.) and that the python3
   > module is loaded at run time.  If you are always using the intel
