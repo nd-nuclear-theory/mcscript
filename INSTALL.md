@@ -12,6 +12,7 @@ Department of Physics, University of Notre Dame
 + 12/21/17 (pjf): Move to INSTALL.md and update to Markdown.
 + 01/01/18 (pjf): Update for installation with `pip`.
 + 02/06/18 (pjf): Update MCSCRIPT_SOURCE file path.
++ 02/09/18 (mac): Update environment description.
 
 ----------------------------------------------------------------
 
@@ -94,6 +95,12 @@ Department of Physics, University of Notre Dame
 
 # 3. Environment variables
 
+  The mcscript job submission utility "qsubm" expects certain
+  environment variables to be defined at submission time.  The easiest
+  way to ensure that these variables are defined is to define them in
+  the shell initialization file for you your login shell (e.g., csh or
+  bash).
+
   In your csh initialization file, define initialization as follows
   (adjusting directory names to match your own choices as
   appropriate):
@@ -103,8 +110,8 @@ Department of Physics, University of Notre Dame
   setenv MCSCRIPT_INSTALL_DIR ${HOME}/code/install
   setenv MCSCRIPT_RUN_HOME ${HOME}/runs
   setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
-  setenv MCSCRIPT_RUN_PREFIX run
   setenv MCSCRIPT_PYTHON python3
+  setenv MCSCRIPT_RUN_PREFIX run
   source ${MCSCRIPT_DIR}/mcscript_init.csh
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -117,19 +124,60 @@ Department of Physics, University of Notre Dame
   export MCSCRIPT_INSTALL_DIR=${HOME}/code/install
   export MCSCRIPT_RUN_HOME=${HOME}/runs
   export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
-  export MCSCRIPT_RUN_PREFIX=run
   export MCSCRIPT_PYTHON=python3
+  export MCSCRIPT_RUN_PREFIX=run
   source ${MCSCRIPT_DIR}/mcscript_init.sh
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  A description of these (and other) environment variables may be
-  found by invoking the qsubm help:
-  ~~~~~~~~~~~~~~~~
-  % qsubm --help
-  ~~~~~~~~~~~~~~~~
-
   You may also need to set environment variables for specific
   application scripts you plan to use with mcscript.
+
+  A description of the environment variables for qsubm follows:
+
+  > MCSCRIPT_DIR should specify the directory in which the mcscript
+  > package is installed, i.e., the directory where the file qsubm.py
+  > is found.  (Note that qsubm uses this information to locate
+  > certain auxiliary script files used as part of the job submission
+  > process.)
+   
+  > MCSCRIPT_RUN_HOME must specify the directory in which job files
+  > are found.
+   
+  > MCSCRIPT_WORK_HOME should specify the parent directory in which
+  > run scratch directories should be made.
+   
+  > MCSCRIPT_LAUNCH_HOME (optional) should specify the parent
+  > directory in which run subdirectories for qsub invocation and
+  > output logging should be made.  Otherwise, this will default to
+  > MCSCRIPT_WORK_HOME.
+   
+  > MCSCRIPT_PYTHON should give the full qualified filename (i.e.,
+  > including path) to the Python 3 executable for running run script
+  > files.  A typical value will simply be "python3", assuming the
+  > Python 3 executable is in the shell's command search PATH.
+  > However, see note on "Availability of Python" below.
+  
+  > MCSCRIPT_RUN_PREFIX should specify the prefix for run names,
+  > e.g., set to "run" if your scripts are to be named
+  > run<nnnn>.py.
+ 
+  If you are running batch jobs, you will typically also need to make
+  sure certain modules are loaded or environment variables are set
+  before your code executes.  For instance, you may need to load
+  modules for certain libraries which your code uses, possibly even
+  the compiler's own run-time libraries.  This choice may vary from
+  job to job.  You can control this by storing the various definitions
+  in a shell file (e.g., csh or bash, depending on which shell your
+  jobs are launched under, on your local system or cluster).  Then
+  mcscript will ensure that these definitions are "sourced" when your
+  job starts on the compute node.
+
+  To tell mcscript about this file, make sure you set MCSCRIPT_SOURCE
+  at the time you submit the job, i.e., before calling qsubm:
+
+  > MCSCRIPT_SOURCE (optional) should give the full qualified
+  > filename (i.e., including path) to any shell code which should
+  > be "sourced" at the beginning of the batch job.
 
   Availability of Python: You will need to make sure that
   `MCSCRIPT_PYTHON` points to a valid Python 3 executable both (a) on
@@ -137,23 +185,26 @@ Department of Physics, University of Notre Dame
   on the compute node, in order for your job script to launch on the
   compute node.  Even if a python3 module is loaded on the front end
   at submission time, the relevant environment variables (PATH, etc.)
-  typically will *not* convey to the compute node, depending on your
-  batch system.  The simplest solution is to load a python3 module
-  from your .cshrc file.
+  typically will *not* automatically convey to batch job when it runs
+  on the compute node (this depends on your batch system).  The
+  simplest solution, which works in most circumstances, is to load a
+  python3 module from your login shell initialization file.
+  Alternatively, you may use the `MCSCRIPT_SOURCE` hook (see `qsubm
+  --help`) to ensure that a python3 module is loaded when your batch
+  job starts and/or to reset `MCSCRIPT_PYTHON` to give a valid
+  filename for a Python executable accessible from the compute node.
 
-  > @NDCRC: We need to load all required run modules at run time --
-  > python, ompi, etc.  We don't have an elegant, general solution
-  > yet.  The ad hoc solution is simply to load the relevant modules
-  > from your `.cshrc` file:
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  setenv MCSCRIPT_SOURCE ${HOME}/code/ndconfig/env-intel-ndcrc.csh
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  > Of course, this assumes you always want these modules loaded, for
-  > whatever code you might be running.  You may not be so lucky.
-  >
-  > Future code development: It may therefore be more appropriate to
-  > define a per-job module load/swap/unload list to be handled
-  > within `mcscript.init`.
+  
+  > @NDCRC: We need to load all required runtime libraries are loaded
+  > on the compute node at run time (ompi, etc.) and that the python3
+  > module is loaded at run time.  If you are always using the intel
+  > suite, for instance, you can simply include this definition in
+  > your .cshrc:
+  > ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  > setenv MCSCRIPT_SOURCE ${HOME}/code/ndconfig/env-intel-ndcrc.csh
+  > ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  > Otherwise, be sure to redefine this environment variable before
+  > calling qsubm.
 
 # 4. Basic tests
 

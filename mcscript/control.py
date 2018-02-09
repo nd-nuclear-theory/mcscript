@@ -112,9 +112,6 @@ def module(args):
 
         modulecmd python arg1 arg2 ...
 
-    where the full path to modulecmd must be specified by
-    MCSCRIPT_MODULE_CMD.
-
     Arguments:
 
         args (list of str): list of intended arguments to

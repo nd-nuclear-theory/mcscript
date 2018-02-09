@@ -56,44 +56,14 @@ parser = argparse.ArgumentParser(
     """Simply omit the queue name and leave off the wall time for a
     local interactive run.
 
-    Environment variables:
+    Environment variables for qsubm are described in INSTALL.md.
 
-    MCSCRIPT_RUN_HOME must specify the directory in which job files are
-    found.
-
-    MCSCRIPT_WORK_HOME should specify the parent directory in which
-    run scratch directories should be made.
-
-    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory
-    in which run subdirectories for qsub invocation and output logging
-    should be made.  Otherwise, this will default to MCSCRIPT_WORK_HOME.
-
-    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g.,"run".
-
-    MCSCRIPT_MODULE_CMD (expected by mcscript) should give the module
-    command on the given system, which you can find by asking "where
-    module" and looking inside the results.  You may be able to use an
-    environment variable rather than a hard-coded version number,
-    which is likely to change frequently, e.g.,
-    "${MODULESHOME}/bin/modulecmd" is preferable to
-    "/opt/modules/3.2.6.6/bin/modulecmd".
-
-    MCSCRIPT_DIR (expected by some config files) should specify the
-    directory in which qsubm is installed.
-
-    MCSCRIPT_PYTHON should give the full filename (including path) to the
-    appropriate Python executable for running run script files.  This
-    is needed for qsubm to do a local run of a script, which involves
-    invoking a Python interpreter for it.  A typical value would be
-    "python3" if the Python 3 executable is in the path.  However, on
-    clusters, this will likely have to point towards a specific Python
-    version, loaded with a specific module load.
-
-    Requires local definitions file config.py to translate
-    options into arguments for local batch server.  See directions in
-    readme.txt.  Your local definitions might not make use of or
-    support all the parallel environment options.
-
+    Note that qsubm relies upon code in the local `config.py`
+    configuration file for the system or cluster you are running on, in
+    order to interpret the following arguments and translate them into
+    arguments for your local batch system.  Your local configuration
+    file might not make use of or support all the parallel environment
+    options listed below.
     """
     )
 
@@ -196,6 +166,12 @@ elif ("MCSCRIPT_LAUNCH_HOME" in os.environ):
 else:
     launch_home = work_home
 
+if ("MCSCRIPT_RUN_PREFIX" in os.environ):
+    run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
+else:
+    print ("MCSCRIPT_RUN_PREFIX not found in environment")
+    exit(1)
+
 if ("MCSCRIPT_PYTHON" in os.environ):
     python_executable = os.environ["MCSCRIPT_PYTHON"]
 else:
@@ -213,7 +189,6 @@ else:
 ################################################################
 
 # set run name
-run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
 run = run_prefix + args.run
 print ("Run:", run)
 
