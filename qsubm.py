@@ -1,6 +1,44 @@
 #!/usr/bin/python3
 """qsubm -- generic queue submission for task-oriented batch scripts
 
+    Environment variables:
+
+    MCSCRIPT_RUN_HOME must specify the directory in which job files are
+    found.
+
+    MCSCRIPT_WORK_HOME should specify the parent directory in which
+    run scratch directories should be made.
+
+    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory
+    in which run subdirectories for qsub invocation and output logging
+    should be made.  Otherwise, this will default to MCSCRIPT_WORK_HOME.
+
+    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g., "run".
+
+    MCSCRIPT_MODULE_CMD (expected by mcscript) should give the module
+    command on the given system, which you can find by asking "where
+    module" and looking inside the results.  You may be able to use an
+    environment variable rather than a hard-coded version number,
+    which is likely to change frequently, e.g.,
+    "${MODULESHOME}/bin/modulecmd" is preferable to
+    "/opt/modules/3.2.6.6/bin/modulecmd".
+
+    MCSCRIPT_DIR (expected by some config files) should specify the
+    directory in which qsubm is installed.
+
+    MCSCRIPT_PYTHON should give the full filename (including path) to the
+    appropriate Python executable for running run script files.  This
+    is needed for qsubm to do a local run of a script, which involves
+    invoking a Python interpreter for it.  A typical value would be
+    "python3" if the Python 3 executable is in the path.  However, on
+    clusters, this will likely have to point towards a specific Python
+    version, loaded with a specific module load.
+
+    Requires local definitions file config.py to translate
+    options into arguments for local batch server.  See directions in
+    readme.txt.  Your local definitions might not make use of or
+    support all the parallel environment options.
+
     Language: Python 3
 
     M. A. Caprio
@@ -55,94 +93,58 @@ parser = argparse.ArgumentParser(
     epilog=
     """Simply omit the queue name and leave off the wall time for a
     local interactive run.
-
-    Environment variables:
-
-    MCSCRIPT_RUN_HOME must specify the directory in which job files are
-    found.
-
-    MCSCRIPT_WORK_HOME should specify the parent directory in which
-    run scratch directories should be made.
-
-    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory
-    in which run subdirectories for qsub invocation and output logging
-    should be made.  Otherwise, this will default to MCSCRIPT_WORK_HOME.
-
-    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g.,"run".
-
-    MCSCRIPT_MODULE_CMD (expected by mcscript) should give the module
-    command on the given system, which you can find by asking "where
-    module" and looking inside the results.  You may be able to use an
-    environment variable rather than a hard-coded version number,
-    which is likely to change frequently, e.g.,
-    "${MODULESHOME}/bin/modulecmd" is preferable to
-    "/opt/modules/3.2.6.6/bin/modulecmd".
-
-    MCSCRIPT_DIR (expected by some config files) should specify the
-    directory in which qsubm is installed.
-
-    MCSCRIPT_PYTHON should give the full filename (including path) to the
-    appropriate Python executable for running run script files.  This
-    is needed for qsubm to do a local run of a script, which involves
-    invoking a Python interpreter for it.  A typical value would be
-    "python3" if the Python 3 executable is in the path.  However, on
-    clusters, this will likely have to point towards a specific Python
-    version, loaded with a specific module load.
-
-    Requires local definitions file config.py to translate
-    options into arguments for local batch server.  See directions in
-    readme.txt.  Your local definitions might not make use of or
-    support all the parallel environment options.
-
     """
     )
 
 # general arguments
-parser.add_argument("run",help="Run number (e.g., 0000 for run0000)")
+parser.add_argument("run", help="Run number (e.g., 0000 for run0000)")
 # latter arguments are made optional to simplify bare-bones syntax for --toc, etc., calls
-parser.add_argument("queue",nargs='?',help="Submission queue, or RUN for direct interactive run",default="RUN")
-parser.add_argument("wall",type=int,nargs='?',help="Wall time (minutes)",default=60)
-##parser.add_argument("vars",nargs="?",help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2,PARAM=1.0)")
-parser.add_argument("--here",action="store_true",help="Force run in current working directory")
-parser.add_argument("--vars",help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2,PARAM=1.0)")
-## parser.add_argument("--stat",action="store_true",help="Display queue status information")
-parser.add_argument("--num",type=int,default=1,help="Number of repetitions")
-parser.add_argument("--opt",action="append",help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=ALL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
+parser.add_argument("queue", nargs='?', help="Submission queue, or RUN for direct interactive run", default="RUN")
+parser.add_argument("wall", type=int, nargs='?', help="Wall time (minutes)", default=60)
+##parser.add_argument("vars", nargs="?", help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2, PARAM=1.0)")
+parser.add_argument("--here", action="store_true", help="Force run in current working directory")
+parser.add_argument("--vars", help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2, PARAM=1.0)")
+## parser.add_argument("--stat", action="store_true", help="Display queue status information")
+parser.add_argument("--num", type=int, default=1, help="Number of repetitions")
+parser.add_argument("--opt", action="append", help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=ALL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
 
 # serial run parallelization parameters
-parser.add_argument("--serialthreads",type=int,default=1,help="Serial compute run (single-node, non-MPI): OMP threads")
+serial_group = parser.add_argument_group("serial run options (single-node, non-MPI)")
+serial_group.add_argument("--serialthreads", type=int, default=1, help="OMP threads")
 
 # hybrid run parallelization parameters
 #
 # Not all local configuration files need necessarily require or
 # respect all of the following parameters.
-parser.add_argument("--nodes",type=int,default=1,help="Hybrid parallel run: number of nodes")
-parser.add_argument("--ranks",type=int,default=1,help="Hybrid parallel run: number of MPI ranks")
-parser.add_argument("--threads",type=int,default=1,help="Hybrid parallel run: OMP threads per rank)")
-parser.add_argument("--nodesize",type=int,default=0,help="Hybrid parallel run: logical threads available per node"
-                    " (might instead be interpreted physical CPUs depending on local config file)")
-parser.add_argument("--switchwaittime",type=str,default="2:00:00",help="Hybrid parallel run: maximum time to wait for switch count")
-##parser.add_argument("--undersubscription",type=int,default=1,help="Hybrid parallel run: undersubscription factor (e.g., spread=2 requests twice the cores needed)")
+hybrid_group = parser.add_argument_group("hybrid run options")
+hybrid_group.add_argument("--nodes", type=int, default=1, help="number of nodes")
+hybrid_group.add_argument("--ranks", type=int, default=1, help="number of MPI ranks")
+hybrid_group.add_argument("--threads", type=int, default=1, help="OMP threads per rank)")
+hybrid_group.add_argument("--nodesize", type=int, default=0, help="logical threads available per node"
+                          " (might instead be interpreted physical CPUs depending on local config file)")
+hybrid_group.add_argument("--switchwaittime", type=str, default="2:00:00", help="maximum time to wait for switch count")
+##hybrid_group.add_argument("--undersubscription", type=int, default=1, help="undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 
 # multi-task interface: invocation modes
-parser.add_argument("--toc",action="store_true",help="Multi-task run: Invoke run script to generate task table of contents")
-parser.add_argument("--unlock",action="store_true",help="Multi-task run: Delete any .lock or .fail flags for tasks")
-parser.add_argument("--archive",action="store_true",help="Multi-task run: Invoke archive-generation run")
-parser.add_argument("--prerun",action="store_true",help="Multi-task run: Invoke prerun mode, for argument validation and file staging only")
-parser.add_argument("--offline",action="store_true",help="Multi-task run: Invoke offline mode, to create batch scripts for later submission instead of running compute codes")
+task_mode_group = parser.add_mutually_exclusive_group()
+task_mode_group.add_argument("--toc", action="store_true", help="Invoke run script to generate task table of contents")
+task_mode_group.add_argument("--unlock", action="store_true", help="Delete any .lock or .fail flags for tasks")
+task_mode_group.add_argument("--archive", action="store_true", help="Invoke archive-generation run")
+task_mode_group.add_argument("--prerun", action="store_true", help="Invoke prerun mode, for argument validation and file staging only")
+task_mode_group.add_argument("--offline", action="store_true", help="Invoke offline mode, to create batch scripts for later submission instead of running compute codes")
 
 # multi-task interface: task selection
-parser.add_argument("--pool",help="Multi-task run: Set task pool (or ALL) for task selection")
-parser.add_argument("--phase",type=int,default=0,help="Multi-task run: Set task phase for task selection")
-parser.add_argument("--start",type=int,help="Multi-task run: Set starting task number for task selection")
-parser.add_argument("--limit",type=int,help="Multi-task run: Set task count limit for task selection")
-parser.add_argument("--redirect",default="True",choices=["True","False"],help="Multi-task run: Allow redirection of standard"
+task_selection_group = parser.add_argument_group("multi-task run")
+task_selection_group.add_argument("--pool", help="Set task pool (or ALL) for task selection")
+task_selection_group.add_argument("--phase", type=int, default=0, help="Set task phase for task selection")
+task_selection_group.add_argument("--start", type=int, help="Set starting task number for task selection")
+task_selection_group.add_argument("--limit", type=int, help="Set task count limit for task selection")
+task_selection_group.add_argument("--redirect", default="True", choices=["True", "False"], help="Allow redirection of standard"
                     " output/error to file (may want to disable for interactive debugging)")
 
 # some special options (deprecated?)
-##parser.add_argument("--epar",type=int,default=None,help="Width for embarassingly parallel job")
-##parser.add_argument("--nopar",action="store_true",help="Disable parallel resource requests (for use on special serial queues)")
-
+##parser.add_argument("--epar", type=int, default=None, help="Width for embarassingly parallel job")
+##parser.add_argument("--nopar", action="store_true", help="Disable parallel resource requests (for use on special serial queues)")
 
 ##parser.print_help()
 ##print
@@ -221,7 +223,7 @@ print ("Run:", run)
 script_extensions = [".py", ".csh"]
 job_file = None
 for extension in script_extensions:
-    filename = os.path.join(run_home,run+extension)
+    filename = os.path.join(run_home, run+extension)
     if (filename):
         job_file = filename
         job_extension = extension
@@ -268,11 +270,6 @@ environment_definitions += [
     "MCSCRIPT_HYBRID_NODESIZE={:d}".format(args.nodesize)
 ]
 
-if os.environ.get("MCSCRIPT_SOURCE"):
-    environment_definitions += [
-        "MCSCRIPT_SOURCE={:s}".format(os.environ["MCSCRIPT_SOURCE"])
-    ]
-
 # set repetition parameter
 repetitions = args.num
 
@@ -304,14 +301,19 @@ if (args.limit is not None):
     environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT={:d}".format(args.limit))
 environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:s}".format(args.redirect))
 
+# include additional environment setup if defined
+if os.environ.get("MCSCRIPT_SOURCE"):
+    environment_definitions += [
+        "MCSCRIPT_SOURCE={:s}".format(os.environ["MCSCRIPT_SOURCE"])
+    ]
 
 # set user-specified variable definitions
-# Note conditional is required since "".split(",") is [""] rather than [].
+# Note conditional is required since "".split(", ") is [""] rather than [].
 if (args.vars is None):
     user_environment_definitions = []
 else:
     user_environment_definitions = args.vars.split(",")
-    print("  User environment definitions:",user_environment_definitions)
+    print("  User environment definitions:", user_environment_definitions)
 
 environment_definitions += user_environment_definitions
 
@@ -323,13 +325,13 @@ environment_definitions += user_environment_definitions
 # set up scratch directory (for batch job work)
 #   name is defined here, but creation is left up to job script,
 #   in case scratch is local to the compute note
-work_dir = os.path.join(work_home,run)
+work_dir = os.path.join(work_home, run)
 ## if ( not os.path.exists(work_dir)):
 ##     mcscript.utils.mkdir(work_dir)
 environment_definitions.append("MCSCRIPT_WORK_DIR=%s" % work_dir)
 
 # set up run launch directory (for batch job output logging)
-launch_dir_parent = os.path.join(launch_home,run)
+launch_dir_parent = os.path.join(launch_home, run)
 if ( not os.path.exists(launch_home)):
     mcscript.utils.mkdir(launch_home)
 if ( not os.path.exists(launch_dir_parent)):
@@ -340,10 +342,10 @@ if (args.archive):
     # (important since if batch job server directs output to the
     # regular output directory while tar is archiving that directory,
     # tar will return with an error code, torpedoing the archive task)
-    launch_dir = os.path.join(launch_home,run,"archive")
+    launch_dir = os.path.join(launch_home, run, "archive")
 else:
     # standard run mode
-    launch_dir = os.path.join(launch_home,run,"batch")
+    launch_dir = os.path.join(launch_home, run, "batch")
 if ( not os.path.exists(launch_dir)):
     mcscript.utils.mkdir(launch_dir)
 environment_definitions.append("MCSCRIPT_LAUNCH_DIR=%s" % launch_dir)
@@ -395,7 +397,7 @@ sys.stdout.flush()
 if (run_mode == "batch"):
 
     # set local qsub arguments
-    (submission_args, submission_input_string) = mcscript.config.submission(job_name,job_file,qsubm_path,environment_definitions,args)
+    (submission_args, submission_input_string) = mcscript.config.submission(job_name, job_file, qsubm_path, environment_definitions, args)
 
     # notes: options must come before command on some platforms (e.g., Univa)
     print (" ".join(submission_args))
@@ -421,10 +423,10 @@ if (run_mode == "batch"):
 # especially in a "module" environment.
 elif (run_mode == "local"):
     if (extension == ".py"):
-        popen_args = [python_executable,job_file]
+        popen_args = [python_executable, job_file]
     elif (extension == ".csh"):
-        popen_args = ["csh",job_file]
+        popen_args = ["csh", job_file]
     print ()
     print ("-"*64)
-    process = subprocess.Popen(popen_args,cwd=launch_dir,env=job_environ)
+    process = subprocess.Popen(popen_args, cwd=launch_dir, env=job_environ)
     process.wait()
