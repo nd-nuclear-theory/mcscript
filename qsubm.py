@@ -3,41 +3,33 @@
 
     Environment variables:
 
-    MCSCRIPT_RUN_HOME must specify the directory in which job files are
-    found.
+    MCSCRIPT_DIR should specify the directory in which the mcscript package is
+    installed, i.e., the directory where the file qsubm.py is found.  (Note that
+    qsubm uses this information to locate certain auxiliary script files used as
+    part of the job submission process.)
 
-    MCSCRIPT_WORK_HOME should specify the parent directory in which
-    run scratch directories should be made.
+    MCSCRIPT_RUN_HOME must specify the directory in which job files are found.
 
-    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory
-    in which run subdirectories for qsub invocation and output logging
-    should be made.  Otherwise, this will default to MCSCRIPT_WORK_HOME.
+    MCSCRIPT_WORK_HOME should specify the parent directory in which run scratch
+    directories should be made.
 
-    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g., "run".
+    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory in which
+    run subdirectories for qsub invocation and output logging should be made.
+    Otherwise, this will default to MCSCRIPT_WORK_HOME.
 
-    MCSCRIPT_MODULE_CMD (expected by mcscript) should give the module
-    command on the given system, which you can find by asking "where
-    module" and looking inside the results.  You may be able to use an
-    environment variable rather than a hard-coded version number,
-    which is likely to change frequently, e.g.,
-    "${MODULESHOME}/bin/modulecmd" is preferable to
-    "/opt/modules/3.2.6.6/bin/modulecmd".
+    MCSCRIPT_PYTHON should give the full qualified filename (i.e., including
+    path) to the Python 3 executable for running run script files.  A typical
+    value will simply be "python3", assuming the Python 3 executable is in the
+    shell's command search PATH. However, see note on "Availability of Python"
+    in INSTALL.md.
 
-    MCSCRIPT_DIR (expected by some config files) should specify the
-    directory in which qsubm is installed.
+    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g., set to
+    "run" if your scripts are to be named run<XXXX>.py.
 
-    MCSCRIPT_PYTHON should give the full filename (including path) to the
-    appropriate Python executable for running run script files.  This
-    is needed for qsubm to do a local run of a script, which involves
-    invoking a Python interpreter for it.  A typical value would be
-    "python3" if the Python 3 executable is in the path.  However, on
-    clusters, this will likely have to point towards a specific Python
-    version, loaded with a specific module load.
-
-    Requires local definitions file config.py to translate
-    options into arguments for local batch server.  See directions in
-    readme.txt.  Your local definitions might not make use of or
-    support all the parallel environment options.
+    Requires local definitions file config.py to translate options into
+    arguments for local batch server.  See directions in readme.txt.  Your local
+    definitions might not make use of or support all the parallel environment
+    options.
 
     Language: Python 3
 
@@ -70,6 +62,7 @@
         - Rename option --setup to --prerun.
     + 5/22/17 (mac): Fix processing of boolean option --redirect.
     + 10/11/17 (pjf): Add --switchwaittime option.
+    + 01/05/18 (pjf): Sort arguments into groups.
 """
 
 import argparse
@@ -93,6 +86,15 @@ parser = argparse.ArgumentParser(
     epilog=
     """Simply omit the queue name and leave off the wall time for a
     local interactive run.
+
+    Environment variables for qsubm are described in INSTALL.md.
+
+    Note that qsubm relies upon code in the local `config.py`
+    configuration file for the system or cluster you are running on, in
+    order to interpret the following arguments and translate them into
+    arguments for your local batch system.  Your local configuration
+    file might not make use of or support all the parallel environment
+    options listed below.
     """
     )
 
@@ -198,6 +200,12 @@ elif ("MCSCRIPT_LAUNCH_HOME" in os.environ):
 else:
     launch_home = work_home
 
+if ("MCSCRIPT_RUN_PREFIX" in os.environ):
+    run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
+else:
+    print ("MCSCRIPT_RUN_PREFIX not found in environment")
+    exit(1)
+
 if ("MCSCRIPT_PYTHON" in os.environ):
     python_executable = os.environ["MCSCRIPT_PYTHON"]
 else:
@@ -215,7 +223,6 @@ else:
 ################################################################
 
 # set run name
-run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
 run = run_prefix + args.run
 print ("Run:", run)
 
