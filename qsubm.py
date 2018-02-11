@@ -13,6 +13,8 @@
     MCSCRIPT_WORK_HOME should specify the parent directory in which run scratch
     directories should be made.
 
+    MCSCRIPT_INSTALL_HOME must specify the directory in which executables are found.
+
     MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory in which
     run subdirectories for qsub invocation and output logging should be made.
     Otherwise, this will default to MCSCRIPT_WORK_HOME.
@@ -63,6 +65,7 @@
     + 5/22/17 (mac): Fix processing of boolean option --redirect.
     + 10/11/17 (pjf): Add --switchwaittime option.
     + 01/05/18 (pjf): Sort arguments into groups.
+    + 02/11/18 (pjf): Pass through MCSCRIPT_INSTALL_HOME.
 """
 
 import argparse
@@ -151,7 +154,7 @@ task_selection_group.add_argument("--redirect", default="True", choices=["True",
 ##parser.print_help()
 ##print
 args = parser.parse_args()
-##print args
+##printargs
 
 ################################################################
 # special mode: status display
@@ -182,7 +185,7 @@ if (args.here):
 elif ("MCSCRIPT_RUN_HOME" in os.environ):
     run_home = os.environ["MCSCRIPT_RUN_HOME"]
 else:
-    print ("MCSCRIPT_RUN_HOME not found in environment")
+    print("MCSCRIPT_RUN_HOME not found in environment")
     exit(1)
 
 if (args.here):
@@ -190,7 +193,7 @@ if (args.here):
 elif ("MCSCRIPT_WORK_HOME" in os.environ):
     work_home = os.environ["MCSCRIPT_WORK_HOME"]
 else:
-    print ("MCSCRIPT_WORK_HOME not found in environment")
+    print("MCSCRIPT_WORK_HOME not found in environment")
     exit(1)
 
 if (args.here):
@@ -203,19 +206,19 @@ else:
 if ("MCSCRIPT_RUN_PREFIX" in os.environ):
     run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
 else:
-    print ("MCSCRIPT_RUN_PREFIX not found in environment")
+    print("MCSCRIPT_RUN_PREFIX not found in environment")
     exit(1)
 
 if ("MCSCRIPT_PYTHON" in os.environ):
     python_executable = os.environ["MCSCRIPT_PYTHON"]
 else:
-    print ("MCSCRIPT_PYTHON not found in environment")
+    print("MCSCRIPT_PYTHON not found in environment")
     exit(1)
 
 if ("MCSCRIPT_DIR" in os.environ):
     qsubm_path = os.environ["MCSCRIPT_DIR"]
 else:
-    print ("MCSCRIPT_DIR not found in environment")
+    print("MCSCRIPT_DIR not found in environment")
     exit(1)
 
 ################################################################
@@ -224,7 +227,7 @@ else:
 
 # set run name
 run = run_prefix + args.run
-print ("Run:", run)
+print("Run:", run)
 
 # ...and process run file
 script_extensions = [".py", ".csh"]
@@ -235,25 +238,25 @@ for extension in script_extensions:
         job_file = filename
         job_extension = extension
         break
-print ("  Run home:", run_home)  # useful to report now, in case job file missing
+print("  Run home:", run_home)  # useful to report now, in case job file missing
 if (job_file is None):
-    print ("No job file %s.* found with an extension in the set %s." % (run, script_extensions))
+    print("No job file %s.* found with an extension in the set %s." % (run, script_extensions))
     exit(1)
-print ("  Job file:", job_file)
+print("  Job file:", job_file)
 
 # set queue and flag batch or local mode
 # force local run for task.py toc mode
 if ((args.queue == "RUN") or args.toc or args.unlock):
     run_mode = "local"
     run_queue = None
-    print ("  Mode:", run_mode)
+    print("  Mode:", run_mode)
 else:
     run_mode = "batch"
-    print ("  Mode:", run_mode, "(%s)" % args.queue)
+    print("  Mode:", run_mode, "(%s)" % args.queue)
 
 # set wall time
 wall_time_min = args.wall
-print ("  Wall time (min): {:d}".format(wall_time_min))
+print("  Wall time (min): {:d}".format(wall_time_min))
 wall_time_sec = wall_time_min*60
 
 # environment definitions: general run parameters
@@ -307,6 +310,24 @@ if (args.start is not None):
 if (args.limit is not None):
     environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT={:d}".format(args.limit))
 environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:s}".format(args.redirect))
+
+# pass through install directory
+if os.environ.get("MCSCRIPT_INSTALL_HOME"):
+    environment_definitions += [
+        "MCSCRIPT_INSTALL_HOME={:s}".format(os.environ["MCSCRIPT_INSTALL_HOME"])
+    ]
+elif os.environ.get("MCSCRIPT_INSTALL_DIR"):
+    # TODO remove deprecated environment variable
+    print("****************************************************************")
+    print("MCSCRIPT_INSTALL_DIR is now MCSCRIPT_INSTALL_HOME.")
+    print("Please update your environment variables.")
+    print("****************************************************************")
+    environment_definitions += [
+        "MCSCRIPT_INSTALL_HOME={:s}".format(os.environ["MCSCRIPT_INSTALL_DIR"])
+    ]
+else:
+    print("MCSCRIPT_INSTALL_HOME not found in environment")
+    exit(1)
 
 # include additional environment setup if defined
 if os.environ.get("MCSCRIPT_SOURCE"):
@@ -368,7 +389,7 @@ job_name = "%s" % run
 if (args.pool is not None):
     job_name += "-%s" % args.pool
 job_name += "-%s" % args.phase
-print ("  Job name:", job_name)
+print("  Job name:", job_name)
 
 # process environment definitions
 # regularize environment definitions
@@ -381,8 +402,8 @@ print ("  Job name:", job_name)
 for i in range(len(environment_definitions)):
     if (not "=" in environment_definitions[i]):
         environment_definitions[i] += "="
-print ()
-print ("Vars:", ",".join(environment_definitions))
+print()
+print("Vars:", ",".join(environment_definitions))
 # for local run
 job_environ=os.environ
 environment_keyvalues = [
@@ -397,7 +418,7 @@ job_environ.update(dict(environment_keyvalues))
 ################################################################
 
 # flush script output before invoking job
-print ()
+print()
 sys.stdout.flush()
 
 # handle batch run
@@ -407,10 +428,10 @@ if (run_mode == "batch"):
     (submission_args, submission_input_string) = mcscript.config.submission(job_name, job_file, qsubm_path, environment_definitions, args)
 
     # notes: options must come before command on some platforms (e.g., Univa)
-    print (" ".join(submission_args))
-    print (submission_input_string)
-    print ()
-    print ("-"*64)
+    print(" ".join(submission_args))
+    print(submission_input_string)
+    print()
+    print("-"*64)
     for i in range(repetitions):
         process = subprocess.Popen(
             submission_args,
@@ -420,7 +441,7 @@ if (run_mode == "batch"):
             )
         stdout_bytes = process.communicate(input=submission_input_string)[0]
         stdout_string = stdout_bytes.decode("utf-8")
-        print (stdout_string)
+        print(stdout_string)
 
 # handle interactive run
 # Note: We call interpreter rather than trying to directly execute
@@ -433,7 +454,7 @@ elif (run_mode == "local"):
         popen_args = [python_executable, job_file]
     elif (extension == ".csh"):
         popen_args = ["csh", job_file]
-    print ()
-    print ("-"*64)
+    print()
+    print("-"*64)
     process = subprocess.Popen(popen_args, cwd=launch_dir, env=job_environ)
     process.wait()

@@ -76,7 +76,7 @@ class RunParameters(object):
         self.wall_time_sec = int(os.environ["MCSCRIPT_WALL_SEC"])
 
         # environment definitions: executable install prefix
-        self.install_dir = os.environ["MCSCRIPT_INSTALL_DIR"]
+        self.install_dir = os.environ["MCSCRIPT_INSTALL_HOME"]
 
         # environment definitions: serial run parameters
         self.serial_threads = int(os.environ["MCSCRIPT_SERIAL_THREADS"])

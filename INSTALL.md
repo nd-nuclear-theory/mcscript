@@ -101,7 +101,7 @@ Department of Physics, University of Notre Dame
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
   setenv MCSCRIPT_DIR ${HOME}/code/mcscript
-  setenv MCSCRIPT_INSTALL_DIR ${HOME}/code/install
+  setenv MCSCRIPT_INSTALL_HOME ${HOME}/code/install
   setenv MCSCRIPT_RUN_HOME ${HOME}/runs
   setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
   setenv MCSCRIPT_PYTHON python3
@@ -115,7 +115,7 @@ Department of Physics, University of Notre Dame
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
   export MCSCRIPT_DIR=${HOME}/code/mcscript
-  export MCSCRIPT_INSTALL_DIR=${HOME}/code/install
+  export MCSCRIPT_INSTALL_HOME=${HOME}/code/install
   export MCSCRIPT_RUN_HOME=${HOME}/runs
   export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
   export MCSCRIPT_PYTHON=python3
@@ -139,6 +139,9 @@ Department of Physics, University of Notre Dame
 
   > MCSCRIPT_WORK_HOME should specify the parent directory in which
   > run scratch directories should be made.
+
+  > MCSCRIPT_INSTALL_HOME must specify the directory in which
+  > executables are found.
 
   > MCSCRIPT_LAUNCH_HOME (optional) should specify the parent
   > directory in which run subdirectories for qsub invocation and
