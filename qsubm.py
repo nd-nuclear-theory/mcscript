@@ -65,7 +65,9 @@
     + 5/22/17 (mac): Fix processing of boolean option --redirect.
     + 10/11/17 (pjf): Add --switchwaittime option.
     + 01/05/18 (pjf): Sort arguments into groups.
-    + 02/11/18 (pjf): Pass through MCSCRIPT_INSTALL_HOME.
+    + 02/11/18 (pjf):
+        - Pass through MCSCRIPT_INSTALL_HOME.
+        - Use job_environ for submission.
 """
 
 import argparse
@@ -437,6 +439,7 @@ if (run_mode == "batch"):
             submission_args,
             stdin=subprocess.PIPE,     # to take input from communicate
             stdout=subprocess.PIPE,    # to send output to communicate -- default merged stderr
+            env=job_environ,
             cwd=launch_dir
             )
         stdout_bytes = process.communicate(input=submission_input_string)[0]

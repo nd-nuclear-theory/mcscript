@@ -19,6 +19,7 @@
     + 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
     + 8/01/17 (pjf): Add basic config for knl,quad,cache.
     + 10/11/17 (pjf): Add switch constraint.
+    + 02/11/17 (pjf): Pass entire environment.
 """
 
 # Notes:
@@ -124,7 +125,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         submission_invocation += args.opt
 
     # environment definitions
-    submission_invocation += ["--export={}".format(",".join(environment_definitions))]
+    submission_invocation += ["--export=ALL"]
 
     # wrapper call
     #
