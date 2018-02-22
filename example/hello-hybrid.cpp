@@ -31,6 +31,7 @@
 // University of Notre Dame
 //
 // 4/22/17 (mac): Created.
+// 2/22/18 (mac): Report stack size.
 
 #include <cstdlib>
 #include <iostream>
@@ -56,13 +57,27 @@ int main(int argc, char **argv)
   {
     int num_threads = omp_get_num_threads();
     int thread_num = omp_get_thread_num();
-    
+
+    // print greeting
     #pragma omp critical
     std::cout
       << "Hello from ... colony " << rank << " / " << num_processes << " : "
       << "bunny rabbit " << thread_num << " / " << num_threads << " : "
       << "warren " << processor_name
       << std::endl;
+
+    // report stack size from Intel OpenMP extensions
+    #ifdef __INTEL_COMPILER
+    #pragme omp barrier
+    #pragma omp master
+    if (rank==0)
+      {
+        std::cout
+          << std::endl
+          << "The chief bunny rabbit reports a stack size of " << kmp_get_stacksize_s() << " bytes."
+          << std::endl;
+      }
+    #endif
   }
 
   // termination
