@@ -123,6 +123,26 @@ def write_namelist(filename, input_dict={}, verbose=True):
 
 
 ################################################################
+# path utilities
+################################################################
+
+def expand_path(path):
+    """Expand and normalize path.
+
+    This is a wrapper to various os.path functions, which expand inline
+    variables and ~, and normalize nestings of separators.
+
+    Arguments:
+        path: (str) path as string
+    Returns:
+        (str): expanded and normalized path
+    """
+    expanded_path = os.path.expanduser(os.path.expandvars(path))
+    norm_path = os.path.normpath(expanded_path)
+    return norm_path
+
+
+################################################################
 # timestamp utilities
 ################################################################
 
