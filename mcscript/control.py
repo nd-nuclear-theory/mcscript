@@ -86,22 +86,6 @@ def termination():
 
 
 ################################################################
-# OpenMP setup
-################################################################
-
-def openmp_setup(threads):
-    """ Set OpenMP environment variables.
-
-    Arguments:
-        threads (int): number of threads
-    """
-
-    # set number of threads by global qsubm depth parameter
-    print("Setting OMP_NUM_THREADS to {}.".format(threads))
-    os.environ["OMP_NUM_THREADS"] = str(threads)
-
-
-################################################################
 # module operations
 ################################################################
 
@@ -210,10 +194,10 @@ def call(
     if (mode is CallMode.kLocal):
         invocation = base
     elif (mode==CallMode.kSerial):
-        openmp_setup(parameters.run.serial_threads)
+        config.openmp_setup(parameters.run.serial_threads)
         invocation = config.serial_invocation(base)
     elif (mode==CallMode.kHybrid):
-        openmp_setup(parameters.run.hybrid_threads)
+        config.openmp_setup(parameters.run.hybrid_threads)
         invocation = config.hybrid_invocation(base)
     else:
         raise(ValueError("invalid invocation mode"))

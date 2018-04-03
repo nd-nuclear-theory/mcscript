@@ -203,24 +203,26 @@ def serial_invocation(base):
         # node if have interactive allocation)
         invocation = base
     else:
-        # run on compute node (for Edison)
-        #
-        # Perhaps could run unwrapped on Cori?
-        invocation = [
-            "srun",
-            "--ntasks={}".format(1),
-            "--nodes={}".format(1),
-            "--cpus-per-task={}".format(parameters.run.hybrid_nodesize),
-            "--export=ALL"
-        ]
+        if os.getenv("NERSC_HOST") == "cori":
+            # run unwrapped on Cori
+            invocation = base
+        else:
+            # run on compute node on Edison
+            invocation = [
+                "srun",
+                "--ntasks={}".format(1),
+                "--nodes={}".format(1),
+                "--cpus-per-task={}".format(parameters.run.hybrid_nodesize),
+                "--export=ALL"
+            ]
 
-        # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
-        # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
-        invocation += [
-            "--cpu_bind=cores"
-        ]
+            # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
+            # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
+            invocation += [
+                "--cpu_bind=cores"
+            ]
 
-        invocation += base
+            invocation += base
 
     return invocation
 
@@ -261,6 +263,28 @@ def hybrid_invocation(base):
     return invocation
 
 ################################################################
+# OpenMP setup
+################################################################
+
+def openmp_setup(threads):
+    """ Set OpenMP environment variables.
+
+    Arguments:
+        threads (int): number of threads
+    """
+    # TODO: wrap in special config command for offline support
+
+    # set number of threads by global qsubm depth parameter
+    print("Setting OMP_NUM_THREADS to {}.".format(threads))
+    os.environ["OMP_NUM_THREADS"] = str(threads)
+    # Cori recommended thread affinity settings
+    print("Setting OMP_PROC_BIND to {}.".format("spread"))
+    os.environ["OMP_PROC_BIND"] = "spread"
+    print("Setting OMP_PLACES to {}.".format("cores"))
+    os.environ["OMP_PLACES"] = "cores"
+
+
+################################################################
 # local setup and termination hooks
 ################################################################
 
@@ -285,12 +309,6 @@ def init():
     parameters.run.install_dir = os.path.join(
         parameters.run.install_dir, os.getenv("CRAY_CPU_TARGET")
         )
-
-    # Cori recommended thread affinity settings
-
-    # TODO: wrap in special config command for offline support
-    os.environ["OMP_PROC_BIND"] = "spread"
-    os.environ["OMP_PLACES"] = "threads"
 
 def termination():
     """ Do any local termination tasks.

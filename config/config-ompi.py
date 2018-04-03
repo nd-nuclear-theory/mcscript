@@ -125,6 +125,27 @@ def hybrid_invocation(base):
     return invocation
 
 ################################################################
+# OpenMP setup
+################################################################
+
+def openmp_setup(threads):
+    """ Set OpenMP environment variables.
+
+    Arguments:
+        threads (int): number of threads
+    """
+    # TODO: wrap in special config command for offline support
+
+    # set number of threads by global qsubm depth parameter
+    print("Setting OMP_NUM_THREADS to {}.".format(threads))
+    os.environ["OMP_NUM_THREADS"] = str(threads)
+    print("Setting OMP_PROC_BIND to {}.".format("spread"))
+    os.environ["OMP_PROC_BIND"] = "spread"
+    print("Setting OMP_PLACES to {}.".format("threads"))
+    os.environ["OMP_PLACES"] = "threads"
+
+
+################################################################
 # local setup and termination hooks
 ################################################################
 
