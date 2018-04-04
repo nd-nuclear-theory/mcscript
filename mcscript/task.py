@@ -44,6 +44,7 @@
         - Check task_mode against TaskMode.kRun rather than "normal"
     + 09/25/17 (pjf): Improve archive_handler_generic() with tar --transform.
     + 09/21/17 (pjf): Output phase docstring summary lines in toc.
+    + 04/04/18 (mac): Respond to locking clash with quiet yield.
 """
 
 import datetime
@@ -401,6 +402,9 @@ def get_lock(task_index,task_phase):
     Arguments:
         task_index (int or str): task index
         task_phase (int): task phase
+
+    Returns:
+        success (bool): if lock was successfully obtained
     """
 
     flag_base = task_flag_base(task_index,task_phase)
@@ -411,7 +415,11 @@ def get_lock(task_index,task_phase):
     lock_stream.close()
     # make sure lock was successful
     if (parameters.run.batch_mode):
-        # only need to worry about locking clash when jobs start simultaneously in batch mode
+        # primarily need to worry about locking clash in batch mode, either when
+        # batch jobs start simultaneously or, less frequently, when concurrent
+        # batch jobs reach for their next task at the same time (although it
+        # could happen in interactive mode if two runs are being done
+        # simultaneously, e.g., from different terminal windows)
         wait_time = 3
         time.sleep(wait_time)
         lock_stream = open(flag_base+".lock", "r")
@@ -421,7 +429,8 @@ def get_lock(task_index,task_phase):
             print("Lock was apparently successful...")
         else:
             print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(parameters.run.job_id,line))
-            raise exception.ScriptError("Yielding lock to other instance")
+            ## raise exception.ScriptError("Yielding lock to other instance")
+            return False
 
     # write expanded lock contents
     lock_stream = open(flag_base+".lock","a")
@@ -430,6 +439,7 @@ def get_lock(task_index,task_phase):
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
 
+    return True
 
 def fail_lock(task_index,task_phase,task_time):
     """Rename lock file to failure file.
@@ -595,6 +605,10 @@ def do_task(task_parameters,task,phase_handlers):
        task_parameters (dict): task parameters (needed for some global properties, e.g., redirection mode)
        task (dict): Task dictionary (including metadata such as desired phase)
        phase_handlers (list): List of phase handlers
+
+    Returns:
+       (float): task time (or None)
+
     """
 
     # extract task parameters
@@ -608,16 +622,18 @@ def do_task(task_parameters,task,phase_handlers):
     task["metadata"]["phase"] = task_phase
     task["metadata"]["mode"] = task_mode
 
+    # get lock
+    if (task_mode != TaskMode.kPrerun):
+        success = get_lock(task_index,task_phase)
+        # if lock is already taken, yield this task
+        if (not success):
+            return None
 
     # set up task directory
     task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
     if (not os.path.exists(task_dir)):
         utils.mkdir(task_dir)
     os.chdir(task_dir)
-
-    # get lock
-    if (task_mode != TaskMode.kPrerun):
-        get_lock(task_index,task_phase)
 
     # initiate timing
     task_start_time = time.time()
@@ -715,7 +731,7 @@ def invoke_tasks_prerun(task_parameters,task_list,phase_handlers):
         sys.stdout.flush()
 
         # execute task
-        task_time = do_task(task_parameters,task,phase_handlers)
+        do_task(task_parameters,task,phase_handlers)
         ## print("(Task setup time: {:.2f} sec)".format(task_time))
 
 
@@ -778,8 +794,12 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
         sys.stdout.flush()
 
         # execute task (with timing)
-        task_time = do_task(task_parameters,task,phase_handlers)
-        print("(Task time: {:.2f} sec)".format(task_time))
+        task_time_or_none = do_task(task_parameters,task,phase_handlers)
+        if (task_time_or_none is None):
+            print("(Task yielded)")
+        else:
+            task_time = task_time_or_none
+            print("(Task time: {:.2f} sec)".format(task_time))
 
         # tally
         task_count += 1
