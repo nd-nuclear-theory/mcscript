@@ -67,12 +67,14 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         lots of parameters)
 
     Returns:
-        (tuple): (submission_invocation,submission_string)
+        (tuple): (submission_invocation, submission_string, repetitions)
 
              submission_invocation: list of arguments for subprocess.call
 
              submission_string: string giving standard input for
              subprocess
+
+             repetitions: number of times to call submission
 
     """
 
@@ -90,6 +92,10 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
+
+    # job array for repetitions
+    if args.num > 1:
+        submission_invocation += ["--array={:g}-{:g}".format(0, args.num-1)]
 
     if args.queue == "xfer":
         if os.environ["NERSC_HOST"] == "cori":
@@ -139,8 +145,10 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     # standard input for submission
     submission_string = ""
+    # use job arrays for repetition
+    repetitions = 1
 
-    return (submission_invocation,submission_string)
+    return (submission_invocation, submission_string, repetitions)
 
 
 ################################################################
