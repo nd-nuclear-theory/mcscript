@@ -44,7 +44,9 @@
         - Check task_mode against TaskMode.kRun rather than "normal"
     + 09/25/17 (pjf): Improve archive_handler_generic() with tar --transform.
     + 09/21/17 (pjf): Output phase docstring summary lines in toc.
-    + 04/04/18 (mac): Respond to locking clash with quiet yield.
+    + 04/04/18 (mac): Improve task handling.
+      - Respond to locking clash with quiet yield.
+      - Place floor on required time for next task, to allow for large fluctuations on short tasks.
 """
 
 import datetime
@@ -771,7 +773,8 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
         loop_elapsed_time = time.time() - loop_start_time
         remaining_time = parameters.run.wall_time_sec - loop_elapsed_time
         safety_factor = 1.1
-        required_time = task_time*safety_factor
+        minimum_time = 60  # a fixed percentage safety factor is inadequate on short tasks where launch time can fluctuate
+        required_time = max(task_time*safety_factor,minimum_time)
         print()
         print("Task timing: elapsed {:g}, remaining {:g}, last task {:g}, required {:g}".format(
             loop_elapsed_time,remaining_time,task_time,required_time
