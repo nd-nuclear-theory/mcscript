@@ -43,12 +43,14 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         lots of parameters)
 
     Returns:
-        (tuple): (submission_invocation,submission_string)
+        (tuple): (submission_invocation, submission_string, repetitions)
 
              submission_invocation: list of arguments for subprocess.call
 
              submission_string: string giving standard input for
              subprocess
+
+             repetitions: number of times to call submission
 
     """
 

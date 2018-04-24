@@ -282,9 +282,6 @@ environment_definitions += [
     "MCSCRIPT_HYBRID_NODESIZE={:d}".format(args.nodesize)
 ]
 
-# set repetition parameter
-repetitions = args.num
-
 
 # set multi-task run parameters
 if (args.toc):
@@ -427,7 +424,7 @@ sys.stdout.flush()
 if (run_mode == "batch"):
 
     # set local qsub arguments
-    (submission_args, submission_input_string) = mcscript.config.submission(job_name, job_file, qsubm_path, environment_definitions, args)
+    (submission_args, submission_input_string, repetitions) = mcscript.config.submission(job_name, job_file, qsubm_path, environment_definitions, args)
 
     # notes: options must come before command on some platforms (e.g., Univa)
     print(" ".join(submission_args))
