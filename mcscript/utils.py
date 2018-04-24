@@ -90,7 +90,7 @@ def write_namelist(filename, input_dict={}, verbose=True):
 
     def format_val(x):
         if type(x) not in formatters.keys():
-            raise mcscript.exception.ScriptError(
+            raise exception.ScriptError(
                 "{} of type {} cannot be written to namelist".format(x, type(x))
                 )
         return formatters[type(x)](x)
@@ -104,7 +104,7 @@ def write_namelist(filename, input_dict={}, verbose=True):
         for (key, val) in namelist.items():
             # sanity check
             if type(key) is not str:
-                raise mcscript.exception.ScriptError("invalid namelist variable: {}".format(key))
+                raise exception.ScriptError("invalid namelist variable: {}".format(key))
 
             # loop over lists and map them to arrays
             if type(val) is list:
@@ -120,26 +120,6 @@ def write_namelist(filename, input_dict={}, verbose=True):
 
     # write file
     return write_input(filename, lines, verbose)
-
-
-################################################################
-# path utilities
-################################################################
-
-def expand_path(path):
-    """Expand and normalize path.
-
-    This is a wrapper to various os.path functions, which expand inline
-    variables and ~, and normalize nestings of separators.
-
-    Arguments:
-        path: (str) path as string
-    Returns:
-        (str): expanded and normalized path
-    """
-    expanded_path = os.path.expanduser(os.path.expandvars(path))
-    norm_path = os.path.normpath(expanded_path)
-    return norm_path
 
 
 ################################################################
@@ -364,10 +344,27 @@ def search_in_subdirectories(
     # handle return for success or failure
     if (not success):
         if (fail_on_not_found):
-            raise mcscript.exception.ScriptError("no match on filename".format(filename))
+            raise exception.ScriptError("no match on filename".format(filename))
         else:
             return None
     return qualified_name
+
+
+def expand_path(path):
+    """Expand and normalize path.
+
+    This is a wrapper to various os.path functions, which expand inline
+    variables and ~, and normalize nestings of separators.
+
+    Arguments:
+        path: (str) path as string
+    Returns:
+        (str): expanded and normalized path
+    """
+    expanded_path = os.path.expanduser(os.path.expandvars(path))
+    norm_path = os.path.normpath(expanded_path)
+    return norm_path
+
 
 ################################################################
 # dictionary management

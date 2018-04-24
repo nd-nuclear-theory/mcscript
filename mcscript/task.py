@@ -47,6 +47,7 @@
     + 04/04/18 (mac): Improve task handling.
       - Respond to locking clash with quiet yield.
       - Place floor on required time for next task, to allow for large fluctuations on short tasks.
+    + 04/23/18 (pjf): Improve pool matching with comma-separated lists and glob-like patterns.
 """
 
 import datetime
@@ -56,6 +57,7 @@ import os
 import sys
 import time
 import inspect
+import fnmatch
 
 
 from . import (
@@ -551,6 +553,33 @@ def do_archive(task_parameters,archive_phase_handlers):
 # task invocation functions
 ################################################################
 
+def match_pool(pool, patterns):
+    """Check if pool matches pattern.
+
+    Arguments:
+        pool (str): pool to check
+        patterns (str): match patterns, possibly comma-delimited
+
+    Returns:
+        (bool): whether or not pool matches (one of) pattern(s)
+    """
+    # check for None pattern
+    if (patterns is None) and (pool is None):
+        return True
+
+    # check for "ALL" pattern
+    if patterns == "ALL":
+        return True
+
+    # check against patterns as patterns
+    pattern_list = patterns.split(",")
+    for pattern in pattern_list:
+        if fnmatch.fnmatchcase(pool, pattern):
+            return True
+
+    # no pattern matched
+    return False
+
 def seek_task(task_list,task_pool,task_phase,prior_task_index):
     """Seek next available task, at given phase, in given pool.
 
@@ -565,27 +594,21 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
 
     """
 
-    # select remaining tasks in given pool
-    # (or all pools if pool is ALL)
-    remaining_pool_task_indices = [
-        task_index
-        for task_index in range(prior_task_index+1,len(task_list))
-        if ((task_list[task_index]["metadata"]["pool"] == task_pool) or (task_pool == "ALL"))
-        ]
-    ## DEBUG: print pool_task_indices
-
     next_index = None
-    for task_index in remaining_pool_task_indices:
+    for task_index in range(prior_task_index+1, len(task_list)):
+        # skip if task not matched by pool
+        if not match_pool(task_list[task_index]["metadata"]["pool"], task_pool):
+            continue
 
         # skip if task locked or done
         task_mask = task_list[task_index]["metadata"]["mask"]
-        if ( task_status(task_index,task_phase,task_mask) != "-" ):
+        if (task_status(task_index, task_phase, task_mask) != "-"):
             continue
 
         # skip if prior phase not completed
         if (task_phase > 0):
-            if ( task_status(task_index,task_phase-1,task_mask) != "X" ):
-                print("Missing prerequisite", task_flag_base(task_index,task_phase-1))
+            if task_status(task_index, task_phase-1, task_mask) != "X":
+                print("Missing prerequisite", task_flag_base(task_index, task_phase-1))
                 continue
 
         # designate this task as the one to do
