@@ -1,0 +1,107 @@
+#!/bin/csh
+# mvsubst
+#
+# Rename files based on substitution via sed edit.
+#
+# Mark A. Caprio
+# University of Notre Dame
+#
+# 11/13/16 (mac): Add support for git mv.
+# 12/29/16 (mac): Fix directory trap.
+# 03/05/17 (mac): Fix directory trap.
+# 10/31/17 (mac): Add example.
+# 04/27/18 (mac): Add symlink mode.
+
+echo ""
+echo "mvsubst -- rename files based on substitution via sed edit"
+echo "Mark Caprio"
+echo ""
+
+
+# need quotes on $1 to handle case in which argument is switch with meaning inside if test ("-d")
+if (("$1" == "") || ("$1" == "-h") || ("$1" == "-help") || ("$1" == "--help") ) then
+  echo "Usage: mvsubst [--directory] [--git|--ln-s] sedarg file1 file2 ..."
+  echo
+  echo "  Directories are skipped unless explicitly enabled with option --directory."
+  echo
+  echo "  EX: to replace ALL occurences of foo with bar in filename"
+  echo "    mvsubst s/foo/bar/g *foo*"
+  echo
+  echo "  EX: to replace foo with bar, only at END of filenames ending with .foo"
+  echo "    NOTE: Single quotes are required since "\$" has special meaning to shell."
+  # mvsubst 's/foo$/bar/' *.foo
+  echo "    mvsubst 's/foo"\$"/bar/' *.foo "
+  echo ""
+  echo "  EX: to replace .foo with .bar, in filenames ending with .dat"
+  echo "    NOTE: s/.foo/.bar/ fails since dot has special meaning to sed."
+  echo "    NOTE: Single quotes are required since \ has special meaning to shell."
+  echo "    mvsubst 's/\\.foo/.bar/' *.dat "
+  echo
+  echo "  EX: to insert foo at the BEGINNING of all filenames"
+  echo "    mvsubst s/^/foo/ *"
+  # mvsubst 's/\.foo/.bar/' *.dat
+  exit
+endif
+
+set allow_dir = 0
+if ( "$1" == "--directory" ) then
+  set allow_dir = 1
+  shift
+endif
+
+set mv_command = "mv"
+if ( "$1" == "--git" ) then
+  set mv_command = "git mv"
+  shift
+else if ( "$1" == "--ln-s" ) then
+  set mv_command = "ln -s"
+  shift
+endif
+
+
+set sedarg = $1
+shift
+
+while ($1 != "")
+
+  # set up move parameters
+  set sourcefile=$1
+  set destfile=`echo $sourcefile | sed $sedarg`
+
+  # sanity check on source file status
+  if (!(-e $sourcefile)) then
+    echo "Error: Source file $sourcefile does not exist."
+    echo ""
+    exit
+  endif
+
+  # case: unchanged
+  if ($sourcefile == $destfile) then
+    echo "$sourcefile (unchanged)"
+    shift
+    continue
+  endif
+
+  # trap existing destfile (!=sourcefile) for noclobber
+  if ((-e $destfile)) then
+    echo "Error: Destination file $destfile already exists."
+    echo ""
+    exit
+  endif
+
+  # trap directory
+  if ( (-d $sourcefile) && !($allow_dir) ) then
+    echo "$sourcefile is a directory (use flag '--directory' to rename directories)."
+    shift
+    continue
+  endif
+
+  # do move
+  echo "$sourcefile -> $destfile"
+  ${mv_command} $sourcefile $destfile
+
+  # shift to next parameter
+  shift
+
+end
+   
