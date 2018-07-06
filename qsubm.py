@@ -68,6 +68,9 @@
     + 02/11/18 (pjf):
         - Pass through MCSCRIPT_INSTALL_HOME.
         - Use job_environ for submission.
+    + 07/06/18 (pjf):
+        - Pass queue via MCSCRIPT_RUN_QUEUE.
+        - Remove MCSCRIPT_HYBRID_NODESIZE.
 """
 
 import argparse
@@ -250,10 +253,11 @@ print("  Job file:", job_file)
 # force local run for task.py toc mode
 if ((args.queue == "RUN") or args.toc or args.unlock):
     run_mode = "local"
-    run_queue = None
+    run_queue = "local"
     print("  Mode:", run_mode)
 else:
     run_mode = "batch"
+    run_queue = args.queue
     print("  Mode:", run_mode, "(%s)" % args.queue)
 
 # set wall time
@@ -266,6 +270,7 @@ environment_definitions = [
     "MCSCRIPT_RUN={:s}".format(run),
     "MCSCRIPT_JOB_FILE={:s}".format(job_file),
     "MCSCRIPT_RUN_MODE={:s}".format(run_mode),
+    "MCSCRIPT_RUN_QUEUE={:s}".format(run_queue),
     "MCSCRIPT_WALL_SEC={:d}".format(wall_time_sec)
 ]
 
@@ -279,7 +284,6 @@ environment_definitions += [
     "MCSCRIPT_HYBRID_NODES={:d}".format(args.nodes),
     "MCSCRIPT_HYBRID_RANKS={:d}".format(args.ranks),
     "MCSCRIPT_HYBRID_THREADS={:d}".format(args.threads),
-    "MCSCRIPT_HYBRID_NODESIZE={:d}".format(args.nodesize)
 ]
 
 

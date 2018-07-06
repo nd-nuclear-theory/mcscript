@@ -14,7 +14,9 @@
   + 3/18/17 (mac):
     - Revise to support updated hybrid run parameters.
     - Move run parameters object instantiation back into this module.
-
+  + 07/06/18 (pjf):
+    - Pass queue via MCSCRIPT_RUN_QUEUE.
+    - Remove MCSCRIPT_HYBRID_NODESIZE.
 """
 
 import os
@@ -66,6 +68,7 @@ class RunParameters(object):
         # basic run information
         self.name = os.environ["MCSCRIPT_RUN"]
         self.run_mode = os.environ["MCSCRIPT_RUN_MODE"]
+        self.run_queue = os.environ["MCSCRIPT_RUN_QUEUE"]
         self.batch_mode = (os.environ["MCSCRIPT_RUN_MODE"] == "batch")
         self.launch_dir = os.environ["MCSCRIPT_LAUNCH_DIR"]
         self.work_dir = os.environ["MCSCRIPT_WORK_DIR"]
@@ -85,7 +88,6 @@ class RunParameters(object):
         self.hybrid_nodes = int(os.environ["MCSCRIPT_HYBRID_NODES"])
         self.hybrid_ranks = int(os.environ["MCSCRIPT_HYBRID_RANKS"])
         self.hybrid_threads = int(os.environ["MCSCRIPT_HYBRID_THREADS"])
-        self.hybrid_nodesize = int(os.environ["MCSCRIPT_HYBRID_NODESIZE"])
 
         # generate local definitions
         #
