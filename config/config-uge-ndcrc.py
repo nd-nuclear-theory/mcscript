@@ -14,6 +14,9 @@
       - Update use of mcscript configuration variables.
       - Add automatic queue sensing and revise calculation of run size parameters.
       - Try out binding.
+    + 07/06/18 (pjf):
+      - Pass entire environment.
+      - Completely rewrite mapping and binding logic.
 
 """
 
@@ -21,27 +24,24 @@
 #
 # Node size is calculated based on queue:
 #
-#   We currently ignore hyperthreading?
-#
 #   long/debug: 2x12=24
 #   infiniband: 2x4=8
 #
 # Wall time is not communicated in queue request but is passed on to script.
 #
-# Note: Currently only support mpi environment, not smp environment.
-#
 # We currently grab an integer number of nodes.  This doesn't support
 # cluster-style sharing of nodes by serial jobs.
 
-# Queues as of 4/22/17:
+# Queues as of 07/02/18:
 #
 #   http://wiki.crc.nd.edu/wiki/index.php/Available_Hardware
 #
+
 #   General Access Compute Clusters
 #
-#   d12chas332-d12chas519.crc.nd.edu
+#   d12chas351-d12chas387.crc.nd.edu & d12chas400-d12chas531.crc.nd.edu
 #
-#    176 Dell PowerEdge R730 Servers
+#    169 Lenovo NeXtScale nx360 M5 Servers
 #    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
 #    256 GB RAM  -  1.4TB Solid State Disk - SSD
 #    Usage:  Queue syntax for job submission script:
@@ -49,31 +49,37 @@
 #       or
 #       #$ -q *@@general_access
 #
-#   d12chas520-d12chas543.crc.nd.edu
+#   d12chas532-d12chas543.crc.nd.edu
 #
-#    24 Dell PowerEdge R730 Servers
+#    12 Lenovo NeXtScale nx360 M5 Servers
 #    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
 #    64 GB RAM  -  1.4TB Solid State Disk - SSD
 #    Usage:  Queue syntax for job submission script:
 #       #$ -q debug
 #
-#
 #   dqcneh075-104.crc.nd.edu CRC General Access (with Infiniband interconnection network, available upon request)
 #
-#   30 IBM I-dataplex
-#   Dual Quad-core 2.53 GHz Intel Nehalem processors
-#   Qlogic QDR Infiniband Non-Blocking  HBA
-#   12 GB RAM
-#   Usage:  Queue syntax for job submission script:
+#    30 IBM I-dataplex
+#    Dual Quad-core 2.53 GHz Intel Nehalem processors
+#    Qlogic QDR Infiniband Non-Blocking  HBA
+#    12 GB RAM
+#    Usage:  Queue syntax for job submission script:
 #       #$ -q *@@dqcneh_253GHZ
 
-
-
-
+import math
 import os
-import sys
 
 from . import parameters
+
+
+queues = {
+    # queue, nodesize, socketsize, numasize
+    "local": ("local", 24, 12, 6),
+    "long":  ("*@@general_access", 24, 12, 6),
+    "debug": ("debug", 24, 12, 6),
+    "hpc":   ("hpc", 48, 24, 6),
+    "infiniband": ("*@@dqcneh_253GHZ", 8, 4, 2)
+}
 
 
 ################################################################
@@ -82,7 +88,7 @@ from . import parameters
 ################################################################
 ################################################################
 
-def submission(job_name,job_file,qsubm_path,environment_definitions,args):
+def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -112,16 +118,15 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     """
 
     # deduce queue properties
-    queues = {
-        "long" : ("*@@general_access",24),
-        "debug" : ("debug",24),
-        "infiniband" : ("*@@dqcneh_253GHZ",8)
-    }
     if (args.queue not in queues):
         raise(ValueError("unrecognized queue name"))
-    (queue_identifier,nodesize) = queues[args.queue]
-    print("Deduced queue properties: identifier {}, nodesize {}".format(queue_identifier,nodesize))
-    environment_definitions.append("MCSCRIPT_HYBRID_NODESIZE={:d}".format(nodesize))
+    (queue_identifier, nodesize, socketsize, numasize) = queues[args.queue]
+    print("Deduced queue properties: "
+          "identifier {:s}, "
+          "nodesize {:d}, "
+          "socketsize {:d}, "
+          "numasize {:d}".format(*queues[args.queue])
+          )
 
     # start accumulating command line
     submission_invocation = [ "qsub" ]
@@ -135,20 +140,37 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # wall time
     pass  # enforced by queue
 
-    # miscellaneous options
-    submission_invocation += ["-j","y"]  # merge standard error
-    submission_invocation += ["-r","n"]  # job not restartable
+    # array job for repetitions
+    if args.num > 1:
+        submission_invocation += ["-t", "{:g}-{:g}".format(1, args.num)]
 
-    # generate parallel environment specifier
-    needed_cores = args.ranks * args.threads
-    rounded_cores = nodesize * (needed_cores // nodesize)
-    if ((needed_cores % nodesize) != 0):
-        rounded_cores += nodesize
+    # miscellaneous options
+    submission_invocation += ["-j", "y"]  # merge standard error
+    submission_invocation += ["-r", "n"]  # job not restartable
+
+    # check thread counts -- hyperthreading is disabled at the BIOS-level for
+    # all CRC nodes (email to pjf from Paul Brenner, 06/26/18)
+    max_threads_per_process = max(args.threads, args.serialthreads)
+    if max_threads_per_process > nodesize:
+        raise ValueError("More threads requested than available on single node! "
+              "Hyperthreading is NOT supported."
+              )
+    total_threads = args.threads * args.ranks
+    total_cores = args.nodes * nodesize
+    print("total_threads: {}, total_cores: {}".format(total_threads, total_cores))
+    if total_threads > total_cores:
+        raise ValueError(
+              "More threads requested than available! "
+              "Hyperthreading is NOT supported."
+             )
+    ranks_per_node = nodesize // args.threads
+    if ranks_per_node*args.nodes < args.ranks:
+        raise ValueError("Insufficient nodes for requested for threads.")
 
     # generate parallel environment specifier
     submission_invocation += [
         "-pe",
-        "mpi-{nodesize:d} {rounded_cores:d}".format(nodesize=nodesize,rounded_cores=rounded_cores)
+        "mpi-{nodesize:d} {total_cores:d}".format(nodesize=nodesize, total_cores=total_cores)
     ]
 
     # append user-specified arguments
@@ -157,24 +179,27 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     # environment definitions
     submission_invocation += [
-        "-v",
-        ",".join(environment_definitions)
+        "-V",
     ]
 
     # wrapper call
     #
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
+    if "csh" in os.environ.get("SHELL"):
+        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
+    elif "bash" in os.environ.get("SHELL"):
+        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
     submission_invocation += [
-        os.path.join(qsubm_path,"csh_job_wrapper.csh"),
+        job_wrapper,
         os.environ["MCSCRIPT_PYTHON"],
         job_file
     ]
 
     # standard input for submission
     submission_string = ""
-    # repeat submission according to args.num
-    repetitions = args.num
+    # use array jobs for repetition
+    repetitions = 1
 
     return (submission_invocation, submission_string, repetitions)
 
@@ -195,7 +220,7 @@ def job_id():
     Returns job id (as string), or "0" if missing.
     """
 
-    return os.environ.get("JOB_ID","0")
+    return os.environ.get("JOB_ID", "0")
 
 
 ################################################################
@@ -219,7 +244,7 @@ def serial_invocation(base):
 
     invocation = base
 
-    return base
+    return invocation
 
 
 def hybrid_invocation(base):
@@ -232,116 +257,47 @@ def hybrid_invocation(base):
         (list of str): full invocation
     """
 
-    # for ompi
-    #
-    # https://www.mail-archive.com/users@lists.open-mpi.org/msg28276.html
-    #
-    # Ex: ppr:2:socket:pe=7
-    #   "processes per resource" -- resource=socket, processes=2
-    #   "processing elements" -- threads=7
+    (queue_identifier, nodesize, socketsize, numasize) = queues[parameters.run.run_queue]
+    threads = parameters.run.hybrid_threads
+    ranks = parameters.run.hybrid_ranks
+    nodes = parameters.run.hybrid_nodes
 
-    # Why does this fail?
-    #
-    #   "--map-by","ppr:{:d}:node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource,processing_elements_per_rank)
+    # determine thread binding mode
+    total_threads = threads * ranks
+    total_cores = nodes * nodesize
+    print("total_threads: {}, total_cores: {}".format(total_threads, total_cores))
 
-    #
-    # An invalid value was given for the number of processes
-    # per resource (ppr) to be mapped on each node:
-    #
-    #   PPR:  6:node:pe=4
-    #
-    # The specification must be a comma-separated list containing
-    # combinations of number, followed by a colon, followed
-    # by the resource type. For example, a value of "1:socket" indicates that
-    # one process is to be mapped onto each socket. Values are supported
-    # for hwthread, core, L1-3 caches, socket, numa, and node. Note that
-    # enough characters must be provided to clearly specify the desired
-    # resource (e.g., "nu" for "numa").
+    # minimum number of cores available to each rank
+    cores_per_rank = total_cores // ranks
+    if threads > cores_per_rank:
+        raise ValueError("more threads requested than available: {:d}/{:d}".format(threads, cores_per_rank))
 
-    # Works but bad mapping, since ignores proper spacing and binding...
-    #             "--map-by","ppr:{:d}:node:NOOVERSUBSCRIBE".format(processes_per_resource)
+    # number of ranks on each subdivision of allocation
+    ranks_per_node = math.ceil(ranks/nodes)
+    ranks_per_socket = math.ceil(ranks_per_node / (nodesize // socketsize))
+    ranks_per_numa = math.ceil(ranks_per_socket / (socketsize // numasize))
 
-    # This may work, but gets warning message on one node and untested on multiple nodes...
-    #
-    #   WARNING: a request was made to bind a process. While the system
-    #   supports binding the process itself, at least one node does NOT
-    #   support binding memory to the process location.
-
-    #             "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
-
-    # 6/3/17 (mac): using binding on compute nodes causes mess for SU3RME, so disable...
-
-    #   ----------------------------------------------------------------
-    #   Setting OMP_NUM_THREADS to 1.
-    #   WARNING: NDCRC mpiexec binding is not yet set up properly for more than one thread per process!!!
-    #   ----------------------------------------------------------------
-    #   Executing external code
-    #   Command line: ['mpiexec', '--report-bindings', '--n', '1', '--map-by', 'node:PE=24:NOOVERSUBSCRIBE', '/afs/crc.nd.edu/user/m/mcaprio/code/lsu3shell/programs/tools/SU3RME_MP
-    #   I', 'model_space.dat', 'model_space.dat', 'relative_operators.dat']
-    #   Call mode: CallMode.kHybrid
-    #   Start time: Sat Jun  3 22:45:19 2017
-    #   ----------------
-    #   Standard output:
-    #   --------------------------------------------------------------------------
-    #   WARNING: a request was made to bind a process. While the system
-    #   supports binding the process itself, at least one node does NOT
-    #   support binding memory to the process location.
-    #
-    #     Node:  d12chas417
-    #
-    #   Open MPI uses the "hwloc" library to perform process and memory
-    #   binding. This error message means that hwloc has indicated that
-    #   processor binding support is not available on this machine.
-    #
-    #   On OS X, processor and memory binding is not available at all (i.e.,
-    #   the OS does not expose this functionality).
-    #
-    #   On Linux, lack of the functionality can mean that you are on a
-    #   platform where processor and memory affinity is not supported in Linux
-    #   itself, or that hwloc was built without NUMA and/or processor affinity
-    #   support. When building hwloc (which, depending on your Open MPI
-    #   installation, may be embedded in Open MPI itself), it is important to
-    #   have the libnuma header and library files available. Different linux
-    #   distributions package these files under different names; look for
-    #   packages with the word "numa" in them. You may also need a developer
-    #   version of the package (e.g., with "dev" or "devel" in the name) to
-    #   obtain the relevant header files.
-    #
-    #   If you are getting this message on a non-OS X, non-Linux platform,
-    #   then hwloc does not support processor / memory affinity on this
-    #   platform. If the OS/platform does actually support processor / memory
-    #   affinity, then you should contact the hwloc maintainers:
-    #   https://github.com/open-mpi/hwloc.
-    #
-    #   This is a warning only; your job will continue, though performance may
-    #   be degraded.
-    #   --------------------------------------------------------------------------
-    #   --------------------------------------------------------------------------
-    #   MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
-    #   with errorcode 1.
-    #
-    #   NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
-    #   You may or may not see output from other processes, depending on
-    #   exactly when Open MPI kills them.
-    #   --------------------------------------------------------------------------
-    #
-    #   ----------------
-    #   Standard error:
-    #   [d12chas417.crc.nd.edu:07260] MCW rank 0 is not bound (or bound to all available processors)
-    #   Master-slave program requires at least 2 MPI processes!
+    # distribute among largest possible units, to ensure spread
+    # if number of cores available to a rank is larger than a unit (e.g. socket)
+    # then allocate at least an integer number of those units to each rank
+    if socketsize < cores_per_rank <= nodesize:
+        allocated_cores = cores_per_rank - (cores_per_rank % socketsize)
+        allocated_cores = max(allocated_cores, threads)
+        map_by = "ppr:{:d}:node:PE={:d},SPAN".format(ranks_per_node, allocated_cores)
+    elif numasize < cores_per_rank <= socketsize:
+        allocated_cores = cores_per_rank - (cores_per_rank % numasize)
+        allocated_cores = max(allocated_cores, threads)
+        map_by = "ppr:{:d}:socket:PE={:d},SPAN".format(ranks_per_socket, allocated_cores)
+    else:  # cores_per_rank <= numasize
+        allocated_cores = cores_per_rank
+        allocated_cores = max(cores_per_rank, threads)
+        map_by = "ppr:{:d}:numa:SPAN,PE={:d}".format(ranks_per_numa, allocated_cores)
 
 
-    # TODO:
-    #   - redo binding by socket (default)
-    #   - fix PE thread spacing
-    #   - consider hyperthreading?
+    # map_by = "ppr:{:d}:node:PE={:d},SPAN".format(ranks_per_node, allocated_cores)
 
-    undersubscription_factor = 1
-    processing_elements_per_rank = parameters.run.hybrid_threads*undersubscription_factor
-    processes_per_resource = parameters.run.hybrid_nodesize // processing_elements_per_rank
-
-    if (processes_per_resource > 1):
-        print("WARNING: NDCRC mpiexec binding is not yet set up properly for more than one thread per process!!!")
+    rank_by = "node:SPAN"
+    bind_to = "core"
 
     if (not parameters.run.batch_mode):
         # run on front end
@@ -349,15 +305,18 @@ def hybrid_invocation(base):
         # skip bindings
         invocation = [
             "mpiexec",
-            "--n","{:d}".format(parameters.run.hybrid_ranks),
+            "--n", "{:d}".format(parameters.run.hybrid_ranks),
         ]
     else:
         # run on compute node
         invocation = [
             "mpiexec",
-            ## "--report-bindings",
-            "--n","{:d}".format(parameters.run.hybrid_ranks),
-            ## "--map-by","node:PE={:d}:NOOVERSUBSCRIBE".format(processes_per_resource)
+            "--display-allocation",
+            "--display-map",
+            "--n", "{:d}".format(parameters.run.hybrid_ranks),
+            "--map-by", map_by,
+            "--rank-by", rank_by,
+            "--bind-to", bind_to,
         ]
     invocation += base
 
@@ -397,7 +356,6 @@ def init():
     """
 
     pass
-
 
 def termination():
     """ Do any local termination tasks.

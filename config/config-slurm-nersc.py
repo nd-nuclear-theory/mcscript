@@ -19,7 +19,8 @@
     + 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
     + 8/01/17 (pjf): Add basic config for knl,quad,cache.
     + 10/11/17 (pjf): Add switch constraint.
-    + 02/11/17 (pjf): Pass entire environment.
+    + 02/11/18 (pjf): Pass entire environment.
+    + 07/06/18 (pjf): Remove use of hybrid_nodesize.
 """
 
 # Notes:
@@ -42,6 +43,18 @@ import math
 
 from . import parameters
 
+
+# cluster_specs[NERSC_HOST][CRAY_CPU_TARGET] = (cores, threads/core)
+cluster_specs = {
+    "edison": {
+        "sandybridge": (16, 2),
+        "ivybridge": (24, 2),
+    },
+    "cori": {
+        "haswell": (32, 2),
+        "knl": (68, 4),
+    },
+}
 
 ################################################################
 ################################################################
@@ -102,7 +115,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             submission_invocation += ["--clusters=escori"]
         elif os.environ["NERSC_HOST"] == "edison":
             submission_invocation += ["--clusters=esedison"]
-    if args.queue in ["debug", "regular", "premium", "shared"]:
+    elif args.queue in ["debug", "regular", "premium", "shared"]:
         if os.environ["NERSC_HOST"] == "cori":
             # target cpu
             if os.environ["CRAY_CPU_TARGET"] == "haswell":
@@ -111,19 +124,15 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
                 submission_invocation += ["--constraint=knl,quad,cache"]
 
             # ask for compactness (correct number of switches)
-            nodes_per_switch = 3*16*4
+            nodes_per_switch = 384
             needed_switches = math.ceil(args.nodes/nodes_per_switch)
             submission_invocation += ["--switches={:d}@{:s}".format(needed_switches, args.switchwaittime)]
-
-        # calculate number of needed cores and nodes
-        ## needed_cores = args.width * args.depth * args.spread
-        ## needed_nodes = (needed_cores // args.nodesize) + int((needed_cores % args.nodesize) != 0)
 
         # generate parallel environment specifier
         submission_invocation += ["--nodes={}".format(args.nodes)]
 
     # miscellaneous options
-    license_list = ["SCRATCH","cscratch1","project"]
+    license_list = ["SCRATCH", "cscratch1", "project"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
 
     # append user-specified arguments
@@ -137,8 +146,12 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     #
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
+    if "csh" in os.environ.get("SHELL"):
+        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
+    elif "bash" in os.environ.get("SHELL"):
+        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
     submission_invocation += [
-        os.path.join(qsubm_path,"bash_job_wrapper.sh"),
+        job_wrapper,
         os.environ["MCSCRIPT_PYTHON"],
         job_file
     ]
@@ -220,7 +233,7 @@ def serial_invocation(base):
                 "srun",
                 "--ntasks={}".format(1),
                 "--nodes={}".format(1),
-                "--cpus-per-task={}".format(parameters.run.hybrid_nodesize),
+                "--cpus-per-task={}".format(parameters.run.serial_threads),
                 "--export=ALL"
             ]
 
@@ -244,20 +257,12 @@ def hybrid_invocation(base):
         (list of str): full invocation
     """
 
-    # calculate number of needed cores and nodes
-    undersubscription_factor = 1
-    print("nodesize", parameters.run.hybrid_nodesize)
-
-    # note: may need to be revised to enable hyperthreading, i.e.,
-    # to provide different depth in OMP_NUM_THREADS and in srun
-
     # for ompi
-    requested_threads_per_rank = parameters.run.hybrid_threads*undersubscription_factor
     invocation = [
         "srun",
         ## "--cpu_bind=verbose",
         "--ntasks={}".format(parameters.run.hybrid_ranks),
-        "--cpus-per-task={}".format(requested_threads_per_rank),
+        "--cpus-per-task={}".format(parameters.run.hybrid_threads),
         "--export=ALL"
     ]
     # 4/3/17 (mac): cpu_bind=cores is recommended for cori but degrades performance on edison
@@ -302,16 +307,6 @@ def init():
     Invoked after mcscript sets the various configuration variables
     and changed the cwd to the scratch directory.
     """
-
-    # set node size based on environment
-    parameters.run.hybrid_nodesize = None
-    if (os.getenv("NERSC_HOST")=="edison"):
-        parameters.run.hybrid_nodesize = 24*2
-    elif (os.getenv("NERSC_HOST")=="cori"):
-        if (os.getenv("CRAY_CPU_TARGET")=="haswell"):
-            parameters.run.hybrid_nodesize = 32*2
-        elif (os.getenv("CRAY_CPU_TARGET")=="mic-knl"):
-            parameters.run.hybrid_nodesize = 68*4
 
     # set install prefix based on environment
     parameters.run.install_dir = os.path.join(
