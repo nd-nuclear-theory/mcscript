@@ -30,11 +30,13 @@
 // Mark A. Caprio and Anna E. McCoy
 // University of Notre Dame
 //
-// 4/22/17 (mac): Created.
-// 2/22/18 (mac): Report stack size.
+// 04/22/17 (mac): Created.
+// 02/22/18 (mac): Report stack size.
+// 07/06/18 (pjf): Initialize MPI correctly (with threading).
 
 #include <cstdlib>
 #include <iostream>
+#include <iomanip>
 
 #include "mpi.h"
 #include <omp.h>
@@ -42,9 +44,16 @@
 int main(int argc, char **argv)
 {
 
+  std::cout << "Initializing MPI..." << std::endl;
+
   // MPI setup
 
-  MPI_Init(&argc,&argv);
+  int provided;
+  MPI_Init_thread(&argc,&argv,MPI_THREAD_SERIALIZED, &provided);
+  if (provided < MPI_THREAD_SERIALIZED) {
+    std::cerr << "MPI does not provided needed threading level" << std::endl;
+    exit(1);
+  }
   int num_processes, rank;
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int processor_name_len;
@@ -62,13 +71,13 @@ int main(int argc, char **argv)
     #pragma omp critical
     std::cout
       << "Hello from ... colony " << rank << " / " << num_processes << " : "
-      << "bunny rabbit " << thread_num << " / " << num_threads << " : "
+      << "bunny rabbit " << std::setw(2) << thread_num << " / " << std::setw(2) << num_threads << " : "
       << "warren " << processor_name
       << std::endl;
 
     // report stack size from Intel OpenMP extensions
     #ifdef __INTEL_COMPILER
-    #pragme omp barrier
+    #pragma omp barrier
     #pragma omp master
     if (rank==0)
       {

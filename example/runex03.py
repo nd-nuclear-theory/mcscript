@@ -28,8 +28,9 @@
   University of Notre Dame
 
   11/22/16 (mac): Created (runex02.py).
-  1/8/17 (mac): Rename to runex03.py.
-  4/22/17 (mac): Update to use our test code hello-hybrid.cpp.
+  01/08/17 (mac): Rename to runex03.py.
+  04/22/17 (mac): Update to use our test code hello-hybrid.cpp.
+  07/06/18 (pjf): Dump CPU information using `lscpu`.
 
 """
 
@@ -55,6 +56,10 @@ mcscript.init()
 #
 #   See the docstring for mcscript.call for further information.
 
+# running an executable "unwrapped" -- no OpenMP/MPI setup
+mcscript.call(["lscpu"])
+
+# running a "hybrid" exectuable -- use both OpenMP and MPI
 executable_filename = os.path.join(os.environ["MCSCRIPT_DIR"],"example","hello-hybrid")
 mcscript.call([executable_filename],mode=mcscript.CallMode.kHybrid)
 
