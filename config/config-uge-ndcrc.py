@@ -74,10 +74,11 @@ from . import parameters
 
 queues = {
     # queue, nodesize, socketsize, numasize
-    "local": ("local", 24, 12, 6),
-    "long":  ("*@@general_access", 24, 12, 6),
-    "debug": ("debug", 24, 12, 6),
-    "hpc":   ("hpc", 48, 24, 6),
+    "local":      ("local", 24, 12, 6),
+    "long":       ("*@@general_access", 24, 12, 6),
+    "debug":      ("debug", 24, 12, 6),
+    "hpc":        ("hpc", 48, 24, 6),
+    "hpc-debug":  ("hpc-debug", 48, 24, 6),
     "infiniband": ("*@@dqcneh_253GHZ", 8, 4, 2)
 }
 
