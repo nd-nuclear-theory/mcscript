@@ -12,6 +12,12 @@
 //
 //     mpicxx -fopenmp hello-hybrid.cpp -o hello-hybrid
 //     setenv OMP_NUM_THREADS 4
+//     mpirun -n 2 ./hello-hybrid
+//
+//   If your implementation of mpirun does not by default pass all environment
+//   variables to the executable, you may have to check what option to use to
+//   pass through the OMP_NUM_THREADS variable, e.g.,
+//
 //     mpirun -n 2 -x OMP_NUM_THREADS ./hello-hybrid
 //
 //   Output:
