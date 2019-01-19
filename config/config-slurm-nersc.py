@@ -95,7 +95,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation = [ "sbatch" ]
 
     # deadline (end of allocation year)
-    submission_invocation += ["--deadline=2019-01-07T23:59:59"]
+    submission_invocation += ["--deadline=2020-01-13T23:59:59"]
 
     # job name
     submission_invocation += ["--job-name={}".format(job_name)]
