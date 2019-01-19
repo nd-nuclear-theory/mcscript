@@ -21,6 +21,7 @@
     + 10/11/17 (pjf): Add switch constraint.
     + 02/11/18 (pjf): Pass entire environment.
     + 07/06/18 (pjf): Remove use of hybrid_nodesize.
+    + 01/18/19 (pjf): Update deadline for AY19.
 """
 
 # Notes:
