@@ -21,6 +21,7 @@
     + 10/11/17 (pjf): Add switch constraint.
     + 02/11/18 (pjf): Pass entire environment.
     + 07/06/18 (pjf): Remove use of hybrid_nodesize.
+    + 01/18/19 (pjf): Update deadline for AY19.
 """
 
 # Notes:
@@ -41,6 +42,7 @@ import os
 import sys
 import math
 
+from . import control
 from . import parameters
 
 
@@ -95,7 +97,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation = [ "sbatch" ]
 
     # deadline (end of allocation year)
-    submission_invocation += ["--deadline=2019-01-07T23:59:59"]
+    submission_invocation += ["--deadline=2020-01-13T23:59:59"]
 
     # job name
     submission_invocation += ["--job-name={}".format(job_name)]
@@ -111,10 +113,11 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         submission_invocation += ["--array={:g}-{:g}".format(0, args.num-1)]
 
     if args.queue == "xfer":
-        if os.environ["NERSC_HOST"] == "cori":
-            submission_invocation += ["--clusters=escori"]
-        elif os.environ["NERSC_HOST"] == "edison":
-            submission_invocation += ["--clusters=esedison"]
+        ## if os.environ["NERSC_HOST"] == "cori":
+        ##     submission_invocation += ["--clusters=escori"]
+        ## elif os.environ["NERSC_HOST"] == "edison":
+        ##     submission_invocation += ["--clusters=esedison"]
+        control.module(["load", "esslurm"])
     elif args.queue in ["debug", "regular", "premium", "shared"]:
         if os.environ["NERSC_HOST"] == "cori":
             # target cpu

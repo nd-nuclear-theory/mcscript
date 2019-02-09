@@ -40,12 +40,14 @@ Department of Physics, University of Notre Dame
   % git checkout -t origin/develop
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Setup the package in your `PYTHONPATH` by running `pip` (or `pip3` on Debian):
+  Set up the package in your `PYTHONPATH` by running `pip` (or `pip3` on Debian):
+
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   % pip install --user --editable .
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   a. Subsequently updating source
+
   ~~~~~~~~~~~~~~~~
   % git pull
   ~~~~~~~~~~~~~~~~
@@ -253,9 +255,8 @@ Department of Physics, University of Notre Dame
   Please read the detailed instructions in the docstring at the top of
   `example/runex03.py`.
 
-  Note that you will first need to first compile the example code
-  `hello-hybrid.cpp`, as described in the docstring of
-  `example/runex03.py`.
+  Note that you will first need to compile the example code `hello-hybrid.cpp`,
+  as described in the docstring of `example/runex03.py`.
 
   - - - -
 
