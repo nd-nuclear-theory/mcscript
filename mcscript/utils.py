@@ -322,6 +322,7 @@ def search_in_subdirectories(
     print("  Filename:",filename)
 
     # search in successive directories
+    success = False
     for (base_path,subdirectory) in itertools.product(base_path_list,subdirectory_list):
         qualified_name = os.path.join(base_path,subdirectory,filename)
         if (base):
