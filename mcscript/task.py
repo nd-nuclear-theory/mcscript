@@ -253,7 +253,7 @@ def archive_handler_hsi(archive_filename=None):
 
     # make archive -- whole dir
     if archive_filename is None:
-        archive_filename = task.archive_handler_generic()
+        archive_filename = archive_handler_generic()
 
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
