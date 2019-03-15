@@ -118,7 +118,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         ## elif os.environ["NERSC_HOST"] == "edison":
         ##     submission_invocation += ["--clusters=esedison"]
         control.module(["load", "esslurm"])
-    elif args.queue in ["debug", "regular", "premium", "shared"]:
+    elif args.queue in ["debug", "regular", "premium", "shared", "low"]:
         if os.environ["NERSC_HOST"] == "cori":
             # target cpu
             if os.environ["CRAY_CPU_TARGET"] == "haswell":
