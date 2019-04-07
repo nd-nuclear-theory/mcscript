@@ -22,6 +22,9 @@
     + 02/11/18 (pjf): Pass entire environment.
     + 07/06/18 (pjf): Remove use of hybrid_nodesize.
     + 01/18/19 (pjf): Update deadline for AY19.
+    + 04/07/19 (pjf):
+        - Check SLURM_JOB_ID to determine whether or not to use `srun`.
+        - Distribute executable via `sbcast` if using more than 128 nodes.
 """
 
 # Notes:
@@ -43,6 +46,7 @@ import sys
 import math
 
 from . import control
+from . import exception
 from . import parameters
 
 
@@ -57,6 +61,9 @@ cluster_specs = {
         "knl": (68, 4),
     },
 }
+
+# cache of broadcasted executables -- job local
+broadcasted_executables = {}
 
 ################################################################
 ################################################################
@@ -222,9 +229,8 @@ def serial_invocation(base):
     #
     #   srun --export=ALL ...
 
-    if (not parameters.run.batch_mode):
-        # run on front end (though might sometimes want to run on compute
-        # node if have interactive allocation)
+    if (not os.environ.get("SLURM_JOB_ID")):
+        # run on front end
         invocation = base
     else:
         if os.getenv("NERSC_HOST") == "cori":
@@ -250,6 +256,31 @@ def serial_invocation(base):
 
     return invocation
 
+def broadcast_executable(executable_path):
+    """Broadcast executable to compute nodes for hybrid run.
+
+    Uses module-local `broadcasted_executables` to cache what executables have
+    been broadcast previously. Executable names have a hash of the original
+    path appended to the executable filename to ensure that executables with
+    the same name but different paths don't conflict.
+
+    Arguments:
+        executable_path (str): filesystem path for executable to be broadcast
+
+    Returns:
+        (str): node-local path where broadcast executable resides
+    """
+    if executable_path not in broadcasted_executables:
+        executable_name = os.path.basename(executable_path)
+        executable_hash = hash(executable_path) + sys.maxsize + 1
+        local_path = (
+            "/tmp/{:s}.{:X}".format(executable_name, executable_hash)
+            )
+        broadcasted_executables[executable_path] = local_path
+        control.call(["sbcast", "--force", "--compress", executable_path, local_path])
+
+    return broadcasted_executables[executable_path]
+
 def hybrid_invocation(base):
     """ Generate subprocess invocation arguments for parallel run.
 
@@ -259,6 +290,14 @@ def hybrid_invocation(base):
     Returns:
         (list of str): full invocation
     """
+    # ensure that we're running inside a compute job
+    if not os.environ.get("SLURM_JOB_ID"):
+        raise exception.ScriptError("Hybrid mode only supported inside Slurm allocation!")
+
+    # distribute executable to nodes
+    executable_path = base[0]
+    if (parameters.run.hybrid_nodes >= 128):
+        executable_path = broadcast_executable(executable_path)
 
     # for ompi
     invocation = [
@@ -274,7 +313,9 @@ def hybrid_invocation(base):
         "--cpu_bind=cores"
     ]
 
-    invocation += base
+    # use local path instead
+    invocation += [executable_path]
+    invocation += base[1:]
 
     return invocation
 
