@@ -26,6 +26,8 @@
     6/8/17 (pjf): Add write_namelist.
     6/27/17 (mac): Add option for search_in_subdirectories to fail gracefully.
     11/03/17 (pjf): Quote strings in namelist output.
+    04/07/19 (pjf): Call super().__init__() instead of dict.__init__() in
+        CoefficientDict.__init__().
 """
 
 import glob
@@ -418,7 +420,7 @@ class CoefficientDict(dict):
     expression.
     """
     def __init__(self, *args, **kwargs):
-        dict.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __add__(self, rhs):
         """Add two CoefficientDicts, matching coefficients.
