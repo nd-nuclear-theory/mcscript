@@ -301,7 +301,7 @@ def hybrid_invocation(base):
         executable_path = broadcast_executable(executable_path)
 
     invocation = []
-    if (parameters.run.hybrid_nodes > 1)
+    if (parameters.run.hybrid_nodes > 1):
         # for ompi
         invocation += [
             "srun",
