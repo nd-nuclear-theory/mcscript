@@ -48,6 +48,9 @@
       - Respond to locking clash with quiet yield.
       - Place floor on required time for next task, to allow for large fluctuations on short tasks.
     + 04/23/18 (pjf): Improve pool matching with comma-separated lists and glob-like patterns.
+    + 05/30/19 (pjf):
+        - Rewrite archive_handler_generic() to handle more complex results directory structures.
+        - Generate subarchives for subdirectories of results directory.
 """
 
 import datetime
@@ -159,21 +162,23 @@ def make_task_dirs ():
 
 
 def archive_handler_generic(include_results=True):
-    """Make generic archive of all metadata and results directories,
+    """Make generic archives of all metadata and results directories,
     to the run's archive directory.
 
     A fresh TOC file is generated before archiving.
 
-    That is, the archive contains everything except the archive
-    directory and task work directories.  The result is placed in the
-    archive directory.  This is just a local archive in scratch, so
-    subsequent intervention is required to transfer the archive more
+    That is, each archive contains all files or a single subdirectory of the
+    results directory, plus all metadata (i.e. everything except the archive
+    directory and task work directories).  The results are placed in the
+    archive directory.  These are just local archives in scratch, so
+    subsequent intervention is required to transfer the archives more
     permanently to, e.g., a home directory or tape storage.
 
-    The files in the archive are of the form runxxxx/results/*, etc.
+    The files in the archives are of the form runxxxx/results/res/*,
+    runxxxx/results/out/*, runxxxx/results/*, etc.
 
     Returns:
-        (str): archive filename (for convenience of calling function if
+        (list of str): archive filenames (for convenience of calling function if
             wrapped in larger task handler)
 
     """
@@ -209,62 +214,90 @@ def archive_handler_generic(include_results=True):
 
 
     # make archive -- whole dir
+    postfix_paths_list = []
     if (include_results):
-        mode_flag = ""
+        # determine sub-archives to generate
+        with os.scandir("results") as results_dir:
+            postfix_paths_list += [
+                ("-"+str(entry.name), [entry.path])
+                for entry in results_dir if entry.is_dir()
+            ]
+            if len(postfix_paths_list) > 0:
+                # collect files in results dir into main archive
+                file_list = [entry.path for entry in results_dir if entry.is_file()]
+                if len(file_list) > 0:
+                    postfix_paths_list += [("", file_list)]
+            else:
+                #
+                postfix_paths_list += [("", ["results"])]
     else:
-        mode_flag = "-nores"
-    archive_filename = os.path.join(
-        archive_dir,
-        "{:s}-archive-{:s}{:s}.tgz".format(parameters.run.name,utils.date_tag(),mode_flag)
-        )
+        postfix_paths_list += [("-nores", [])]
     toc_filename = "{}.toc".format(parameters.run.name)
-    filename_list = [
-        toc_filename,
-        "flags",
-        "output",
-        "batch"
-    ]
-    if (include_results):
-        filename_list += ["results"]
-    control.call(
-        [
-            "tar",
-            "zcvf",
-            archive_filename,
-            "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
-            "--show-transformed",
-            "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
-        ] + filename_list,
-        cwd=parameters.run.work_dir, check_return=True
-        )
 
-    return archive_filename
+    archive_filename_list = []
+    for (postfix, paths) in postfix_paths_list:
+        filename_list = [
+            toc_filename,
+            "flags",
+            "output",
+            "batch"
+        ] + paths
+        archive_filename = os.path.join(
+            archive_dir,
+            "{:s}-archive-{:s}{:s}.tar".format(parameters.run.name,utils.date_tag(),postfix)
+            )
+        control.call(
+            [
+                "tar",
+                "cvf",
+                archive_filename,
+                "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
+                "--show-transformed",
+                "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
+            ] + filename_list,
+            cwd=parameters.run.work_dir, check_return=True
+            )
+        archive_filename_list.append(archive_filename)
+
+    # compress if applicable
+    for (i, filename) in enumerate(archive_filename_list):
+        if utils.is_compressible(filename):
+            control.call(["gzip", "--verbose", "--suffix", ".gz", filename])
+            archive_filename_list[i] = filename+".gz"
+
+    return archive_filename_list
 
 def archive_handler_no_results():
-    archive_handler_generic(include_results=False)
+    return archive_handler_generic(include_results=False)
 
-def archive_handler_hsi(archive_filename=None):
-    """ Save archive to tape.
+def archive_handler_hsi(archive_filename_list=None):
+    """Save archive to tape.
 
     Arguments:
-        archive_filename: (str, optional) name of file to move to tape; generate
-            standard archive if omitted
+        archive_filename: (list of str, optional) names of files to move to tape;
+            generate standard archive if omitted
+
+    Returns:
+        (list of str): names of files moved to tape (for convenience of calling
+            function if wrapped in larger task handler)
     """
 
     # make archive -- whole dir
-    if archive_filename is None:
-        archive_filename = archive_handler_generic()
+    if archive_filename_list is None:
+        archive_filename_list = archive_handler_generic()
 
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
-    hsi_argument = "lcd {archive_directory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
-        archive_filename=os.path.basename(archive_filename),
-        archive_directory=os.path.dirname(archive_filename),
-        hsi_subdir=hsi_subdir
-    )
-    control.call(["hsi",hsi_argument])
+    for archive_filename in archive_filename_list:
+        hsi_argument = "lcd {archive_directory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
+            archive_filename=os.path.basename(archive_filename),
+            archive_directory=os.path.dirname(archive_filename),
+            hsi_subdir=hsi_subdir
+        )
+        # control.call(["hsi",hsi_argument])
+        print(["hsi",hsi_argument])
 
-    return archive_filename
+    return archive_filename_list
 
 ################################################################
 # recall functions
@@ -784,6 +817,7 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
     task_index = task_start_index-1  # "last run task" for seeking purposes
     task_count = 0
     loop_start_time = time.time()
+    avg_task_time = 0.
     task_time = 0.
     while (True):
 
@@ -797,10 +831,10 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
         remaining_time = parameters.run.wall_time_sec - loop_elapsed_time
         safety_factor = 1.1
         minimum_time = 60  # a fixed percentage safety factor is inadequate on short tasks where launch time can fluctuate
-        required_time = max(task_time*safety_factor,minimum_time)
+        required_time = max(avg_task_time*safety_factor,task_time*safety_factor,minimum_time)
         print()
-        print("Task timing: elapsed {:g}, remaining {:g}, last task {:g}, required {:g}".format(
-            loop_elapsed_time,remaining_time,task_time,required_time
+        print("Task timing: elapsed {:g}, remaining {:g}, last task {:g}, average {:g}, required {:g}".format(
+            loop_elapsed_time,remaining_time,task_time,avg_task_time,required_time
             ))
         print()
         if ( required_time > remaining_time ):
@@ -825,6 +859,9 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
             print("(Task yielded)")
         else:
             task_time = task_time_or_none
+            if (avg_task_time == 0.):
+                avg_task_time = task_time
+            avg_task_time = (task_time + avg_task_time)/2.
             print("(Task time: {:.2f} sec)".format(task_time))
 
         # tally
