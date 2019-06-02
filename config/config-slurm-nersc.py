@@ -25,7 +25,6 @@
     + 04/07/19 (pjf):
         - Check SLURM_JOB_ID to determine whether or not to use `srun`.
         - Distribute executable via `sbcast` if using more than 128 nodes.
-    + 04/09/19 (pjf): Run without srun for single-node hybrid calls.
 """
 
 # Notes:
@@ -300,21 +299,19 @@ def hybrid_invocation(base):
     if (parameters.run.hybrid_nodes >= 128):
         executable_path = broadcast_executable(executable_path)
 
-    invocation = []
-    if (parameters.run.hybrid_nodes > 1):
-        # for ompi
-        invocation += [
-            "srun",
-            ## "--cpu_bind=verbose",
-            "--ntasks={}".format(parameters.run.hybrid_ranks),
-            "--cpus-per-task={}".format(parameters.run.hybrid_threads),
-            "--export=ALL"
-        ]
-        # 4/3/17 (mac): cpu_bind=cores is recommended for cori but degrades performance on edison
-        # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
-        invocation += [
-            "--cpu_bind=cores"
-        ]
+    # for ompi
+    invocation = [
+        "srun",
+        ## "--cpu_bind=verbose",
+        "--ntasks={}".format(parameters.run.hybrid_ranks),
+        "--cpus-per-task={}".format(parameters.run.hybrid_threads),
+        "--export=ALL"
+    ]
+    # 4/3/17 (mac): cpu_bind=cores is recommended for cori but degrades performance on edison
+    # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
+    invocation += [
+        "--cpu_bind=cores"
+    ]
 
     # use local path instead
     invocation += [executable_path]

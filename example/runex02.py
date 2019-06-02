@@ -99,12 +99,14 @@
   1/20/17 (mac): Add second phase to example.
   3/16/17 (mac): Add generic archive handler.
   3/18/17 (mac): Update to use task descriptor from metadata record.
+  5/30/19 (pjf): Sort results into inner and outer directories.
 
 """
 
 # generic packages for use below
 import math
 import sys
+import os
 
 # load mcscript
 # -- parse environment for various script parameters
@@ -205,12 +207,14 @@ def say_hello(task):
             results_filename
         ]
     )
+    results_dir = os.path.join(mcscript.task.results_dir, task["metadata"]["pool"])
+    mcscript.utils.mkdir(results_dir, exist_ok=True)
     mcscript.call(
         [
             "cp",
             "--verbose",
             results_filename,
-            "--target-directory={}".format(mcscript.task.results_dir)
+            "--target-directory={}".format(results_dir)
         ]
     )
 
@@ -248,12 +252,14 @@ def say_goodbye(task):
             results_filename
         ]
     )
+    results_dir = os.path.join(mcscript.task.results_dir, task["metadata"]["pool"])
+    mcscript.utils.mkdir(results_dir, exist_ok=True)
     mcscript.call(
         [
             "cp",
             "--verbose",
             results_filename,
-            "--target-directory={}".format(mcscript.task.results_dir)
+            "--target-directory={}".format(results_dir)
         ]
     )
 
@@ -266,7 +272,7 @@ mcscript.task.init(
     task_descriptor=task_descriptor_world,
     task_pool=task_pool_world,
     phase_handler_list=[say_hello,say_goodbye],
-    archive_phase_handler_list=[mcscript.task.archive_handler_generic]
+    archive_phase_handler_list=[mcscript.task.archive_handler_hsi]
     )
 
 ################################################################

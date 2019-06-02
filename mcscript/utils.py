@@ -28,6 +28,10 @@
     11/03/17 (pjf): Quote strings in namelist output.
     04/07/19 (pjf): Call super().__init__() instead of dict.__init__() in
         CoefficientDict.__init__().
+    05/30/19 (pjf):
+        + Add exist_ok and parents options to mkdir() to replicate
+            os.mkdir() functionality.
+        + Add is_compressible() to estimate if a file should be compressed.
 """
 
 import glob
@@ -37,6 +41,7 @@ import itertools
 import os
 import subprocess
 import time
+import zlib
 
 from . import exception
 
@@ -397,7 +402,7 @@ def dict_union(*args):
 # filesystem
 ################################################################
 
-def mkdir(dirname):
+def mkdir(dirname, exist_ok=False, parents=False):
     """Create directory, avoiding use of os.mkdir.
 
     Note: os.mkdir can apparently cause stability issues with parallel
@@ -407,9 +412,60 @@ def mkdir(dirname):
 
     Arguments:
         dirname (str): name for directory to create
+        parents (bool): make parent directories as necessary
     """
+    if os.path.exists(dirname):
+        if exist_ok:
+            return
+        else:
+            raise FileExistsError(dirname)
 
-    subprocess.call(["mkdir",dirname])
+    if parents:
+        subprocess.call(["mkdir", "--parents", dirname])
+    else:
+        subprocess.call(["mkdir", dirname])
+
+################################################################
+# compression
+################################################################
+
+def is_compressible(filename, min_size=1048576, min_ratio=1.5):
+    """Estimate if file is compressible.
+
+    Arguments:
+        filename (path-like): file to check
+        min_size (int): minimum file size (in bytes) to consider
+            being worth compressing
+        min_ratio (float): minimum compression ratio to consider
+            being compressible
+
+    Returns:
+        (bool): whether or not file should be compressed
+    """
+    # don't waste time compressing small files
+    uncompressed_size = os.path.getsize(filename)
+    if uncompressed_size < min_size:
+        return False
+
+    # test 4KB from 100 locations within the file for compressibility
+    skip_size = uncompressed_size//100 - 4096
+    compressor = zlib.compressobj()
+    uncompressed_sample_size = 0
+    compressed_sample_size = 0
+    with open(filename, 'rb') as fp:
+        # discard first 2KB as potential header info
+        fp.seek(2048, 1)
+        for i in range(100):
+            uncompressed_block = fp.read(4096)
+            compressed_block = compressor.compress(uncompressed_block)
+            uncompressed_sample_size = uncompressed_sample_size + len(uncompressed_block)
+            compressed_sample_size = compressed_sample_size + len(compressed_block)
+            fp.seek(skip_size, 1)
+
+    if (uncompressed_sample_size/compressed_sample_size) < min_ratio:
+        return False
+    else:
+        return True
 
 ################################################################
 # coefficient management
