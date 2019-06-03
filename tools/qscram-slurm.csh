@@ -29,6 +29,7 @@ while ($1 =~ "-*")
   if ($1 == "--all") then
     set all = 1
   else if ($1 == "--hold") then
+    echo gh
     set hold = 1
   else if ($1 == "--release") then
     set release = 1
@@ -55,13 +56,13 @@ endif
 
 if ($all) then
   echo "Full scram..."
-  $scram_command -v `squeue --noheader -u $user -o "%.18i"`
+  ${scram_command} -v `squeue --noheader -u $user -o "%.18i"`
 else
   while ($1 != "")
 
     set text = $1
     echo "Filtered scram: ${text}"
-    scancel -v `squeue --noheader -u $user -o "%.18i,%j,%q" | grep ${text} | cut --delimiter=, --fields=1`
+    ${scram_command} -v `squeue --noheader -u $user -o "%.18i,%j,%q" | grep ${text} | cut --delimiter=, --fields=1`
 
     shift
 
