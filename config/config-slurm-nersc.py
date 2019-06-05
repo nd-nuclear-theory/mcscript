@@ -25,6 +25,7 @@
     + 04/07/19 (pjf):
         - Check SLURM_JOB_ID to determine whether or not to use `srun`.
         - Distribute executable via `sbcast` if using more than 128 nodes.
+    + 06/04/19 (pjf): Add NERSC-specific command-line options.
 """
 
 # Notes:
@@ -70,6 +71,40 @@ broadcasted_executables = {}
 # scripting submission (qsubm)
 ################################################################
 ################################################################
+
+
+def qsubm_arguments(parser):
+    """Add site-specific arguments to qsubm.
+
+    Arguments:
+        parser (argparse.ArgumentParser): qsubm argument parser context
+    """
+    group = parser.add_argument_group("NERSC-specific options")
+    group.add_argument(
+        "--account", type=str,
+        help="charge resources used by this job to specified account"
+    )
+    group.add_argument(
+        "--bb", type=str,
+        help="burst buffer specification"
+    )
+    group.add_argument(
+        "--bbf", type=str,
+        help="path of file containing burst buffer specification"
+    )
+    group.add_argument(
+        "--dependency", type=str,
+        help="defer the start of this job until the specified dependencies have been satisfied"
+    )
+    group.add_argument(
+        "--mail-type", type=str,
+        help="notify user by email when certain event types occur."
+    )
+    group.add_argument(
+        "--switchwaittime", type=str, default="12:00:00",
+        help="maximum time to wait for switch count"
+    )
+
 
 def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     """Prepare submission command invocation.
@@ -144,6 +179,17 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # miscellaneous options
     license_list = ["SCRATCH", "cscratch1", "project"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
+
+    if args.account is not None:
+        submission_invocation += ["--account={}".format(args.account)]
+    if args.bb is not None:
+        submission_invocation += ["--bb={}".format(args.bb)]
+    if args.bbf is not None:
+        submission_invocation += ["--bbf={}".format(args.bbf)]
+    if args.dependency is not None:
+        submission_invocation += ["--dependency={}".format(args.dependency)]
+    if args.mail_type is not None:
+        submission_invocation += ["--mail-type={}".format(args.mail_type)]
 
     # append user-specified arguments
     if (args.opt is not None):
