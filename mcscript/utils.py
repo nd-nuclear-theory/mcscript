@@ -32,6 +32,7 @@
         + Add exist_ok and parents options to mkdir() to replicate
             os.mkdir() functionality.
         + Add is_compressible() to estimate if a file should be compressed.
+    05/06/19 (pjf): Add scrub_ansi().
 """
 
 import glob
@@ -39,6 +40,7 @@ import math
 import numbers
 import itertools
 import os
+import re
 import subprocess
 import time
 import zlib
@@ -173,6 +175,17 @@ def spacify(li):
     """ Converts list entries to strings and joins with spaces."""
 
     return stringify(li," ")
+
+def scrub_ansi(s):
+    """Remove ANSI escape sequences from string
+
+    Arguments:
+        s (str): string to scrub
+    Returns:
+        (str): string without ANSI escape sequences
+    """
+    ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', s)
 
 ################################################################
 # debug message utilities
