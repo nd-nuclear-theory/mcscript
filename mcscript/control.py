@@ -16,10 +16,12 @@
         + Remove deprecated aliases to call mode.
     - 06/07/19 (pjf):
         + Use new (Python 3.5+) subprocess interface subprocess.run.
+        + Add FileWatchdog to detect failure-to-launch errors.
 """
 
 import enum
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -118,6 +120,42 @@ def module(args):
         print("  No module code to execute...")
 
 ################################################################
+# file existence checks
+################################################################
+
+class FileWatchdog(object):
+    """Provides an interface to signal.alarm for checking file existence after timeout.
+
+    This class wraps signal.alarm(), and provides for checking for file existence
+    after a certain delay. This can be used to detect, e.g., problems with executable
+    startup due to batch system problems, etc. This will raise a `TimeoutError`
+    if `filename` does not exist within `timeout` seconds after start() is called.
+
+    Arguments:
+        filename (str or path-like): file to check existence of after timeout
+        timeout (int): number of seconds to wait until checking if file exists
+    """
+
+    def __init__(self, filename, timeout=120):
+        self.filename = filename
+        self.timeout = timeout
+
+    def start(self):
+        """Start the watchdog timer."""
+        def handler(signalnum, frame):
+            if not os.path.exists(self.filename):
+                raise TimeoutError(
+                    "file {} not found after {} seconds".format(self.filename, self.timeout)
+                )
+            signal.alarm(0)
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(self.timeout)
+
+    def stop(self):
+        """Stop the watchdog timer."""
+        signal.alarm(0)
+
+################################################################
 # subprocess execution
 ################################################################
 
@@ -176,6 +214,9 @@ def call(
         (and raise exception if nonzero)
 
         print_timing (boolean, optional): or not to print wall time
+
+        file_watchdog (mcscript.control.FileWatchdog): file watchdog for checking
+        existence after executable startup
 
     Exceptions:
 
@@ -259,6 +300,10 @@ def call(
     print("----------------")
     print("Output:", flush=True)
 
+    # start file watchdog
+    if file_watchdog is not None:
+        file_watchdog.start()
+
     # start timing
     subprocess_start_time = time.time()
 
@@ -273,6 +318,10 @@ def call(
     # conclude timing
     subprocess_end_time = time.time()
     subprocess_time = subprocess_end_time - subprocess_start_time
+
+    # start file watchdog
+    if file_watchdog is not None:
+        file_watchdog.stop()
 
     print("----------------")
     if (print_timing):
