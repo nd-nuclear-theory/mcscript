@@ -14,6 +14,8 @@
     - 6/28/17 (mac):
         + Remove storage of stdout/sterr by POpen.communicate in mcscript.call.
         + Remove deprecated aliases to call mode.
+    - 06/07/19 (pjf):
+        + Use new (Python 3.5+) subprocess interface subprocess.run.
 """
 
 import enum
@@ -133,7 +135,8 @@ def call(
         input_lines=[],
         cwd=None,
         check_return=True,
-        print_timing=True
+        print_timing=True,
+        file_watchdog=None
 ):
     """Invoke subprocess.  The subprocess arguments are obtained by
     joining the prefix list to the base list.
@@ -166,13 +169,13 @@ def call(
         subprocess as standard input (i.e., as list of strings, each
         of which is to be treated as one input line)
 
+        cwd (str or None): current working directory (pass-through to
+        POpen)
+
         check_return (boolean, optional): whether or not to check subprocess's return value
         (and raise exception if nonzero)
 
         print_timing (boolean, optional): or not to print wall time
-
-        cwd (str or None): current working directory (pass-through to
-        POpen)
 
     Exceptions:
 
@@ -193,10 +196,10 @@ def call(
     # set up invocation
     if (mode is CallMode.kLocal):
         invocation = base
-    elif (mode==CallMode.kSerial):
+    elif (mode is CallMode.kSerial):
         config.openmp_setup(parameters.run.serial_threads)
         invocation = config.serial_invocation(base)
-    elif (mode==CallMode.kHybrid):
+    elif (mode is CallMode.kHybrid):
         config.openmp_setup(parameters.run.hybrid_threads)
         invocation = config.hybrid_invocation(base)
     else:
@@ -254,45 +257,22 @@ def call(
 
     # head output
     print("----------------")
-    print("Output:")
+    print("Output:", flush=True)
 
-    # invoke
+    # start timing
     subprocess_start_time = time.time()
-    try:
-        # launch process
-        process = subprocess.Popen(
-            invocation,
-            stdin=subprocess.PIPE,     # to take input from communicate
-            stdout=sys.stdout,         # to redirect
-            stderr=subprocess.STDOUT,  # to redirect via stdout
-            shell=shell,cwd=cwd        # pass-through arguments
-            ## close_fds=True             # for extra neatness and protection (but may affect redirection on some OS)
-            )
-    except OSError as err:
-        print("Execution failed:", err)
-        raise exception.ScriptError("execution failure")
 
-    # launch process
-    process.communicate(input=stdin_bytes)
-    ## process.stdin.write(stdin_bytes)
-    ## process.wait()
+    # run process
+    process = subprocess.run(
+        invocation,
+        input=stdin_bytes,
+        stderr=subprocess.STDOUT,  # to redirect via stdout
+        shell=shell, cwd=cwd,      # pass-through arguments
+    )
 
     # conclude timing
     subprocess_end_time = time.time()
     subprocess_time = subprocess_end_time - subprocess_start_time
-
-    ## # process output
-    ## # result of process.communicate consists of bytes (under Python 3)
-    ## stdout_string = stdout_bytes.decode(encoding="ascii",errors="ignore")
-    ## stderr_string = stderr_bytes.decode(encoding="ascii",errors="ignore")
-    ## if (print_stdout):
-    ##     print("----------------")
-    ##     print("Standard output:")
-    ##     print(stdout_string)
-    ##     if (len(stderr_string)>0):
-    ##         print("----------------")
-    ##         print("Standard error:")
-    ##         print(stderr_string)
 
     print("----------------")
     if (print_timing):
