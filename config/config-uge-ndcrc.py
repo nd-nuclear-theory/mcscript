@@ -134,10 +134,10 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     submission_invocation = [ "qsub" ]
 
     # job name
-    submission_invocation += ["-N {}".format(job_name)]
+    submission_invocation += ["-N", job_name]
 
     # queue
-    submission_invocation += ["-q {}".format(queue_identifier)]
+    submission_invocation += ["-q", queue_identifier]
 
     # wall time
     pass  # enforced by queue
@@ -172,7 +172,8 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     # generate parallel environment specifier
     submission_invocation += [
         "-pe",
-        "mpi-{nodesize:d} {total_cores:d}".format(nodesize=nodesize, total_cores=total_cores)
+        "mpi-{nodesize:d}".format(nodesize=nodesize),
+        "{total_cores:d}".format(total_cores=total_cores)
     ]
 
     # append user-specified arguments
