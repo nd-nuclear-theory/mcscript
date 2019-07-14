@@ -388,7 +388,7 @@ def archive_handler_subarchives(archive_parameters_list):
         for path in paths:
             paths_available &= os.path.isdir(path)
         if (not paths_available):
-            print("Paths not found.  Skipping archive..."
+            print("One or more of paths {} not found.  Skipping archive...".format(paths))
             continue
         archive_filename_list.append(archive_filename)
                   
@@ -439,8 +439,7 @@ def archive_handler_hsi(archive_filename_list=None):
             archive_directory=os.path.dirname(archive_filename),
             hsi_subdir=hsi_subdir
         )
-        # control.call(["hsi",hsi_argument])
-        print(["hsi",hsi_argument])
+        control.call(["hsi",hsi_argument])
 
     return archive_filename_list
 
