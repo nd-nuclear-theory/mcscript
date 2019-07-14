@@ -381,8 +381,17 @@ def archive_handler_subarchives(archive_parameters_list):
             archive_dir,
             "{:s}-archive-{:s}{:s}{:s}".format(parameters.run.name,utils.date_tag(),postfix,extension)
             )
-        archive_filename_list.append(archive_filename)
+        print("Archive: {}".format(archive_filename))
 
+        # check contents exist
+        paths_available = True
+        for path in paths:
+            paths_available &= os.path.isdir(path)
+        if (not paths_available):
+            print("Paths not found.  Skipping archive..."
+            continue
+        archive_filename_list.append(archive_filename)
+                  
         # construct archive
         filename_list = [toc_filename]
         if (include_metadata):
