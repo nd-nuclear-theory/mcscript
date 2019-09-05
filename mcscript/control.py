@@ -200,9 +200,6 @@ def call(
 
     TODO: suport redirection to /dev/null to hide large output
 
-    Programming note: In the future, consider upgrading to Python 3.5
-    subprocess.run(...,input=...) interface.
-
     Arguments:
 
         base (list of str): list of arguments for subprocess invocation

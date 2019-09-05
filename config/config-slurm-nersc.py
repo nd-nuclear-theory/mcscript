@@ -26,6 +26,7 @@
         - Check SLURM_JOB_ID to determine whether or not to use `srun`.
         - Distribute executable via `sbcast` if using more than 128 nodes.
     + 06/04/19 (pjf): Add NERSC-specific command-line options.
+    + 07/09/19 (mac): Change srun parameter from cpu_bind to cpu-bind.
 """
 
 # Notes:
@@ -292,10 +293,10 @@ def serial_invocation(base):
                 "--export=ALL"
             ]
 
-            # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
-            # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
+            # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
+            # cpu-bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
             invocation += [
-                "--cpu_bind=cores"
+                "--cpu-bind=cores"
             ]
 
             invocation += base
@@ -348,15 +349,15 @@ def hybrid_invocation(base):
     # for ompi
     invocation = [
         "srun",
-        ## "--cpu_bind=verbose",
+        ## "--cpu-bind=verbose",
         "--ntasks={}".format(parameters.run.hybrid_ranks),
         "--cpus-per-task={}".format(parameters.run.hybrid_threads),
         "--export=ALL"
     ]
-    # 4/3/17 (mac): cpu_bind=cores is recommended for cori but degrades performance on edison
-    # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
+    # 4/3/17 (mac): cpu-bind=cores is recommended for cori but degrades performance on edison
+    # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
     invocation += [
-        "--cpu_bind=cores"
+        "--cpu-bind=cores"
     ]
 
     # use local path instead

@@ -54,6 +54,11 @@
     + 06/06/19 (pjf):
         - Improve performance of toc generation with os.listdir().
         - Colorize toc terminal output.
+    + 07/14/19 (mac):
+        - Restore archive_handler_generic as archive handler for generic use case from commit b12373a.
+        - Rename pjf archive_handler_generic to archive_handler_automagic().
+        - Add archive_handler_subarchives(), taking custom subarchive list.
+
 """
 
 import datetime
@@ -174,25 +179,25 @@ def make_task_dirs ():
 # generic archiving support
 ################################################################
 
-
 def archive_handler_generic(include_results=True):
-    """Make generic archives of all metadata and results directories,
+    """Make archive of all metadata and results directories,
     to the run's archive directory.
 
-    A fresh TOC file is generated before archiving.
+    This is a "generic" archive handler, meant for use cases where the user does
+    not wish to customize what the archive contains, how the archive is split
+    up, whether or not there is compression, etc.
 
-    That is, each archive contains all files or a single subdirectory of the
-    results directory, plus all metadata (i.e. everything except the archive
-    directory and task work directories).  The results are placed in the
-    archive directory.  These are just local archives in scratch, so
-    subsequent intervention is required to transfer the archives more
-    permanently to, e.g., a home directory or tape storage.
+    The archive contains all the standard subdirectories except the archive
+    directory and task work directories.  The result is placed in the archive
+    directory.  This is just a local archive in scratch, so subsequent
+    intervention is required to transfer the archive more permanently to, e.g.,
+    a home directory or tape storage.
 
-    The files in the archives are of the form runxxxx/results/res/*,
-    runxxxx/results/out/*, runxxxx/results/*, etc.
+    The paths for the files in the archive are of the form runxxxx/results/*,
+    etc.
 
     Returns:
-        (list of str): archive filenames (for convenience of calling function if
+        (str): archive filename (for convenience of calling function if
             wrapped in larger task handler)
 
     """
@@ -225,6 +230,58 @@ def archive_handler_generic(include_results=True):
     #
     # Ah, robust solution is simply to exclude files "task-ARCH-*" from
     # the tar archive.
+
+
+    # make archive -- whole dir
+    if (include_results):
+        mode_flag = ""
+    else:
+        mode_flag = "-nores"
+    archive_filename = os.path.join(
+        archive_dir,
+        "{:s}-archive-{:s}{:s}.tgz".format(parameters.run.name,utils.date_tag(),mode_flag)
+        )
+    toc_filename = "{}.toc".format(parameters.run.name)
+    filename_list = [
+        toc_filename,
+        "flags",
+        "output",
+        "batch"
+    ]
+    if (include_results):
+        filename_list += ["results"]
+    control.call(
+        [
+            "tar",
+            "zcvf",
+            archive_filename,
+            "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
+            "--show-transformed",
+            "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
+        ] + filename_list,
+        cwd=parameters.run.work_dir, check_return=True
+        )
+
+    return archive_filename
+
+def archive_handler_automagic(include_results=True):
+    """Make separate archives of all results subdirectories, plus metadata.
+
+    Each archive contains all files or a single subdirectory of the results
+    directory, plus all metadata (i.e. everything except the archive directory
+    and task work directories).  The results are placed in the archive
+    directory.  These are just local archives in scratch, so subsequent
+    intervention is required to transfer the archives more permanently to, e.g.,
+    a home directory or tape storage.
+
+    The files in the archives are of the form runxxxx/results/res/*,
+    runxxxx/results/out/*, runxxxx/results/*, etc.
+
+    Returns:
+        (list of str): archive filenames (for convenience of calling function if
+            wrapped in larger task handler)
+
+    """
 
 
     # make archive -- whole dir
@@ -281,6 +338,80 @@ def archive_handler_generic(include_results=True):
 
     return archive_filename_list
 
+def archive_handler_subarchives(archive_parameters_list):
+    """Make sepearate archives of specified results subdirectories, plus metadata.
+
+    That is, each archive contains all files or a single subdirectory of the
+    results directory, plus all metadata (i.e. everything except the archive
+    directory and task work directories).  The results are placed in the
+    archive directory.  These are just local archives in scratch, so
+    subsequent intervention is required to transfer the archives more
+    permanently to, e.g., a home directory or tape storage.
+
+    The files in the archives are of the form runxxxx/results/res/*,
+    runxxxx/results/out/*, runxxxx/results/*, etc.
+
+    Arguments:
+        archive_parameters_list (list of dict): list specifying resulting subarchives
+            Each dict must contain:
+              "postfix" (str): postfix to use on archive name (e.g., "", "-res", ...)
+              "paths" (list): list of subdirectories with respect to results directory
+              "compress" (bool,optional): whether or not to compress
+              "include_metadata" (bool,optional): whether or not to include metadata directories
+
+    Returns:
+        (list of str): archive filenames (for convenience of calling function if
+            wrapped in larger task handler)
+
+    """
+
+    toc_filename = "{}.toc".format(parameters.run.name)
+    archive_filename_list = []
+    for archive_parameters in archive_parameters_list:
+
+        # extract parameters
+        postfix = archive_parameters["postfix"]
+        paths = archive_parameters["paths"]
+        compress = archive_parameters.get("compress",False)
+        include_metadata = archive_parameters.get("include_metadata",False)
+        
+        # construct archive filename
+        extension = ".tgz" if compress else ".tar"
+        archive_filename = os.path.join(
+            archive_dir,
+            "{:s}-archive-{:s}{:s}{:s}".format(parameters.run.name,utils.date_tag(),postfix,extension)
+            )
+        print("Archive: {}".format(archive_filename))
+
+        # check contents exist
+        paths_available = True
+        for path in paths:
+            paths_available &= os.path.isdir(path)
+        if (not paths_available):
+            print("One or more of paths {} not found.  Skipping archive...".format(paths))
+            continue
+        archive_filename_list.append(archive_filename)
+                  
+        # construct archive
+        filename_list = [toc_filename]
+        if (include_metadata):
+            filename_list += ["flags","output","batch"]
+        filename_list += paths
+        tar_flags = "zcvf" if compress else "cvf"
+        control.call(
+            [
+                "tar",
+                tar_flags,
+                archive_filename,
+                "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
+                "--show-transformed",
+                "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
+            ] + filename_list,
+            cwd=parameters.run.work_dir, check_return=True
+            )
+
+    return archive_filename_list
+
 def archive_handler_no_results():
     return archive_handler_generic(include_results=False)
 
@@ -308,8 +439,7 @@ def archive_handler_hsi(archive_filename_list=None):
             archive_directory=os.path.dirname(archive_filename),
             hsi_subdir=hsi_subdir
         )
-        # control.call(["hsi",hsi_argument])
-        print(["hsi",hsi_argument])
+        control.call(["hsi",hsi_argument])
 
     return archive_filename_list
 
