@@ -22,6 +22,15 @@
     + 02/11/18 (pjf): Pass entire environment.
     + 07/06/18 (pjf): Remove use of hybrid_nodesize.
     + 01/18/19 (pjf): Update deadline for AY19.
+    + 04/07/19 (pjf):
+        - Check SLURM_JOB_ID to determine whether or not to use `srun`.
+        - Distribute executable via `sbcast` if using more than 128 nodes.
+    + 06/04/19 (pjf): Add NERSC-specific command-line options.
+    + 07/09/19 (mac): Change srun parameter from cpu_bind to cpu-bind.
+    + 09/11/19 (pjf):
+        - Add checks on submission parameters (nodes, ranks, threads, etc.);
+          overrided in expert mode.
+        - Add core specialization (--core-spec) on multi-node runs.
 """
 
 # Notes:
@@ -43,26 +52,69 @@ import sys
 import math
 
 from . import control
+from . import exception
 from . import parameters
 
 
-# cluster_specs[NERSC_HOST][CRAY_CPU_TARGET] = (cores, threads/core)
 cluster_specs = {
-    "edison": {
-        "sandybridge": (16, 2),
-        "ivybridge": (24, 2),
-    },
     "cori": {
-        "haswell": (32, 2),
-        "knl": (68, 4),
+        "haswell": {
+            "cores": 32,
+            "threads_per_core": 2,
+            "domains": 2,
+            "cores_per_domain": 16,
+        },
+        "mic-knl": {
+            "cores": 68,
+            "threads_per_core": 4,
+            "domains": 4,
+            "cores_per_domain": 16,
+        },
     },
 }
+
+# cache of broadcasted executables -- job local
+broadcasted_executables = {}
 
 ################################################################
 ################################################################
 # scripting submission (qsubm)
 ################################################################
 ################################################################
+
+
+def qsubm_arguments(parser):
+    """Add site-specific arguments to qsubm.
+
+    Arguments:
+        parser (argparse.ArgumentParser): qsubm argument parser context
+    """
+    group = parser.add_argument_group("NERSC-specific options")
+    group.add_argument(
+        "--account", type=str,
+        help="charge resources used by this job to specified account"
+    )
+    group.add_argument(
+        "--bb", type=str,
+        help="burst buffer specification"
+    )
+    group.add_argument(
+        "--bbf", type=str,
+        help="path of file containing burst buffer specification"
+    )
+    group.add_argument(
+        "--dependency", type=str,
+        help="defer the start of this job until the specified dependencies have been satisfied"
+    )
+    group.add_argument(
+        "--mail-type", type=str,
+        help="notify user by email when certain event types occur."
+    )
+    group.add_argument(
+        "--switchwaittime", type=str, default="12:00:00",
+        help="maximum time to wait for switch count"
+    )
+
 
 def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     """Prepare submission command invocation.
@@ -93,6 +145,65 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     """
 
+    #### check option sanity ####
+    # convenience definitions
+    nersc_host = os.environ["NERSC_HOST"]
+    cpu_target = os.environ["CRAY_CPU_TARGET"]
+    node_cores = cluster_specs[nersc_host][cpu_target]["cores"]
+    threads_per_core = cluster_specs[nersc_host][cpu_target]["threads_per_core"]
+    node_threads = node_cores*threads_per_core
+    node_domains = cluster_specs[nersc_host][cpu_target]["domains"]
+    domain_cores = cluster_specs[nersc_host][cpu_target]["cores_per_domain"]
+    domain_threads = domain_cores*threads_per_core
+
+    try:
+        # check for oversubscription
+        if args.threads > node_threads:
+            raise exception.ScriptError(
+                "--threads={:d} greater than threads on single node ({:d})".format(
+                    args.threads, node_threads
+                )
+            )
+        if args.serialthreads > node_threads:
+            raise exception.ScriptError(
+                "--serialthreads={:d} greater than threads on single node ({:d})".format(
+                    args.serialthreads, node_threads
+                )
+            )
+        aggregate_threads = args.nodes*node_threads
+        if args.ranks*args.threads > aggregate_threads:
+            raise exception.ScriptError(
+                "total threads ({:d}) greater than total available threads ({:d})".format(
+                    args.ranks*args.threads, aggregate_threads
+                )
+            )
+
+        # check for undersubscription
+        if args.nodes > args.ranks:
+            raise exception.ScriptError(
+                "--nodes={:d} greater than --ranks={:d}".format(args.nodes, args.ranks)
+            )
+
+        # check for inefficient run on multiple nodes
+        if args.nodes > 1:
+            if math.log2(args.threads/domain_threads)%1 != 0:
+                raise exception.ScriptError(
+                    "--threads={:d} is not a power of two times threads per domain ({:d})".format(
+                        args.threads, domain_threads
+                    )
+                )
+            if math.ceil(args.ranks/args.nodes) > node_cores:
+                raise exception.ScriptError(
+                    "ranks per node ({:d}) greater than cores per node ({:d})".format(
+                        math.ceil(args.ranks/args.nodes), args.cores
+                    )
+                )
+    except exception.ScriptError as err:
+        if args.expert:
+            print(str(err))
+        else:
+            raise err
+
     # start accumulating command line
     submission_invocation = [ "sbatch" ]
 
@@ -108,6 +219,10 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
 
+    # core specialization
+    if args.nodes > 1:
+        submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
+
     # job array for repetitions
     if args.num > 1:
         submission_invocation += ["--array={:g}-{:g}".format(0, args.num-1)]
@@ -118,7 +233,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         ## elif os.environ["NERSC_HOST"] == "edison":
         ##     submission_invocation += ["--clusters=esedison"]
         control.module(["load", "esslurm"])
-    elif args.queue in ["debug", "regular", "premium", "shared"]:
+    elif args.queue in ["debug", "regular", "premium", "shared", "low"]:
         if os.environ["NERSC_HOST"] == "cori":
             # target cpu
             if os.environ["CRAY_CPU_TARGET"] == "haswell":
@@ -137,6 +252,17 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # miscellaneous options
     license_list = ["SCRATCH", "cscratch1", "project"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
+
+    if args.account is not None:
+        submission_invocation += ["--account={}".format(args.account)]
+    if args.bb is not None:
+        submission_invocation += ["--bb={}".format(args.bb)]
+    if args.bbf is not None:
+        submission_invocation += ["--bbf={}".format(args.bbf)]
+    if args.dependency is not None:
+        submission_invocation += ["--dependency={}".format(args.dependency)]
+    if args.mail_type is not None:
+        submission_invocation += ["--mail-type={}".format(args.mail_type)]
 
     # append user-specified arguments
     if (args.opt is not None):
@@ -222,9 +348,8 @@ def serial_invocation(base):
     #
     #   srun --export=ALL ...
 
-    if (not parameters.run.batch_mode):
-        # run on front end (though might sometimes want to run on compute
-        # node if have interactive allocation)
+    if (not os.environ.get("SLURM_JOB_ID")):
+        # run on front end
         invocation = base
     else:
         if os.getenv("NERSC_HOST") == "cori":
@@ -240,15 +365,40 @@ def serial_invocation(base):
                 "--export=ALL"
             ]
 
-            # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
-            # cpu_bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
+            # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
+            # cpu-bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
             invocation += [
-                "--cpu_bind=cores"
+                "--cpu-bind=cores"
             ]
 
             invocation += base
 
     return invocation
+
+def broadcast_executable(executable_path):
+    """Broadcast executable to compute nodes for hybrid run.
+
+    Uses module-local `broadcasted_executables` to cache what executables have
+    been broadcast previously. Executable names have a hash of the original
+    path appended to the executable filename to ensure that executables with
+    the same name but different paths don't conflict.
+
+    Arguments:
+        executable_path (str): filesystem path for executable to be broadcast
+
+    Returns:
+        (str): node-local path where broadcast executable resides
+    """
+    if executable_path not in broadcasted_executables:
+        executable_name = os.path.basename(executable_path)
+        executable_hash = hash(executable_path) + sys.maxsize + 1
+        local_path = (
+            "/tmp/{:s}.{:X}".format(executable_name, executable_hash)
+            )
+        broadcasted_executables[executable_path] = local_path
+        control.call(["sbcast", "--force", "--compress", executable_path, local_path])
+
+    return broadcasted_executables[executable_path]
 
 def hybrid_invocation(base):
     """ Generate subprocess invocation arguments for parallel run.
@@ -259,22 +409,32 @@ def hybrid_invocation(base):
     Returns:
         (list of str): full invocation
     """
+    # ensure that we're running inside a compute job
+    if not os.environ.get("SLURM_JOB_ID"):
+        raise exception.ScriptError("Hybrid mode only supported inside Slurm allocation!")
+
+    # distribute executable to nodes
+    executable_path = base[0]
+    if (parameters.run.hybrid_nodes >= 128):
+        executable_path = broadcast_executable(executable_path)
 
     # for ompi
     invocation = [
         "srun",
-        ## "--cpu_bind=verbose",
+        ## "--cpu-bind=verbose",
         "--ntasks={}".format(parameters.run.hybrid_ranks),
         "--cpus-per-task={}".format(parameters.run.hybrid_threads),
         "--export=ALL"
     ]
-    # 4/3/17 (mac): cpu_bind=cores is recommended for cori but degrades performance on edison
-    # 7/29/17 (mac): cpu_bind=cores is now recommended for edison as well
+    # 4/3/17 (mac): cpu-bind=cores is recommended for cori but degrades performance on edison
+    # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
     invocation += [
-        "--cpu_bind=cores"
+        "--cpu-bind=cores"
     ]
 
-    invocation += base
+    # use local path instead
+    invocation += [executable_path]
+    invocation += base[1:]
 
     return invocation
 

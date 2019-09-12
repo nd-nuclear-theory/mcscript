@@ -71,6 +71,10 @@
     + 07/06/18 (pjf):
         - Pass queue via MCSCRIPT_RUN_QUEUE.
         - Remove MCSCRIPT_HYBRID_NODESIZE.
+    + 06/04/19 (pjf):
+        - Add hook for individual configurations to add command-line arguments.
+        - Move --switchwaittime option into config-slurm-nersc.py.
+    + 09/11/19 (pjf): Add expert mode argument.
 """
 
 import argparse
@@ -117,6 +121,7 @@ parser.add_argument("--vars", help="Environment variables to pass to script, wit
 ## parser.add_argument("--stat", action="store_true", help="Display queue status information")
 parser.add_argument("--num", type=int, default=1, help="Number of repetitions")
 parser.add_argument("--opt", action="append", help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=END,FAIL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
+parser.add_argument("--expert", action="store_true", help="Run mcscript in expert mode")
 
 # serial run parallelization parameters
 serial_group = parser.add_argument_group("serial run options (single-node, non-MPI)")
@@ -132,7 +137,6 @@ hybrid_group.add_argument("--ranks", type=int, default=1, help="number of MPI ra
 hybrid_group.add_argument("--threads", type=int, default=1, help="OMP threads per rank)")
 hybrid_group.add_argument("--nodesize", type=int, default=0, help="logical threads available per node"
                           " (might instead be interpreted physical CPUs depending on local config file)")
-hybrid_group.add_argument("--switchwaittime", type=str, default="2:00:00", help="maximum time to wait for switch count")
 ##hybrid_group.add_argument("--undersubscription", type=int, default=1, help="undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 
 # multi-task interface: invocation modes
@@ -144,7 +148,7 @@ task_mode_group.add_argument("--prerun", action="store_true", help="Invoke preru
 task_mode_group.add_argument("--offline", action="store_true", help="Invoke offline mode, to create batch scripts for later submission instead of running compute codes")
 
 # multi-task interface: task selection
-task_selection_group = parser.add_argument_group("multi-task run")
+task_selection_group = parser.add_argument_group("multi-task run options")
 task_selection_group.add_argument("--pool", help="Set task pool (or ALL) for task selection")
 task_selection_group.add_argument("--phase", type=int, default=0, help="Set task phase for task selection")
 task_selection_group.add_argument("--start", type=int, help="Set starting task number for task selection")
@@ -155,6 +159,13 @@ task_selection_group.add_argument("--redirect", default="True", choices=["True",
 # some special options (deprecated?)
 ##parser.add_argument("--epar", type=int, default=None, help="Width for embarassingly parallel job")
 ##parser.add_argument("--nopar", action="store_true", help="Disable parallel resource requests (for use on special serial queues)")
+
+# site-local options
+try:
+    mcscript.config.qsubm_arguments(parser)
+except AttributeError:
+    # local config doesn't provide arguments, ignore gracefully
+    pass
 
 ##parser.print_help()
 ##print

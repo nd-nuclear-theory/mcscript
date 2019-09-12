@@ -26,15 +26,26 @@
     6/8/17 (pjf): Add write_namelist.
     6/27/17 (mac): Add option for search_in_subdirectories to fail gracefully.
     11/03/17 (pjf): Quote strings in namelist output.
+    04/07/19 (pjf): Call super().__init__() instead of dict.__init__() in
+        CoefficientDict.__init__().
+    05/30/19 (pjf):
+        + Add exist_ok and parents options to mkdir() to replicate
+            os.mkdir() functionality.
+        + Add is_compressible() to estimate if a file should be compressed.
+    05/06/19 (pjf): Add scrub_ansi().
+    09/01/19 (pjf): Add topological_sort().
 """
 
+import collections
 import glob
 import math
 import numbers
 import itertools
 import os
+import re
 import subprocess
 import time
+import zlib
 
 from . import exception
 
@@ -166,6 +177,17 @@ def spacify(li):
     """ Converts list entries to strings and joins with spaces."""
 
     return stringify(li," ")
+
+def scrub_ansi(s):
+    """Remove ANSI escape sequences from string
+
+    Arguments:
+        s (str): string to scrub
+    Returns:
+        (str): string without ANSI escape sequences
+    """
+    ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', s)
 
 ################################################################
 # debug message utilities
@@ -322,6 +344,7 @@ def search_in_subdirectories(
     print("  Filename:",filename)
 
     # search in successive directories
+    success = False
     for (base_path,subdirectory) in itertools.product(base_path_list,subdirectory_list):
         qualified_name = os.path.join(base_path,subdirectory,filename)
         if (base):
@@ -394,7 +417,7 @@ def dict_union(*args):
 # filesystem
 ################################################################
 
-def mkdir(dirname):
+def mkdir(dirname, exist_ok=False, parents=False):
     """Create directory, avoiding use of os.mkdir.
 
     Note: os.mkdir can apparently cause stability issues with parallel
@@ -404,9 +427,106 @@ def mkdir(dirname):
 
     Arguments:
         dirname (str): name for directory to create
+        parents (bool): make parent directories as necessary
     """
+    if os.path.exists(dirname):
+        if exist_ok:
+            return
+        else:
+            raise FileExistsError(dirname)
 
-    subprocess.call(["mkdir",dirname])
+    if parents:
+        subprocess.call(["mkdir", "--parents", dirname])
+    else:
+        subprocess.call(["mkdir", dirname])
+
+################################################################
+# compression
+################################################################
+
+def is_compressible(filename, min_size=1048576, min_ratio=1.5):
+    """Estimate if file is compressible.
+
+    Arguments:
+        filename (path-like): file to check
+        min_size (int): minimum file size (in bytes) to consider
+            being worth compressing
+        min_ratio (float): minimum compression ratio to consider
+            being compressible
+
+    Returns:
+        (bool): whether or not file should be compressed
+    """
+    # don't waste time compressing small files
+    uncompressed_size = os.path.getsize(filename)
+    if uncompressed_size < min_size:
+        return False
+
+    # test 4KB from 100 locations within the file for compressibility
+    skip_size = uncompressed_size//100 - 4096
+    compressor = zlib.compressobj()
+    uncompressed_sample_size = 0
+    compressed_sample_size = 0
+    with open(filename, 'rb') as fp:
+        # discard first 2KB as potential header info
+        fp.seek(2048, 1)
+        for i in range(100):
+            uncompressed_block = fp.read(4096)
+            compressed_block = compressor.compress(uncompressed_block)
+            uncompressed_sample_size = uncompressed_sample_size + len(uncompressed_block)
+            compressed_sample_size = compressed_sample_size + len(compressed_block)
+            fp.seek(skip_size, 1)
+
+    if (uncompressed_sample_size/compressed_sample_size) < min_ratio:
+        return False
+    else:
+        return True
+
+################################################################
+# graph sorting
+################################################################
+
+def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_path=[]):
+    """Topologically sort a directed graph using depth-first traversal.
+
+    Arguments:
+        graph (dict): graph with keys representing vertices and values
+            as lists of edges
+        initial_vertices (list): starting vertices for depth-first traversal
+        sorted_vertices (list): internal list, used for recursion on intermediate
+            sorted list
+        current_path (list): internal list, used for detection of cycles
+
+    Returns:
+        (collections.deque): topologically-sorted list of items out-connected
+            to initial_vertices
+
+    Example:
+        >>> graph = {1:[4,7], 2:[], 3:[4,6], 4:[6], 5:[], 6:[8,9,10], 7:[10], 8:[], 9:[], 10:[]}
+        >>> mcscript.utils.topological_sort(graph, [1])
+        deque([1, 7, 4, 6, 10, 9, 8])
+        >>> mcscript.utils.topological_sort(graph, [1])
+        deque([1, 7, 4, 6, 10, 9, 8])
+        >>> mcscript.utils.topological_sort(graph, [1,2,3])
+        deque([3, 2, 1, 7, 4, 6, 10, 9, 8])
+    """
+    sorted_vertices = collections.deque(sorted_vertices)
+    for vertex in sorted(initial_vertices):
+        if vertex in sorted_vertices:
+            continue
+        if vertex in current_path:
+            raise ValueError("graph is not directed-acyclic")
+        current_path.append(vertex)
+        child_vertices = graph[vertex]
+        sorted_vertices = topological_sort(
+            graph,
+            initial_vertices=child_vertices,
+            sorted_vertices=sorted_vertices,
+            current_path=current_path
+        )
+        current_path.pop()
+        sorted_vertices.appendleft(vertex)
+    return sorted_vertices
 
 ################################################################
 # coefficient management
@@ -417,7 +537,7 @@ class CoefficientDict(dict):
     expression.
     """
     def __init__(self, *args, **kwargs):
-        dict.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __add__(self, rhs):
         """Add two CoefficientDicts, matching coefficients.

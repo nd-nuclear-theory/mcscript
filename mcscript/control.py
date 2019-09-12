@@ -14,10 +14,16 @@
     - 6/28/17 (mac):
         + Remove storage of stdout/sterr by POpen.communicate in mcscript.call.
         + Remove deprecated aliases to call mode.
+    - 06/07/19 (pjf):
+        + Use new (Python 3.5+) subprocess interface subprocess.run.
+        + Add FileWatchdog to detect failure-to-launch errors.
+    - 07/03/19 (pjf): Have FileWatchdog optionally check repeatedly for file 
+      modification to detect hung process.
 """
 
 import enum
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -116,6 +122,59 @@ def module(args):
         print("  No module code to execute...")
 
 ################################################################
+# file existence checks
+################################################################
+
+class FileWatchdog(object):
+    """Provides an interface for checking file existence/modification after timeout.
+
+    This class wraps signal.alarm(), and provides for checking for file
+    existence and modification after a certain delay. This can be used to
+    detect, e.g., problems with executable startup due to batch system problems,
+    etc. This will raise a `TimeoutError` if `filename` does not exist within
+    `timeout` seconds after start() is called. If `repeat` is True, file will be
+    checked repeatedly at an interval of `timeout`, and will raise a
+    `TimeoutError` if `filename` has not been modified within the last `timeout`
+    seconds.
+
+    Arguments:
+        filename (str or path-like): file to check existence of after timeout
+        timeout (int): number of seconds to wait until checking if file exists
+        repeat (bool, optional): whether to repeatedly check for file modification
+    """
+
+    def __init__(self, filename, timeout=120, repeat=False):
+        self.filename = filename
+        self.timeout = timeout
+        self.repeat = repeat
+
+    def start(self):
+        """Start the watchdog timer."""
+        signal.signal(signal.SIGALRM, self._handler)
+        signal.alarm(self.timeout)
+
+    def stop(self):
+        """Stop the watchdog timer."""
+        signal.alarm(0)
+
+    def _handler(self, signalnum, frame):
+        if not os.path.exists(self.filename):
+            raise TimeoutError(
+                "file {:s} not found after {:d} seconds".format(self.filename, self.timeout)
+            )
+        elif (time.time() - os.path.getmtime(self.filename)) > self.timeout:
+            raise TimeoutError(
+                "file {:s} has not changed for {:d} seconds".format(
+                    self.filename, int(time.time() - os.path.getmtime(self.filename))
+                    )
+            )
+        if self.repeat:
+            self.start()
+        else:
+            self.stop()
+
+
+################################################################
 # subprocess execution
 ################################################################
 
@@ -133,15 +192,13 @@ def call(
         input_lines=[],
         cwd=None,
         check_return=True,
-        print_timing=True
+        print_timing=True,
+        file_watchdog=None
 ):
     """Invoke subprocess.  The subprocess arguments are obtained by
     joining the prefix list to the base list.
 
     TODO: suport redirection to /dev/null to hide large output
-
-    Programming note: In the future, consider upgrading to Python 3.5
-    subprocess.run(...,input=...) interface.
 
     Arguments:
 
@@ -166,13 +223,16 @@ def call(
         subprocess as standard input (i.e., as list of strings, each
         of which is to be treated as one input line)
 
+        cwd (str or None): current working directory (pass-through to
+        POpen)
+
         check_return (boolean, optional): whether or not to check subprocess's return value
         (and raise exception if nonzero)
 
         print_timing (boolean, optional): or not to print wall time
 
-        cwd (str or None): current working directory (pass-through to
-        POpen)
+        file_watchdog (mcscript.control.FileWatchdog): file watchdog for checking
+        existence after executable startup
 
     Exceptions:
 
@@ -193,10 +253,10 @@ def call(
     # set up invocation
     if (mode is CallMode.kLocal):
         invocation = base
-    elif (mode==CallMode.kSerial):
+    elif (mode is CallMode.kSerial):
         config.openmp_setup(parameters.run.serial_threads)
         invocation = config.serial_invocation(base)
-    elif (mode==CallMode.kHybrid):
+    elif (mode is CallMode.kHybrid):
         config.openmp_setup(parameters.run.hybrid_threads)
         invocation = config.hybrid_invocation(base)
     else:
@@ -254,45 +314,30 @@ def call(
 
     # head output
     print("----------------")
-    print("Output:")
+    print("Output:", flush=True)
 
-    # invoke
+    # start file watchdog
+    if file_watchdog is not None:
+        file_watchdog.start()
+
+    # start timing
     subprocess_start_time = time.time()
-    try:
-        # launch process
-        process = subprocess.Popen(
-            invocation,
-            stdin=subprocess.PIPE,     # to take input from communicate
-            stdout=sys.stdout,         # to redirect
-            stderr=subprocess.STDOUT,  # to redirect via stdout
-            shell=shell,cwd=cwd        # pass-through arguments
-            ## close_fds=True             # for extra neatness and protection (but may affect redirection on some OS)
-            )
-    except OSError as err:
-        print("Execution failed:", err)
-        raise exception.ScriptError("execution failure")
 
-    # launch process
-    process.communicate(input=stdin_bytes)
-    ## process.stdin.write(stdin_bytes)
-    ## process.wait()
+    # run process
+    process = subprocess.run(
+        invocation,
+        input=stdin_bytes,
+        stderr=subprocess.STDOUT,  # to redirect via stdout
+        shell=shell, cwd=cwd,      # pass-through arguments
+    )
 
     # conclude timing
     subprocess_end_time = time.time()
     subprocess_time = subprocess_end_time - subprocess_start_time
 
-    ## # process output
-    ## # result of process.communicate consists of bytes (under Python 3)
-    ## stdout_string = stdout_bytes.decode(encoding="ascii",errors="ignore")
-    ## stderr_string = stderr_bytes.decode(encoding="ascii",errors="ignore")
-    ## if (print_stdout):
-    ##     print("----------------")
-    ##     print("Standard output:")
-    ##     print(stdout_string)
-    ##     if (len(stderr_string)>0):
-    ##         print("----------------")
-    ##         print("Standard error:")
-    ##         print(stderr_string)
+    # start file watchdog
+    if file_watchdog is not None:
+        file_watchdog.stop()
 
     print("----------------")
     if (print_timing):

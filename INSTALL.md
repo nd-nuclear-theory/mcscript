@@ -4,11 +4,11 @@ Mark A. Caprio, Patrick J. Fasano
 Department of Physics, University of Notre Dame
 
 + 12/30/16 (mac): Created.
-+ 1/18/17 (mac): Remove MFDn environment example.
-+ 2/23/17 (mac): Clarify configuration instructions.
-+ 2/25/17 (mac): Add note about python availability on compute node.
-+ 5/9/17 (mac): Add bash instructions.  Expand discussion of examples.
-+ 8/28/17 (pjf): Add environment for mcscript-managed executables.
++ 01/18/17 (mac): Remove MFDn environment example.
++ 02/23/17 (mac): Clarify configuration instructions.
++ 02/25/17 (mac): Add note about python availability on compute node.
++ 05/09/17 (mac): Add bash instructions.  Expand discussion of examples.
++ 08/28/17 (pjf): Add environment for mcscript-managed executables.
 + 12/21/17 (pjf): Move to INSTALL.md and update to Markdown.
 + 01/01/18 (pjf): Update for installation with `pip`.
 + 02/06/18 (pjf): Update MCSCRIPT_SOURCE file path.
@@ -24,7 +24,7 @@ Department of Physics, University of Notre Dame
   % cd ~/code
   ~~~~~~~~~~~~~~~~
 
-  Clone the `mcscript` repository and all submodules.
+  Clone the `mcscript` repository.
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   % git clone https://github.com/nd-nuclear-theory/mcscript.git
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
