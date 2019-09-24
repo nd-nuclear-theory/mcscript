@@ -17,6 +17,8 @@
     - 06/07/19 (pjf):
         + Use new (Python 3.5+) subprocess interface subprocess.run.
         + Add FileWatchdog to detect failure-to-launch errors.
+    - 07/03/19 (pjf): Have FileWatchdog optionally check repeatedly for file 
+      modification to detect hung process.
 """
 
 import enum
@@ -124,36 +126,53 @@ def module(args):
 ################################################################
 
 class FileWatchdog(object):
-    """Provides an interface to signal.alarm for checking file existence after timeout.
+    """Provides an interface for checking file existence/modification after timeout.
 
-    This class wraps signal.alarm(), and provides for checking for file existence
-    after a certain delay. This can be used to detect, e.g., problems with executable
-    startup due to batch system problems, etc. This will raise a `TimeoutError`
-    if `filename` does not exist within `timeout` seconds after start() is called.
+    This class wraps signal.alarm(), and provides for checking for file
+    existence and modification after a certain delay. This can be used to
+    detect, e.g., problems with executable startup due to batch system problems,
+    etc. This will raise a `TimeoutError` if `filename` does not exist within
+    `timeout` seconds after start() is called. If `repeat` is True, file will be
+    checked repeatedly at an interval of `timeout`, and will raise a
+    `TimeoutError` if `filename` has not been modified within the last `timeout`
+    seconds.
 
     Arguments:
         filename (str or path-like): file to check existence of after timeout
         timeout (int): number of seconds to wait until checking if file exists
+        repeat (bool, optional): whether to repeatedly check for file modification
     """
 
-    def __init__(self, filename, timeout=120):
+    def __init__(self, filename, timeout=120, repeat=False):
         self.filename = filename
         self.timeout = timeout
+        self.repeat = repeat
 
     def start(self):
         """Start the watchdog timer."""
-        def handler(signalnum, frame):
-            if not os.path.exists(self.filename):
-                raise TimeoutError(
-                    "file {} not found after {} seconds".format(self.filename, self.timeout)
-                )
-            signal.alarm(0)
-        signal.signal(signal.SIGALRM, handler)
+        signal.signal(signal.SIGALRM, self._handler)
         signal.alarm(self.timeout)
 
     def stop(self):
         """Stop the watchdog timer."""
         signal.alarm(0)
+
+    def _handler(self, signalnum, frame):
+        if not os.path.exists(self.filename):
+            raise TimeoutError(
+                "file {:s} not found after {:d} seconds".format(self.filename, self.timeout)
+            )
+        elif (time.time() - os.path.getmtime(self.filename)) > self.timeout:
+            raise TimeoutError(
+                "file {:s} has not changed for {:d} seconds".format(
+                    self.filename, int(time.time() - os.path.getmtime(self.filename))
+                    )
+            )
+        if self.repeat:
+            self.start()
+        else:
+            self.stop()
+
 
 ################################################################
 # subprocess execution

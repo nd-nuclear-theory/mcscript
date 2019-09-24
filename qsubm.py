@@ -74,6 +74,7 @@
     + 06/04/19 (pjf):
         - Add hook for individual configurations to add command-line arguments.
         - Move --switchwaittime option into config-slurm-nersc.py.
+    + 09/11/19 (pjf): Add expert mode argument.
 """
 
 import argparse
@@ -120,6 +121,7 @@ parser.add_argument("--vars", help="Environment variables to pass to script, wit
 ## parser.add_argument("--stat", action="store_true", help="Display queue status information")
 parser.add_argument("--num", type=int, default=1, help="Number of repetitions")
 parser.add_argument("--opt", action="append", help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=END,FAIL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
+parser.add_argument("--expert", action="store_true", help="Run mcscript in expert mode")
 
 # serial run parallelization parameters
 serial_group = parser.add_argument_group("serial run options (single-node, non-MPI)")

@@ -27,6 +27,10 @@
         - Distribute executable via `sbcast` if using more than 128 nodes.
     + 06/04/19 (pjf): Add NERSC-specific command-line options.
     + 07/09/19 (mac): Change srun parameter from cpu_bind to cpu-bind.
+    + 09/11/19 (pjf):
+        - Add checks on submission parameters (nodes, ranks, threads, etc.);
+          overrided in expert mode.
+        - Add core specialization (--core-spec) on multi-node runs.
 """
 
 # Notes:
@@ -52,15 +56,20 @@ from . import exception
 from . import parameters
 
 
-# cluster_specs[NERSC_HOST][CRAY_CPU_TARGET] = (cores, threads/core)
 cluster_specs = {
-    "edison": {
-        "sandybridge": (16, 2),
-        "ivybridge": (24, 2),
-    },
     "cori": {
-        "haswell": (32, 2),
-        "knl": (68, 4),
+        "haswell": {
+            "cores": 32,
+            "threads_per_core": 2,
+            "domains": 2,
+            "cores_per_domain": 16,
+        },
+        "mic-knl": {
+            "cores": 68,
+            "threads_per_core": 4,
+            "domains": 4,
+            "cores_per_domain": 16,
+        },
     },
 }
 
@@ -136,6 +145,65 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     """
 
+    #### check option sanity ####
+    # convenience definitions
+    nersc_host = os.environ["NERSC_HOST"]
+    cpu_target = os.environ["CRAY_CPU_TARGET"]
+    node_cores = cluster_specs[nersc_host][cpu_target]["cores"]
+    threads_per_core = cluster_specs[nersc_host][cpu_target]["threads_per_core"]
+    node_threads = node_cores*threads_per_core
+    node_domains = cluster_specs[nersc_host][cpu_target]["domains"]
+    domain_cores = cluster_specs[nersc_host][cpu_target]["cores_per_domain"]
+    domain_threads = domain_cores*threads_per_core
+
+    try:
+        # check for oversubscription
+        if args.threads > node_threads:
+            raise exception.ScriptError(
+                "--threads={:d} greater than threads on single node ({:d})".format(
+                    args.threads, node_threads
+                )
+            )
+        if args.serialthreads > node_threads:
+            raise exception.ScriptError(
+                "--serialthreads={:d} greater than threads on single node ({:d})".format(
+                    args.serialthreads, node_threads
+                )
+            )
+        aggregate_threads = args.nodes*node_threads
+        if args.ranks*args.threads > aggregate_threads:
+            raise exception.ScriptError(
+                "total threads ({:d}) greater than total available threads ({:d})".format(
+                    args.ranks*args.threads, aggregate_threads
+                )
+            )
+
+        # check for undersubscription
+        if args.nodes > args.ranks:
+            raise exception.ScriptError(
+                "--nodes={:d} greater than --ranks={:d}".format(args.nodes, args.ranks)
+            )
+
+        # check for inefficient run on multiple nodes
+        if args.nodes > 1:
+            if math.log2(args.threads/domain_threads)%1 != 0:
+                raise exception.ScriptError(
+                    "--threads={:d} is not a power of two times threads per domain ({:d})".format(
+                        args.threads, domain_threads
+                    )
+                )
+            if math.ceil(args.ranks/args.nodes) > node_cores:
+                raise exception.ScriptError(
+                    "ranks per node ({:d}) greater than cores per node ({:d})".format(
+                        math.ceil(args.ranks/args.nodes), args.cores
+                    )
+                )
+    except exception.ScriptError as err:
+        if args.expert:
+            print(str(err))
+        else:
+            raise err
+
     # start accumulating command line
     submission_invocation = [ "sbatch" ]
 
@@ -150,6 +218,10 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
+
+    # core specialization
+    if args.nodes > 1:
+        submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
 
     # job array for repetitions
     if args.num > 1:

@@ -33,8 +33,10 @@
             os.mkdir() functionality.
         + Add is_compressible() to estimate if a file should be compressed.
     05/06/19 (pjf): Add scrub_ansi().
+    09/01/19 (pjf): Add topological_sort().
 """
 
+import collections
 import glob
 import math
 import numbers
@@ -479,6 +481,52 @@ def is_compressible(filename, min_size=1048576, min_ratio=1.5):
         return False
     else:
         return True
+
+################################################################
+# graph sorting
+################################################################
+
+def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_path=[]):
+    """Topologically sort a directed graph using depth-first traversal.
+
+    Arguments:
+        graph (dict): graph with keys representing vertices and values
+            as lists of edges
+        initial_vertices (list): starting vertices for depth-first traversal
+        sorted_vertices (list): internal list, used for recursion on intermediate
+            sorted list
+        current_path (list): internal list, used for detection of cycles
+
+    Returns:
+        (collections.deque): topologically-sorted list of items out-connected
+            to initial_vertices
+
+    Example:
+        >>> graph = {1:[4,7], 2:[], 3:[4,6], 4:[6], 5:[], 6:[8,9,10], 7:[10], 8:[], 9:[], 10:[]}
+        >>> mcscript.utils.topological_sort(graph, [1])
+        deque([1, 7, 4, 6, 10, 9, 8])
+        >>> mcscript.utils.topological_sort(graph, [1])
+        deque([1, 7, 4, 6, 10, 9, 8])
+        >>> mcscript.utils.topological_sort(graph, [1,2,3])
+        deque([3, 2, 1, 7, 4, 6, 10, 9, 8])
+    """
+    sorted_vertices = collections.deque(sorted_vertices)
+    for vertex in sorted(initial_vertices):
+        if vertex in sorted_vertices:
+            continue
+        if vertex in current_path:
+            raise ValueError("graph is not directed-acyclic")
+        current_path.append(vertex)
+        child_vertices = graph[vertex]
+        sorted_vertices = topological_sort(
+            graph,
+            initial_vertices=child_vertices,
+            sorted_vertices=sorted_vertices,
+            current_path=current_path
+        )
+        current_path.pop()
+        sorted_vertices.appendleft(vertex)
+    return sorted_vertices
 
 ################################################################
 # coefficient management
