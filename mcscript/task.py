@@ -58,7 +58,8 @@
         - Restore archive_handler_generic as archive handler for generic use case from commit b12373a.
         - Rename pjf archive_handler_generic to archive_handler_automagic().
         - Add archive_handler_subarchives(), taking custom subarchive list.
-
+    + 11/05/19 (pjf): Catch all exceptions derived from BaseException, to create
+        fail flags more robustly.
 """
 
 import datetime
@@ -374,7 +375,7 @@ def archive_handler_subarchives(archive_parameters_list):
         paths = archive_parameters["paths"]
         compress = archive_parameters.get("compress",False)
         include_metadata = archive_parameters.get("include_metadata",False)
-        
+
         # construct archive filename
         extension = ".tgz" if compress else ".tar"
         archive_filename = os.path.join(
@@ -391,7 +392,7 @@ def archive_handler_subarchives(archive_parameters_list):
             print("One or more of paths {} not found.  Skipping archive...".format(paths))
             continue
         archive_filename_list.append(archive_filename)
-                  
+
         # construct archive
         filename_list = [toc_filename]
         if (include_metadata):
@@ -884,7 +885,7 @@ def do_task(task_parameters,task,phase_handlers):
     # invoke task handler
     try:
         phase_handlers[task_phase](task)
-    except Exception as err:
+    except BaseException as err:
         # on failure, flag failure and propagate exception so script terminates
         print("Exception:", err)
         if task_mode is TaskMode.kRun:
