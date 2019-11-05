@@ -17,7 +17,7 @@
     - 06/07/19 (pjf):
         + Use new (Python 3.5+) subprocess interface subprocess.run.
         + Add FileWatchdog to detect failure-to-launch errors.
-    - 07/03/19 (pjf): Have FileWatchdog optionally check repeatedly for file 
+    - 07/03/19 (pjf): Have FileWatchdog optionally check repeatedly for file
       modification to detect hung process.
     - 11/05/19 (mac): Allow restarts after FileWatchdog failure.
     - 11/05/19 (pjf): Restore redirection of subprocess output.
@@ -53,18 +53,18 @@ def init():
     parameters.run.populate()
     parameters.run.job_id = config.job_id()
 
-    if (parameters.run.verbose):
+    if parameters.run.verbose:
         print("")
-        print("-"*64),
+        print("-"*64)
         print(parameters.run.run_data_string())
-        print("-"*64),
-        print(utils.time_stamp()),
+        print("-"*64)
+        print(utils.time_stamp())
         sys.stdout.flush()
 
     # make and cd to scratch directory
 
-    if (not os.path.exists(parameters.run.work_dir)):
-        subprocess.call(["mkdir","--parents",parameters.run.work_dir])
+    if not os.path.exists(parameters.run.work_dir):
+        subprocess.call(["mkdir", "--parents", parameters.run.work_dir])
     os.chdir(parameters.run.work_dir)
 
     # invoke local init
@@ -84,7 +84,7 @@ def termination():
 
     # provide verbose ending
     #   only if top-level invocation of job file, not epar daughter
-    if (parameters.run.verbose):
+    if parameters.run.verbose:
         sys.stdout.flush()
         print("-"*64)
         print("End script")
@@ -113,12 +113,12 @@ def module(args):
 
     """
 
-    print("module"," ".join(args))
-    module_command = os.path.join(os.environ["MODULESHOME"],"bin","modulecmd")
-    module_code_string = subprocess.check_output([ module_command, "python" ] + args)
-    if (module_code_string != ""):
+    print("module", " ".join(args))
+    module_command = os.path.join(os.environ["MODULESHOME"], "bin", "modulecmd")
+    module_code_string = subprocess.check_output([module_command, "python"] + args)
+    if module_code_string != "":
         print("  Executing module code...")
-        module_code = compile(module_code_string,"<string>","exec")
+        module_code = compile(module_code_string, "<string>", "exec")
         eval(module_code)  # eval can crash on raw string, so compile first
     else:
         print("  No module code to execute...")
@@ -191,7 +191,7 @@ def call(
         base,
         shell=False,
         mode=CallMode.kLocal,
-        input_lines=[],
+        input_lines=(),
         cwd=None,
         check_return=True,
         print_timing=True,
@@ -257,23 +257,25 @@ def call(
     """
 
     # set up invocation
-    if (mode is CallMode.kLocal):
+    if mode is CallMode.kLocal:
         invocation = base
-    elif (mode is CallMode.kSerial):
+    elif mode is CallMode.kSerial:
         config.openmp_setup(parameters.run.serial_threads)
         invocation = config.serial_invocation(base)
-    elif (mode is CallMode.kHybrid):
+    elif mode is CallMode.kHybrid:
         config.openmp_setup(parameters.run.hybrid_threads)
         invocation = config.hybrid_invocation(base)
     else:
-        raise(ValueError("invalid invocation mode"))
+        raise ValueError("invalid invocation mode")
 
     # make a single string if running under subshell
     if shell:
         invocation = " ".join(invocation)
 
     # set up input
-    stdin_string = "".join([s + "\n" for s in input_lines])
+    stdin_string = "\n".join(input_lines)
+    # add trailing newline
+    stdin_string += "\n"
     # encode as bytes
     #   else communicate complains under Python 3: 'str' does not
     #   support the buffer interface
@@ -281,8 +283,7 @@ def call(
     # but encoding is required by Python 3
     #
     # "ascii" encoding will choke on newer gnu utilities utf-8 output
-    stdin_bytes = bytes(stdin_string,encoding="ascii",errors="ignore")
-    ## stdin_stream = io.StringIO(stdin_string)
+    stdin_bytes = bytes(stdin_string, encoding="ascii", errors="ignore")
 
     # log header output
     print("----------------------------------------------------------------")
@@ -290,7 +291,7 @@ def call(
     print("Command line: {:s}".format(str(invocation)))
     print("Call mode: {:s}".format(str(mode)))
     print("Start time: {:s}".format(utils.time_stamp()))
-    if (input_lines!=[]):
+    if input_lines:
         print("----------------")
         print("Given standard input:")
         print(stdin_string)
@@ -306,8 +307,8 @@ def call(
     # run process
     completed = False
     file_watchdog_failures = 0
-    while (not completed):
-        
+    while not completed:
+
         # start file watchdog
         if file_watchdog is not None:
             file_watchdog.start()
@@ -321,25 +322,25 @@ def call(
                 stderr=subprocess.STDOUT,  # to redirect via stdout
                 shell=shell, cwd=cwd,      # pass-through arguments
             )
-        except TimeoutError as e:
+        except TimeoutError as err:
             file_watchdog_failures += 1
-            if  (file_watchdog_failures > file_watchdog_restarts):
-                raise e
-            print("File watchdog failure: will attempt restart {:d}/{:d}".format(file_watchdog_failures,file_watchdog_restarts))
+            if file_watchdog_failures > file_watchdog_restarts:
+                raise err
+            print("File watchdog failure: will attempt restart {:d}/{:d}".format(file_watchdog_failures, file_watchdog_restarts))
         else:
             completed = True
 
         # stop file watchdog
         if file_watchdog is not None:
             file_watchdog.stop()
-            
+
     # conclude timing
     subprocess_end_time = time.time()
     subprocess_time = subprocess_end_time - subprocess_start_time
 
     print("----------------")
-    if (print_timing):
-        print("Wall time: {:.2f} sec (={:.2f} min)".format(subprocess_time,subprocess_time/60))
+    if print_timing:
+        print("Wall time: {:.2f} sec (={:.2f} min)".format(subprocess_time, subprocess_time/60))
     # handle return value
     returncode = process.returncode
     print("Return code: {}".format(returncode))
@@ -348,7 +349,7 @@ def call(
     sys.stdout.flush()  # just for good measure
 
     # return (or abort)
-    if ( check_return and (returncode != 0) ):
+    if check_return and (returncode != 0):
         raise exception.ScriptError("nonzero return")
 
     ## return stdout_string
