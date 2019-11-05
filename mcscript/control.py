@@ -20,6 +20,7 @@
     - 07/03/19 (pjf): Have FileWatchdog optionally check repeatedly for file 
       modification to detect hung process.
     - 11/05/19 (mac): Allow restarts after FileWatchdog failure.
+    - 11/05/19 (pjf): Restore redirection of subprocess output.
 """
 
 import enum
@@ -295,28 +296,6 @@ def call(
         print(stdin_string)
     sys.stdout.flush()
 
-    # POpen.communicate -- "Note: The data read is buffered in memory,
-    # so do not use this method if the data size is large or unlimited."
-
-    ## # invoke
-    ## subprocess_start_time = time.time()
-    ## try:
-    ##     # launch process
-    ##     process = subprocess.Popen(
-    ##         invocation,
-    ##         stdin=subprocess.PIPE,     # to take input from communicate
-    ##         stdout=subprocess.PIPE,    # to send output to communicate
-    ##         stderr=subprocess.PIPE,    # separate stderr
-    ##         shell=shell,cwd=cwd,       # pass-through arguments
-    ##         close_fds=True             # for extra neatness and protection
-    ##         )
-    ## except OSError as err:
-    ##     print("Execution failed:", err)
-    ##     raise exception.ScriptError("execution failure")
-    ##
-    ## # communicate with process
-    ## (stdout_bytes,stderr_bytes) = process.communicate(input=stdin_bytes)
-
     # head output
     print("----------------")
     print("Output:", flush=True)
@@ -338,6 +317,7 @@ def call(
             process = subprocess.run(
                 invocation,
                 input=stdin_bytes,
+                stdout=sys.stdout,
                 stderr=subprocess.STDOUT,  # to redirect via stdout
                 shell=shell, cwd=cwd,      # pass-through arguments
             )
