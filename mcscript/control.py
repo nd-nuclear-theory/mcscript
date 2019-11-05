@@ -19,6 +19,7 @@
         + Add FileWatchdog to detect failure-to-launch errors.
     - 07/03/19 (pjf): Have FileWatchdog optionally check repeatedly for file 
       modification to detect hung process.
+    - 11/05/19 (mac): Allow restarts after FileWatchdog failure.
 """
 
 import enum
@@ -193,7 +194,8 @@ def call(
         cwd=None,
         check_return=True,
         print_timing=True,
-        file_watchdog=None
+        file_watchdog=None,
+        file_watchdog_restarts=0
 ):
     """Invoke subprocess.  The subprocess arguments are obtained by
     joining the prefix list to the base list.
@@ -233,6 +235,9 @@ def call(
 
         file_watchdog (mcscript.control.FileWatchdog): file watchdog for checking
         existence after executable startup
+
+        file_watchdog_restarts (int): number of restarts allowed after watchdog
+        failures
 
     Exceptions:
 
@@ -316,28 +321,41 @@ def call(
     print("----------------")
     print("Output:", flush=True)
 
-    # start file watchdog
-    if file_watchdog is not None:
-        file_watchdog.start()
-
     # start timing
     subprocess_start_time = time.time()
 
     # run process
-    process = subprocess.run(
-        invocation,
-        input=stdin_bytes,
-        stderr=subprocess.STDOUT,  # to redirect via stdout
-        shell=shell, cwd=cwd,      # pass-through arguments
-    )
+    completed = False
+    file_watchdog_failures = 0
+    while (not completed):
+        
+        # start file watchdog
+        if file_watchdog is not None:
+            file_watchdog.start()
 
+        # call subprocess
+        try:
+            process = subprocess.run(
+                invocation,
+                input=stdin_bytes,
+                stderr=subprocess.STDOUT,  # to redirect via stdout
+                shell=shell, cwd=cwd,      # pass-through arguments
+            )
+        except TimeoutError as e:
+            file_watchdog_failures += 1
+            if  (file_watchdog_failures > file_watchdog_restarts):
+                raise e
+            print("File watchdog failure: will attempt restart {:d}/{:d}".format(file_watchdog_failures,file_watchdog_restarts))
+        else:
+            completed = True
+
+        # stop file watchdog
+        if file_watchdog is not None:
+            file_watchdog.stop()
+            
     # conclude timing
     subprocess_end_time = time.time()
     subprocess_time = subprocess_end_time - subprocess_start_time
-
-    # start file watchdog
-    if file_watchdog is not None:
-        file_watchdog.stop()
 
     print("----------------")
     if (print_timing):
