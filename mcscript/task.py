@@ -60,6 +60,7 @@
         - Add archive_handler_subarchives(), taking custom subarchive list.
     + 11/05/19 (pjf): Catch all exceptions derived from BaseException, to create
         fail flags more robustly.
+    + 11/12/19 (mac): Force creation for any archive including metadata in archive_handler_subarchives().
 """
 
 import datetime
@@ -388,7 +389,7 @@ def archive_handler_subarchives(archive_parameters_list):
         paths_available = True
         for path in paths:
             paths_available &= os.path.isdir(path)
-        if (not paths_available):
+        if ((not paths_available) and (not include_metadata)):
             print("One or more of paths {} not found.  Skipping archive...".format(paths))
             continue
         archive_filename_list.append(archive_filename)
