@@ -1,4 +1,4 @@
-""" mcscript_task -- task control utility functions
+"""mcscript_task -- task control utility functions
 
     Meant to be loaded as part of mcscript.  Provides the
     mcscript.task.* definitions in mcscript.
@@ -60,7 +60,9 @@
         - Add archive_handler_subarchives(), taking custom subarchive list.
     + 11/05/19 (pjf): Catch all exceptions derived from BaseException, to create
         fail flags more robustly.
-    + 11/12/19 (mac): Force creation for any archive including metadata in archive_handler_subarchives().
+    + 11/13/19 (mac): Change creation condition for subarchives in
+        archive_handler_subarchives().
+
 """
 
 import datetime
@@ -350,6 +352,9 @@ def archive_handler_subarchives(archive_parameters_list):
     subsequent intervention is required to transfer the archives more
     permanently to, e.g., a home directory or tape storage.
 
+    A subarchive is created if if *any* of the requested paths exist or if the
+    archive is supposed to include metadata.  Otherwise, it is skipped.
+
     The files in the archives are of the form runxxxx/results/res/*,
     runxxxx/results/out/*, runxxxx/results/*, etc.
 
@@ -385,12 +390,13 @@ def archive_handler_subarchives(archive_parameters_list):
             )
         print("Archive: {}".format(archive_filename))
 
-        # check contents exist
-        paths_available = True
+        # check that at least some contents exist (else skip)
+        available_paths = []
         for path in paths:
-            paths_available &= os.path.isdir(path)
-        if ((not paths_available) and (not include_metadata)):
-            print("One or more of paths {} not found.  Skipping archive...".format(paths))
+            if (os.path.isdir(path)):
+                available_paths.append(path)
+        if ((len(available_paths)==0) and (not include_metadata)):
+            print("None of paths {} available and no request to save metadata.  Skipping archive...".format(paths))
             continue
         archive_filename_list.append(archive_filename)
 
@@ -398,7 +404,7 @@ def archive_handler_subarchives(archive_parameters_list):
         filename_list = [toc_filename]
         if (include_metadata):
             filename_list += ["flags","output","batch"]
-        filename_list += paths
+        filename_list += available_paths
         tar_flags = "zcvf" if compress else "cvf"
         control.call(
             [
