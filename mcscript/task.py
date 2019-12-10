@@ -62,7 +62,9 @@
         fail flags more robustly.
     + 11/13/19 (mac): Change creation condition for subarchives in
         archive_handler_subarchives().
-    + 12/10/19 (pjf): Remove extraneous directory existence checks.
+    + 12/10/19 (pjf):
+        - Remove extraneous directory existence checks.
+        - Fail on duplicate task descriptor.
 """
 
 import datetime
@@ -1116,14 +1118,8 @@ def init(
     make_task_dirs()
 
     # process task list
-    for index in range(len(task_list)):
-        task = task_list[index]
-
-        # legacy descriptor field
-        # DEPRECATED in favor of ["metadata"]["descriptor"]
-        # TODO -- remove legacy fields once sure nobody uses them
-        task["descriptor"] = task_descriptor(task)
-
+    task_descriptor_set = set()
+    for (index, task) in enumerate(task_list):
         # encapsulated metadata
         metadata = {
             "descriptor" : task_descriptor(task),
@@ -1134,6 +1130,13 @@ def init(
             "phase" : None  # to be set at task invocation time
         }
         task["metadata"] = metadata
+
+        # check for duplicate task descriptors
+        if metadata["descriptor"] in task_descriptor_set:
+            raise exception.ScriptError(
+                "duplicate task descriptor: {}".format(metadata["descriptor"])
+            )
+        task_descriptor_set.add(metadata["descriptor"])
 
     # alias handler arguments
     phase_handlers = phase_handler_list
