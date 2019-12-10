@@ -62,7 +62,7 @@
         fail flags more robustly.
     + 11/13/19 (mac): Change creation condition for subarchives in
         archive_handler_subarchives().
-
+    + 12/10/19 (pjf): Remove extraneous directory existence checks.
 """
 
 import datetime
@@ -161,23 +161,13 @@ def task_read_env():
 ################################################################
 
 def make_task_dirs ():
-    """ make_task_dirs () ensures the existence of special subdirectories for task processing
-
-    TODO: since existence check is not robust against multiple scripts
-    attempting in close succession, replace this with a try/except.
+    """Ensure the existence of special subdirectories for task processing.
     """
 
-    if ( not os.path.exists(flag_dir)):
-        utils.mkdir(flag_dir)
-
-    if ( not os.path.exists(output_dir)):
-        utils.mkdir(output_dir)
-
-    if ( not os.path.exists(results_dir)):
-        utils.mkdir(results_dir)
-
-    if ( not os.path.exists(archive_dir)):
-        utils.mkdir(archive_dir)
+    utils.mkdir(flag_dir, exist_ok=True)
+    utils.mkdir(output_dir, exist_ok=True)
+    utils.mkdir(results_dir, exist_ok=True)
+    utils.mkdir(archive_dir, exist_ok=True)
 
 ################################################################
 # generic archiving support
@@ -858,8 +848,7 @@ def do_task(task_parameters,task,phase_handlers):
 
     # set up task directory
     task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
-    if (not os.path.exists(task_dir)):
-        utils.mkdir(task_dir)
+    utils.mkdir(task_dir, exist_ok=True)
     os.chdir(task_dir)
 
     # initiate timing
