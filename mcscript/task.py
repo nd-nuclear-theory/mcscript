@@ -65,6 +65,8 @@
     + 12/10/19 (pjf):
         - Remove extraneous directory existence checks.
         - Fail on duplicate task descriptor.
+    + 12/11/19 (pjf): Add save_results_single() and save_results_multi() for
+        convenient saving of results files to appropriate locations.
 """
 
 import datetime
@@ -170,6 +172,89 @@ def make_task_dirs ():
     utils.mkdir(output_dir, exist_ok=True)
     utils.mkdir(results_dir, exist_ok=True)
     utils.mkdir(archive_dir, exist_ok=True)
+
+################################################################
+# generic result storage support
+################################################################
+
+def save_results_single(
+    task,
+    source_file_path,
+    target_filename=None,
+    subdirectory="",
+    command="mv"
+):
+    """Save single results file from task.
+
+    Arguments:
+        task (dict): task dictionary
+        source_file_path (str): path of file to be saved
+        target_filename (str, optional): target filename, default to
+            source filename
+        subdirectory (str, optional): destination subdirectory for results
+        command (str, optional): type of save, "mv" or "cp", defaults to "mv"
+    """
+    # determine results directory path and ensure existence
+    if results_dir is not None:
+        res_dir = os.path.join(results_dir, subdirectory)
+    else:
+        res_dir = os.path.join(parameters.run.work_dir, subdirectory)
+    utils.mkdir(res_dir, exist_ok=True)
+
+    # determine target file path
+    if target_filename is not None:
+        target_file_path = os.path.join(res_dir, target_filename)
+    else:
+        target_file_path = os.path.join(res_dir, os.path.basename(source_file_path))
+
+    # move file to destination
+    control.call(
+        [
+            command,
+            "--verbose",
+            source_file_path,
+            target_file_path
+        ]
+    )
+
+
+def save_results_multi(
+    task,
+    source_file_list,
+    target_directory_name=None,
+    subdirectory="",
+    command="mv"
+):
+    """Save multiple results files from task.
+
+    Arguments:
+        task (dict): task dictionary
+        source_file_list (list of str): list of files to be saved
+        target_directory_name (str, optional): target directory name, default to
+            task descriptor
+        subdirectory (str, optional): destination subdirectory for results
+        command (str, optional): type of save, "mv" or "cp", defaults to "mv"
+    """
+    # determine results directory path and ensure existence
+    if results_dir is not None:
+        res_dir = os.path.join(results_dir, subdirectory)
+        if target_directory_name is not None:
+            target_directory_path = os.path.join(res_dir, target_directory_name)
+        else:
+            target_directory_path = os.path.join(res_dir, task["metadata"]["descriptor"])
+    else:
+        target_directory_path = os.path.join(parameters.run.work_dir, subdirectory)
+    utils.mkdir(target_directory_path, parents=True, exist_ok=True)
+
+    # move file to destination
+    control.call(
+        [
+            command,
+            "--verbose",
+            "--target-directory={}".format(target_directory_path)
+        ] + source_file_list
+    )
+
 
 ################################################################
 # generic archiving support
