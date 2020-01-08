@@ -31,6 +31,7 @@
         - Add checks on submission parameters (nodes, ranks, threads, etc.);
           overrided in expert mode.
         - Add core specialization (--core-spec) on multi-node runs.
+    + 01/07/20 (pjf): Update deadline for AY20.
 """
 
 # Notes:
@@ -47,6 +48,7 @@
 #
 # --opt="--mail-type=ALL"
 
+import datetime
 import os
 import sys
 import math
@@ -208,7 +210,12 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation = [ "sbatch" ]
 
     # deadline (end of allocation year)
-    submission_invocation += ["--deadline=2020-01-13T23:59:59"]
+    ay19_end_date = datetime.datetime.fromisoformat("2020-01-13T23:59:59")
+    ay20_end_date = datetime.datetime.fromisoformat("2021-01-11T23:59:59")
+    if datetime.datetime.now() < ay19_end_date:
+        submission_invocation += ["--deadline={}".format(ay19_end_date.isoformat())]
+    elif datetime.datetime.now() < ay20_end_date:
+        submission_invocation += ["--deadline={}".format(ay20_end_date.isoformat())]
 
     # job name
     submission_invocation += ["--job-name={}".format(job_name)]
