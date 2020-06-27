@@ -63,8 +63,8 @@
         - Add hook for individual configurations to add command-line arguments.
         - Move --switchwaittime option into config-slurm-nersc.py.
     + 09/11/19 (pjf): Add expert mode argument.
+    + 11/18/19 (pjf): Fix job file existence check.
     + 06/26/20 (mac): Make MCSCRIPT_PYTHON and MCSCRIPT_RUN_PREFIX optional.
-
 """
 
 import argparse
@@ -238,7 +238,7 @@ script_extensions = [".py", ".csh"]
 job_file = None
 for extension in script_extensions:
     filename = os.path.join(run_home, run+extension)
-    if (filename):
+    if os.path.exists(filename):
         job_file = filename
         job_extension = extension
         break
