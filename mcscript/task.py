@@ -67,6 +67,7 @@
         - Fail on duplicate task descriptor.
     + 12/11/19 (pjf): Add save_results_single() and save_results_multi() for
         convenient saving of results files to appropriate locations.
+    + 06/29/20 (mac): Fix default (generic) case of archive_handler_hsi().
 """
 
 import datetime
@@ -514,7 +515,7 @@ def archive_handler_hsi(archive_filename_list=None):
 
     # make archive -- whole dir
     if archive_filename_list is None:
-        archive_filename_list = archive_handler_generic()
+        archive_filename_list = [archive_handler_generic()]
 
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
