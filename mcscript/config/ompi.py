@@ -10,13 +10,25 @@
     + 11/22/16 (mac): Created, based on qsubm_local_ndcrc.py and
       mcscript_local_ndcrc.py (originated ~7/13 and last modified
       ~12/14).
+    + 07/30/20 (pjf): Migrate inside mcscript/config/ for dynamic config loading.
 
 """
+
+__all__ = [
+    "submission",
+    "job_id",
+    "serial_invocation",
+    "hybrid_invocation",
+    "openmp_setup",
+    "init",
+    "termination"
+    ]
 
 import os
 import sys
 
-from . import parameters
+from .. import exception
+from .. import parameters
 
 ################################################################
 ################################################################
@@ -25,7 +37,7 @@ from . import parameters
 ################################################################
 
 
-def submission(job_name,job_file,qsubm_path,environment_definitions,args):
+def submission(job_name,job_file,environment_definitions,args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -54,7 +66,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     """
 
-    raise(ScriptError("no batch submission"))
+    raise(exception.ScriptError("no batch submission"))
 
 
 ################################################################

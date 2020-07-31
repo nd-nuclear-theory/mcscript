@@ -1,24 +1,103 @@
-"""config-oak.py
+"""config-uge-ndcrc.py
 
-    mcscript definitions for TRIUMF Oak compute cluster at UBC ARC
+    mcscript definitions for Univa Grid Engine at the Notre Dame CRC
 
     Language: Python 3
 
-    Anna E. McCoy
-    TRIUMF
+    Mark A. Caprio
+    University of Notre Dame
 
-    + 8/20/18 (aem): Created, based on config-uge-ndcrc.py
-
-    + 11/3/18 (mac/aem): Adjust qsubm and mpiexec arguments for oak: with qsub
-      from torque OpenPBS v2.3 and mpiexec from Intel MPI Library for Linux
-      Version 2017:
-
+    + 11/22/16 (mac): Created, based on qsubm_local_ndcrc.py and
+      mcscript_local_ndcrc.py (originated ~7/13 and last modified
+      ~12/14).
+    + 4/22/17 (mac):
+      - Update use of mcscript configuration variables.
+      - Add automatic queue sensing and revise calculation of run size parameters.
+      - Try out binding.
+    + 07/06/18 (pjf):
+      - Pass entire environment.
+      - Completely rewrite mapping and binding logic.
+    + 07/30/20 (pjf):
+        - Migrate inside mcscript/config/ for dynamic config loading.
+        - Use pkg_resources to locate job wrappers.
+        - Use python_executable from config file.
 """
+
+__all__ = [
+    "submission",
+    "job_id",
+    "serial_invocation",
+    "hybrid_invocation",
+    "openmp_setup",
+    "init",
+    "termination"
+    ]
+
+# Notes:
+#
+# Node size is calculated based on queue:
+#
+#   long/debug: 2x12=24
+#   infiniband: 2x4=8
+#
+# Wall time is not communicated in queue request but is passed on to script.
+#
+# We currently grab an integer number of nodes.  This doesn't support
+# cluster-style sharing of nodes by serial jobs.
+
+# Queues as of 07/02/18:
+#
+#   http://wiki.crc.nd.edu/wiki/index.php/Available_Hardware
+#
+
+#   General Access Compute Clusters
+#
+#   d12chas351-d12chas387.crc.nd.edu & d12chas400-d12chas531.crc.nd.edu
+#
+#    169 Lenovo NeXtScale nx360 M5 Servers
+#    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
+#    256 GB RAM  -  1.4TB Solid State Disk - SSD
+#    Usage:  Queue syntax for job submission script:
+#       #$ -q long
+#       or
+#       #$ -q *@@general_access
+#
+#   d12chas532-d12chas543.crc.nd.edu
+#
+#    12 Lenovo NeXtScale nx360 M5 Servers
+#    Dual 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz Haswell processors
+#    64 GB RAM  -  1.4TB Solid State Disk - SSD
+#    Usage:  Queue syntax for job submission script:
+#       #$ -q debug
+#
+#   dqcneh075-104.crc.nd.edu CRC General Access (with Infiniband interconnection network, available upon request)
+#
+#    30 IBM I-dataplex
+#    Dual Quad-core 2.53 GHz Intel Nehalem processors
+#    Qlogic QDR Infiniband Non-Blocking  HBA
+#    12 GB RAM
+#    Usage:  Queue syntax for job submission script:
+#       #$ -q *@@dqcneh_253GHZ
 
 import math
 import os
+import pkg_resources
 
-from . import parameters
+from .. import config
+from .. import parameters
+
+
+queues = {
+    # queue, nodesize, socketsize, numasize
+    "local":      ("local", 24, 12, 6),
+    "long":       ("*@@general_access", 24, 12, 6),
+    "long-48":    ("long", 48, 24, 6),
+    "debug":      ("debug", 24, 12, 6),
+    "hpc":        ("hpc", 48, 24, 6),
+    "hpc-debug":  ("hpc-debug", 48, 24, 6),
+    "infiniband": ("*@@dqcneh_253GHZ", 8, 4, 2)
+}
+
 
 ################################################################
 ################################################################
@@ -26,13 +105,7 @@ from . import parameters
 ################################################################
 ################################################################
 
-queues = {
-    # queue, nodesize, socketsize, numasize
-    # To get, run "cpuinfo" on the node
-    "oak":       ("oak", 32, 16, 16)
-}
-
-def submission(job_name, job_file, qsubm_path, environment_definitions, args):
+def submission(job_name, job_file, environment_definitions, args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -76,33 +149,21 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     submission_invocation = [ "qsub" ]
 
     # job name
-    # Not valid for PBS script
-    #submission_invocation += ["-N {}".format(job_name)]
-    
+    submission_invocation += ["-N", job_name]
 
     # queue
-    submission_invocation += [
-        "-q",
-        queue_identifier
-    ]
+    submission_invocation += ["-q", queue_identifier]
 
     # wall time
     pass  # enforced by queue
 
     # array job for repetitions
     if args.num > 1:
-        submission_invocation += [
-            "-t",
-            "{:g}-{:g}".format(1,args.num)]
+        submission_invocation += ["-t", "{:g}-{:g}".format(1, args.num)]
 
     # miscellaneous options
-    submission_invocation += [
-        "-j",
-        "oe"
-    ]  # merge standard error, 
-    # may need to change "y" to "oe"
-
-#    submission_invocation += ["-r", "n"]  # job not restartable
+    submission_invocation += ["-j", "y"]  # merge standard error
+    submission_invocation += ["-r", "n"]  # job not restartable
 
     # check thread counts -- hyperthreading is disabled at the BIOS-level for
     # all CRC nodes (email to pjf from Paul Brenner, 06/26/18)
@@ -124,16 +185,11 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
         raise ValueError("Insufficient nodes for requested for threads.")
 
     # generate parallel environment specifier
-    # submission_invocation += [
-    #     "-pe",
-    #     "mpi-{nodesize:d} {total_cores:d}".format(nodesize=nodesize, total_cores=total_cores)
-    # ]
     submission_invocation += [
-        "-l",
-        "nodes={nodes:d}:ppn={nodesize:d},walltime={wall:d}:00".format(nodes=args.nodes, nodesize=nodesize, wall=args.wall)
+        "-pe",
+        "mpi-{nodesize:d}".format(nodesize=nodesize),
+        "{total_cores:d}".format(total_cores=total_cores)
     ]
-
-
 
     # append user-specified arguments
     if (args.opt is not None):
@@ -149,13 +205,13 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
     if "csh" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
+        job_wrapper = pkg_resources.resource_filename(__name__, "job_wrappers/csh_job_wrapper.csh")
     elif "bash" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+        job_wrapper = pkg_resources.resource_filename(__name__, "job_wrappers/bash_job_wrapper.sh")
     submission_invocation += [
-        "-F",  # specifies command line arguments to (wrapper) script
-        "{} {}".format(os.environ["MCSCRIPT_PYTHON"],job_file),  # all arguments to (wrapper) script as single string (with spaces between arguments)
-        job_wrapper  # the (wrapper) script itself
+        job_wrapper,
+        config.user_config.python_executable,
+        job_file
     ]
 
     # standard input for submission
@@ -267,18 +323,18 @@ def hybrid_invocation(base):
         # skip bindings
         invocation = [
             "mpiexec",
-            "-n", "{:d}".format(parameters.run.hybrid_ranks),
+            "--n", "{:d}".format(parameters.run.hybrid_ranks),
         ]
     else:
         # run on compute node
         invocation = [
             "mpiexec",
-            "-print-rank-map",
-            "-n", "{:d}".format(parameters.run.hybrid_ranks)
-            # TODO: fix up to use correct --perhost, etc., arguments
-            ## "--map-by", map_by,
-            ## "--rank-by", rank_by,
-            ## "--bind-to", bind_to,
+            "--display-allocation",
+            "--display-map",
+            "--n", "{:d}".format(parameters.run.hybrid_ranks),
+            "--map-by", map_by,
+            "--rank-by", rank_by,
+            "--bind-to", bind_to,
         ]
     invocation += base
 

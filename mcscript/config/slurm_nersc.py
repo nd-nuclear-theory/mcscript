@@ -32,7 +32,21 @@
           overrided in expert mode.
         - Add core specialization (--core-spec) on multi-node runs.
     + 01/07/20 (pjf): Update deadline for AY20.
+    + 07/30/20 (pjf):
+        - Migrate inside mcscript/config/ for dynamic config loading.
+        - Use pkg_resources to locate job wrappers.
+        - Use python_executable from config file.
 """
+
+__all__ = [
+    "submission",
+    "job_id",
+    "serial_invocation",
+    "hybrid_invocation",
+    "openmp_setup",
+    "init",
+    "termination"
+    ]
 
 # Notes:
 #
@@ -50,12 +64,14 @@
 
 import datetime
 import os
+import pkg_resources
 import sys
 import math
 
-from . import control
-from . import exception
-from . import parameters
+from .. import config
+from .. import control
+from .. import exception
+from .. import parameters
 
 
 cluster_specs = {
@@ -118,7 +134,7 @@ def qsubm_arguments(parser):
     )
 
 
-def submission(job_name,job_file,qsubm_path,environment_definitions,args):
+def submission(job_name,job_file,environment_definitions,args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -283,12 +299,12 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
     if "csh" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
+        job_wrapper = pkg_resources.resource_filename(__name__, "job_wrappers/csh_job_wrapper.csh")
     elif "bash" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+        job_wrapper = pkg_resources.resource_filename(__name__, "job_wrappers/bash_job_wrapper.sh")
     submission_invocation += [
         job_wrapper,
-        os.environ["MCSCRIPT_PYTHON"],
+        config.user_config.python_executable,
         job_file
     ]
 
