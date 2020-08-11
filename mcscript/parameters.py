@@ -17,9 +17,11 @@
   + 07/06/18 (pjf):
     - Pass queue via MCSCRIPT_RUN_QUEUE.
     - Remove MCSCRIPT_HYBRID_NODESIZE.
+  + 06/02/20 (pjf): Add methods get_elapsed_time() and get_remaining_time().
 """
 
 import os
+import time
 
 ################################################################
 # run parameters object
@@ -104,6 +106,9 @@ class RunParameters(object):
         ##                 ((self.epar_rank == None) or (self.epar_rank == 1))
         ##                 )
 
+        # time information
+        self.start_time = time.time()
+
     def run_data_string(self):
         """ Generate multiline string documenting run variables for
         diagnostic output.
@@ -127,6 +132,14 @@ class RunParameters(object):
             )
 
         return message
+
+    def get_elapsed_time(self):
+        """Get total elapsed time."""
+        return (time.time() - self.start_time)
+
+    def get_remaining_time(self):
+        """Get remaining allocated time."""
+        return (self.wall_time_sec - self.get_elapsed_time())
 
 # instantiate, but don't populate, since qsubm won't have needed variables in environment
 run = RunParameters()

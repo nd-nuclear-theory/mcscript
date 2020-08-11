@@ -32,6 +32,7 @@
           overrided in expert mode.
         - Add core specialization (--core-spec) on multi-node runs.
     + 01/07/20 (pjf): Update deadline for AY20.
+    + 06/02/20 (pjf): Get wall_time_sec from Slurm on job launch.
 """
 
 # Notes:
@@ -52,6 +53,7 @@ import datetime
 import os
 import sys
 import math
+import subprocess
 
 from . import control
 from . import exception
@@ -482,6 +484,19 @@ def init():
     parameters.run.install_dir = os.path.join(
         parameters.run.install_dir, os.getenv("CRAY_CPU_TARGET")
         )
+
+    # get wall time from Slurm
+    if job_id() != 0:
+        squeue_output = subprocess.run(
+            ["squeue", "-h", "-j", job_id(), "-o", "%L"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True
+            ).stdout.strip()
+        if squeue_output not in ("NOT_SET", "UNLIMITED"):
+            squeue_time = list(map(int, squeue_output.split(":")))
+            # squeue drops leading zeros; pad for unpacking
+            (hours, minutes, seconds) = [0]*(3-len(squeue_time)) + squeue_time
+            parameters.run.wall_time_sec = hours*3600 + minutes*60 + seconds
 
 def termination():
     """ Do any local termination tasks.

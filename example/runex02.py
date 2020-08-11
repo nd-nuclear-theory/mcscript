@@ -102,6 +102,7 @@
     + 05/30/19 (pjf): Sort results into inner and outer directories.
     + 12/11/19 (pjf): Use mcscript.task.save_results_single() and
         mcscript.task.save_results_multi().
+    + 06/02/20 (pjf): Add example usage of exception.InsufficientTime.
 
 """
 
@@ -224,6 +225,11 @@ def say_goodbye(task):
     "world_name" : name of world to greet
 
     """
+
+    # saying goodbye is hard -- make sure we have enough time
+    print(mcscript.parameters.run.get_remaining_time())
+    if mcscript.parameters.run.get_remaining_time() < 300:
+        raise mcscript.exception.InsufficientTime(required_time=300)
 
     # write greeting message to file
     mcscript.utils.write_input(

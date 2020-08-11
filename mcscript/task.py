@@ -67,6 +67,9 @@
         - Fail on duplicate task descriptor.
     + 12/11/19 (pjf): Add save_results_single() and save_results_multi() for
         convenient saving of results files to appropriate locations.
+    + 06/02/20 (pjf):
+        - Allow tasks to signal incompleteness by raising exception.InsufficientTime.
+        - Get elapsed and remaining time using interface from parameters.
 """
 
 import datetime
@@ -106,6 +109,7 @@ class TaskMode(enum.Enum):
 class TaskStatus(enum.Enum):
     kLocked = "\033[33m"+"L"+"\033[0m"
     kFailed = "\033[31m"+"F"+"\033[0m"
+    kIncomplete = "\033[34m"+"I"+"\033[0m"
     kDone = "\033[32m"+"X"+"\033[0m"
     kMasked = "."
     kPending = "-"
@@ -594,11 +598,15 @@ def task_toc(task_list,phase_handlers,color=False):
 
     return "\n".join(lines)
 
-def task_unlock():
+def task_unlock(lock_types=(TaskStatus.kLocked,TaskStatus.kFailed)):
     """ Remove all lock and fail flags.
     """
 
-    flag_files = glob.glob(os.path.join(flag_dir,"task*.lock")) + glob.glob(os.path.join(flag_dir,"task*.fail"))
+    flag_files = []
+    if TaskStatus.kLocked in lock_types:
+        flag_files += glob.glob(os.path.join(flag_dir,"task*.lock"))
+    if TaskStatus.kFailed in lock_types:
+        flag_files += glob.glob(os.path.join(flag_dir,"task*.fail"))
     print("Removing lock/fail files:", flag_files)
     for flag_file in flag_files:
         os.remove(flag_file)
@@ -656,6 +664,8 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
             return TaskStatus.kLocked
         elif (flag_base + ".fail") in flag_dir_list:
             return TaskStatus.kFailed
+        elif (flag_base + ".incp") in flag_dir_list:
+            return TaskStatus.kIncomplete
         elif (flag_base + ".done") in flag_dir_list:
             return TaskStatus.kDone
         elif not task_mask:
@@ -668,6 +678,8 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
             return TaskStatus.kLocked
         elif os.path.exists(flag_base + ".fail"):
             return TaskStatus.kFailed
+        elif os.path.exists(flag_base + ".incp"):
+            return TaskStatus.kIncomplete
         elif os.path.exists(flag_base + ".done"):
             return TaskStatus.kDone
         elif not task_mask:
@@ -722,6 +734,10 @@ def get_lock(task_index,task_phase):
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
 
+    # remove any prior incomplete flag
+    if os.path.exists(flag_base+".incp"):
+        os.remove(flag_base+".incp")
+
     return True
 
 def fail_lock(task_index,task_phase,task_time):
@@ -734,6 +750,18 @@ def fail_lock(task_index,task_phase,task_time):
 
     flag_base = os.path.join(flag_dir, task_flag_base(task_index,task_phase))
     os.rename(flag_base+".lock",flag_base+".fail")
+
+def incomplete_lock(task_index, task_phase, task_time):
+    """Rename lock to incomplete file.
+
+    Arguments:
+        task_index (int or str): task index
+        task_phase (int): task phase
+        task_time (float): timing for task
+    """
+
+    flag_base = os.path.join(flag_dir, task_flag_base(task_index, task_phase))
+    os.rename(flag_base+".lock",flag_base+".incp")
 
 def finalize_lock(task_index,task_phase,task_time):
     """Finalize lock file for given task and given phase, and covert it
@@ -881,7 +909,7 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
 
         # skip if task locked or done
         task_mask = task_list[task_index]["metadata"]["mask"]
-        if (task_status(task_index, task_phase, task_mask) != TaskStatus.kPending):
+        if task_status(task_index, task_phase, task_mask) not in (TaskStatus.kPending, TaskStatus.kIncomplete):
             continue
 
         # skip if prior phase not completed
@@ -968,6 +996,17 @@ def do_task(task_parameters,task,phase_handlers):
     # invoke task handler
     try:
         phase_handlers[task_phase](task)
+    except exception.InsufficientTime as err:
+        print("Insufficient time to complete task")
+        if task_mode is TaskMode.kRun:
+            task_end_time = time.time()
+            task_time = task_end_time - task_start_time
+            print("  task elapsed: {:g}, total elapsed: {:g}, required: {:g}, remaining: {:g}".format(
+                task_time, parameters.run.get_elapsed_time(),
+                err.required_time, parameters.run.get_remaining_time()
+                ))
+            incomplete_lock(task_index, task_phase, task_time)
+        raise
     except BaseException as err:
         # on failure, flag failure and propagate exception so script terminates
         print("Exception:", err)
@@ -1061,7 +1100,6 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
 
     task_index = task_start_index-1  # "last run task" for seeking purposes
     task_count = 0
-    loop_start_time = time.time()
     avg_task_time = 0.
     task_time = 0.
     while (True):
@@ -1072,8 +1110,8 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
             break
 
         # check remaining time
-        loop_elapsed_time = time.time() - loop_start_time
-        remaining_time = parameters.run.wall_time_sec - loop_elapsed_time
+        loop_elapsed_time = parameters.run.get_elapsed_time()
+        remaining_time = parameters.run.get_remaining_time()
         safety_factor = 1.1
         minimum_time = 60  # a fixed percentage safety factor is inadequate on short tasks where launch time can fluctuate
         required_time = max(avg_task_time*safety_factor,task_time*safety_factor,minimum_time)
