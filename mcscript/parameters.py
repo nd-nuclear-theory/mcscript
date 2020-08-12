@@ -17,9 +17,12 @@
   + 07/06/18 (pjf):
     - Pass queue via MCSCRIPT_RUN_QUEUE.
     - Remove MCSCRIPT_HYBRID_NODESIZE.
+  + 08/01/20 (pjf): Get install_home from config.user_config.
 """
 
 import os
+
+from . import config
 
 ################################################################
 # run parameters object
@@ -60,6 +63,7 @@ class RunParameters(object):
         pass
 
     def populate(self):
+        """Populate RunParameters with info from environment variables."""
 
         ################################################################
         # environment information
@@ -79,7 +83,9 @@ class RunParameters(object):
         self.wall_time_sec = int(os.environ["MCSCRIPT_WALL_SEC"])
 
         # environment definitions: executable install prefix
-        self.install_dir = os.environ["MCSCRIPT_INSTALL_HOME"]
+        self.install_dir = os.environ.get("MCSCRIPT_INSTALL_HOME")
+        if self.install_dir is None:
+            self.install_dir = config.user_config.install_home
 
         # environment definitions: serial run parameters
         self.serial_threads = int(os.environ["MCSCRIPT_SERIAL_THREADS"])

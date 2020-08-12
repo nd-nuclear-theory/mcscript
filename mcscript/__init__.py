@@ -10,6 +10,7 @@
   + 05/13/15 (mac): Insert "future" statements for attempted Python 2 legacy support.
   + 06/13/16 (mac): Restructure submodules and generate __init__.py loader file.
   + 11/22/16 (mac): Continue restructuring submodules.
+  + 08/01/20 (pjf): Reorder imports to avoid circular dependencies.
 
 """
 
@@ -23,11 +24,11 @@
 #   import package.submodule
 #   from package.submodule import *
 
-# load parameters
-from . import parameters
-
 # load local hooks
 from . import config
+
+# load parameters
+from . import parameters
 
 # load control functions
 #   imported into global namespace

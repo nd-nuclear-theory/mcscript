@@ -57,6 +57,9 @@
         - Use setuptools entry_points to create qsubm command-line script.
         - Remove dependence on user-defined environment variables.
         - Use config.user_config in place of environment variables.
+    + 08/01/20 (pjf):
+        - Remove unnecessary pass-through environment variables.
+        - Use subprocess.run() in place of subprocess.Popen().
 """
 
 import argparse
@@ -209,7 +212,7 @@ def main():
     if args.here:
         work_home = os.environ["PWD"]
     else:
-        work_home = config.user_config.work_home
+        work_home = None
 
     if args.here:
         launch_home = os.environ["PWD"]
@@ -217,7 +220,6 @@ def main():
         launch_home = config.user_config.launch_dir
 
     run_prefix = config.user_config.run_prefix
-    python_executable = config.user_config.python_executable
 
     ################################################################
     # argument processing
@@ -299,18 +301,10 @@ def main():
         environment_definitions.append("MCSCRIPT_TASK_COUNT_LIMIT={:d}".format(args.limit))
     environment_definitions.append("MCSCRIPT_TASK_REDIRECT={:s}".format(args.redirect))
 
-    # pass through install directory
-    environment_definitions += [
-        "MCSCRIPT_INSTALL_HOME={:s}".format(config.user_config.install_home)
-    ]
-
-    # set python executable
-    environment_definitions += [
-        "MCSCRIPT_PYTHON={:s}".format(python_executable)
-    ]
-
     # include additional environment setup if defined
-    if config.user_config.env_script is not None and os.path.exists(config.user_config.env_script):
+    if config.user_config.env_script is not None:
+        if not os.path.exists(config.user_config.env_script):
+            print("WARNING: env_script {:s} not found".format(config.user_config.env_script))
         environment_definitions += [
             "MCSCRIPT_SOURCE={:s}".format(config.user_config.env_script)
         ]
@@ -414,16 +408,12 @@ def main():
         print()
         print("-"*64)
         for i in range(repetitions):
-            process = subprocess.Popen(
+            subprocess.run(
                 submission_args,
-                stdin=subprocess.PIPE,     # to take input from communicate
-                stdout=subprocess.PIPE,    # to send output to communicate -- default merged stderr
+                check=True,
                 env=job_environ,
                 cwd=launch_dir
                 )
-            stdout_bytes = process.communicate(input=submission_input_string)[0]
-            stdout_string = stdout_bytes.decode("utf-8")
-            print(stdout_string)
 
     # handle interactive run
     # Note: We call interpreter rather than trying to directly execute
@@ -432,11 +422,10 @@ def main():
     # be different from the version of the interpreter found in the below invocation,
     # especially in a "module" environment.
     elif run_mode == "local":
-        popen_args = [config.user_config.python_executable, job_file]
+        subprocess_args = [config.user_config.python_executable, job_file]
         print()
         print("-"*64)
-        process = subprocess.Popen(popen_args, cwd=launch_dir, env=job_environ)
-        process.wait()
+        subprocess.run(subprocess_args, check=True, cwd=launch_dir, env=job_environ)
 
 
 if __name__ == "__main__":
