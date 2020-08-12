@@ -70,6 +70,7 @@
     + 06/02/20 (pjf):
         - Allow tasks to signal incompleteness by raising exception.InsufficientTime.
         - Get elapsed and remaining time using interface from parameters.
+    + 06/29/20 (mac): Fix default (generic) case of archive_handler_hsi().
     + 08/11/20 (pjf):
         - Use utils.TaskTimer in invoke_tasks_run().
         - Don't return timing from do_task().
@@ -522,7 +523,7 @@ def archive_handler_hsi(archive_filename_list=None):
 
     # make archive -- whole dir
     if archive_filename_list is None:
-        archive_filename_list = archive_handler_generic()
+        archive_filename_list = [archive_handler_generic()]
 
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year

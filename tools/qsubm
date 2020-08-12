@@ -1,2 +1,3 @@
 #!/bin/bash
+if [ -z "$MCSCRIPT_PYTHON" ]; then export MCSCRIPT_PYTHON=python3; fi
 ${MCSCRIPT_PYTHON} ${MCSCRIPT_DIR}/qsubm.py ${*}

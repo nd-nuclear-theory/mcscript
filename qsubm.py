@@ -1,37 +1,25 @@
-#!/usr/bin/python3
 """qsubm -- generic queue submission for task-oriented batch scripts
 
-    Environment variables:
+    See INSTALL.md for configuration information:
 
-    MCSCRIPT_DIR should specify the directory in which the mcscript package is
-    installed, i.e., the directory where the file qsubm.py is found.  (Note that
-    qsubm uses this information to locate certain auxiliary script files used as
-    part of the job submission process.)
+    - A local definitions file config.py must be defined.
 
-    MCSCRIPT_RUN_HOME must specify the directory in which job files are found.
+    - Several environment variables must be defined.  In addition to the
+      mandatory environment variables defined there, the following (deprecated?)
+      variables are recognized (but not frequently useful):
 
-    MCSCRIPT_WORK_HOME should specify the parent directory in which run scratch
-    directories should be made.
+      > MCSCRIPT_LAUNCH_HOME (optional) specifies the parent directory in which
+      > run subdirectories for qsub invocation and output logging should be made.
+      > Otherwise, this will default to MCSCRIPT_WORK_HOME.
 
-    MCSCRIPT_INSTALL_HOME must specify the directory in which executables are found.
+      > MCSCRIPT_PYTHON (optional) specifies the command name to use to invoke
+      > Python 3 to execut run script files.  The default is simply "python3",
+      > assuming the Python 3 executable is in the shell's command search
+      > PATH. However, you can instead specify, e.g., a full, qualified filename
+      > (i.e., including path).  See note on "Availability of Python" in INSTALL.md.
 
-    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory in which
-    run subdirectories for qsub invocation and output logging should be made.
-    Otherwise, this will default to MCSCRIPT_WORK_HOME.
-
-    MCSCRIPT_PYTHON should give the full qualified filename (i.e., including
-    path) to the Python 3 executable for running run script files.  A typical
-    value will simply be "python3", assuming the Python 3 executable is in the
-    shell's command search PATH. However, see note on "Availability of Python"
-    in INSTALL.md.
-
-    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g., set to
-    "run" if your scripts are to be named run<XXXX>.py.
-
-    Requires local definitions file config.py to translate options into
-    arguments for local batch server.  See directions in readme.txt.  Your local
-    definitions might not make use of or support all the parallel environment
-    options.
+      > MCSCRIPT_RUN_PREFIX (optional) specifies the prefix for run names, e.g.,
+      > set to "run" if your scripts are to be named run<XXXX>.py.
 
     Language: Python 3
 
@@ -76,6 +64,7 @@
         - Move --switchwaittime option into config-slurm-nersc.py.
     + 09/11/19 (pjf): Add expert mode argument.
     + 11/18/19 (pjf): Fix job file existence check.
+    + 06/26/20 (mac): Make MCSCRIPT_PYTHON and MCSCRIPT_RUN_PREFIX optional.
 """
 
 import argparse
@@ -223,14 +212,12 @@ else:
 if ("MCSCRIPT_RUN_PREFIX" in os.environ):
     run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
 else:
-    print("MCSCRIPT_RUN_PREFIX not found in environment")
-    exit(1)
+    run_prefix = "run"
 
 if ("MCSCRIPT_PYTHON" in os.environ):
     python_executable = os.environ["MCSCRIPT_PYTHON"]
 else:
-    print("MCSCRIPT_PYTHON not found in environment")
-    exit(1)
+    python_executable = "python3"
 
 if ("MCSCRIPT_DIR" in os.environ):
     qsubm_path = os.environ["MCSCRIPT_DIR"]
