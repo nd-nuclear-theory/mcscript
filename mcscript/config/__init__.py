@@ -6,6 +6,7 @@
   Department of Physics, University of Notre Dame
 
   + 07/30/20 (pjf): Created.
+  + 07/31/20 (pjf): Accept module name as cluster config.
 
 """
 
@@ -13,14 +14,6 @@ import configparser
 import importlib
 import os
 import xdg
-
-# if adding a new configuration, add to registry here:
-_configs = {
-    "nersc": ".slurm_nersc",
-    "oak": ".torque_oak",
-    "ndcrc": ".uge_ndcrc",
-    "ompi": ".ompi",
-}
 
 ################################################################
 # user configuration parsing
@@ -31,7 +24,7 @@ class UserConfig(object):
     Loads configuration from $XDG_CONFIG_HOME/mcscript.conf
 
     Attributes:
-        cluster (str): cluster configuration name
+        cluster_config (str): cluster configuration module name
         install_home (str): location of installed executables
         run_home (str): default location for run scripts
         work_home (str): default location for work directories
@@ -53,7 +46,7 @@ class UserConfig(object):
         config.read(config_file)
 
         # mandatory fields
-        self.cluster = config["mcscript"]["cluster"]
+        self.cluster_config = config["mcscript"]["cluster_config"]
         self.install_home = expand_path(config["mcscript"]["install_home"])  # MCSCRIPT_INSTALL_HOME
         self.run_home = expand_path(config["mcscript"]["run_home"])  # MCSCRIPT_RUN_HOME
         self.work_home = expand_path(config["mcscript"]["work_home"])  # MCSCRIPT_WORK_HOME
@@ -76,12 +69,9 @@ user_config = UserConfig()
 ################################################################
 
 # 07/30/20 (pjf): importlib magic from https://stackoverflow.com/q/43059267
-if user_config.cluster in _configs:
-    module = importlib.import_module(_configs[user_config.cluster], package=__name__)
-else:
-    raise ValueError("Unrecognized cluster configuration: {:s}".format(user_config.cluster))
+_module = importlib.import_module(user_config.cluster_config)
 
-if "__all__" in module.__dict__:
-    globals().update({k: getattr(module, k) for k in module.__dict__["__all__"]})
+if "__all__" in _module.__dict__:
+    globals().update({k: getattr(_module, k) for k in _module.__dict__["__all__"]})
 else:
     raise ValueError("Configuration for cluster '{:s}' does not set `__all__`.")
