@@ -70,6 +70,10 @@
     + 06/02/20 (pjf):
         - Allow tasks to signal incompleteness by raising exception.InsufficientTime.
         - Get elapsed and remaining time using interface from parameters.
+    + 08/11/20 (pjf):
+        - Use utils.TaskTimer in invoke_tasks_run().
+        - Don't return timing from do_task().
+        - Use exception.LockContention to allow do_task() to yield on lock clash.
 """
 
 import datetime
@@ -925,7 +929,7 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
     return next_index
 
 def do_task(task_parameters,task,phase_handlers):
-    """ do_task() --> time sets up a task/phase, calls its handler, and closes up
+    """ do_task() --> sets up a task/phase, calls its handler, and closes up
 
     The current working directory is changed to the task directory.
     A lock file is created for the task and phase.
@@ -955,11 +959,11 @@ def do_task(task_parameters,task,phase_handlers):
     task["metadata"]["mode"] = task_mode
 
     # get lock
-    if (task_mode != TaskMode.kPrerun):
-        success = get_lock(task_index,task_phase)
+    if task_mode != TaskMode.kPrerun:
+        success = get_lock(task_index, task_phase)
         # if lock is already taken, yield this task
-        if (not success):
-            return None
+        if not success:
+            raise exception.LockContention(task_index, task_phase)
 
     # set up task directory
     task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
@@ -1035,8 +1039,6 @@ def do_task(task_parameters,task,phase_handlers):
     # cd back to task root directory
     os.chdir(task_root_dir)
 
-    return task_time
-
 
 ################################################################
 # task master function
@@ -1102,53 +1104,54 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
     task_count = 0
     avg_task_time = 0.
     task_time = 0.
-    while (True):
+    timer = utils.TaskTimer(
+        remaining_time=parameters.run.get_remaining_time(),
+        safety_factor=1.1,
+        minimum_time=60
+        )
+    while True:
 
         # check limits
-        if (not ( (task_count_limit == -1) or (task_count < task_count_limit) ) ):
+        if not ((task_count_limit == -1) or (task_count < task_count_limit)) :
             print("Reached task count limit.")
             break
 
         # check remaining time
-        loop_elapsed_time = parameters.run.get_elapsed_time()
-        remaining_time = parameters.run.get_remaining_time()
-        safety_factor = 1.1
-        minimum_time = 60  # a fixed percentage safety factor is inadequate on short tasks where launch time can fluctuate
-        required_time = max(avg_task_time*safety_factor,task_time*safety_factor,minimum_time)
         print()
         print("Task timing: elapsed {:g}, remaining {:g}, last task {:g}, average {:g}, required {:g}".format(
-            loop_elapsed_time,remaining_time,task_time,avg_task_time,required_time
+            timer.elapsed_time,timer.remaining_time,timer.last_time,timer.average_time,timer.required_time
             ))
         print()
-        if ( required_time > remaining_time ):
-            print("Reached time limit.")
-            break
 
         # seek next task
         task_index = seek_task(task_list,task_pool,task_phase,task_index)
-        if (task_index is None):
+        if task_index is None:
             print("No more available tasks in pool", task_pool)
             break
         task = task_list[task_index]
+
+        try:
+            timer.start_timer()
+        except exception.InsufficientTime:
+            print("Reached time limit.")
+            break
 
         # display diagnostic header for task
         #     this goes to global (unredirected) output
         print("[task {} phase {} {}]".format(task_index,task_phase,task["metadata"]["descriptor"]))
         sys.stdout.flush()
 
-        # execute task (with timing)
-        task_time_or_none = do_task(task_parameters,task,phase_handlers)
-        if (task_time_or_none is None):
+        # execute task
+        try:
+            do_task(task_parameters,task,phase_handlers)
+        except exception.LockContention:
             print("(Task yielded)")
+            timer.cancel_timer()
         else:
-            task_time = task_time_or_none
-            if (avg_task_time == 0.):
-                avg_task_time = task_time
-            avg_task_time = (task_time + avg_task_time)/2.
+            task_time = timer.stop_timer()
             print("(Task time: {:.2f} sec)".format(task_time))
-
-        # tally
-        task_count += 1
+            # tally
+            task_count += 1
 
 
 def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers):

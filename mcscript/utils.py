@@ -34,6 +34,7 @@
         + Add is_compressible() to estimate if a file should be compressed.
     05/06/19 (pjf): Add scrub_ansi().
     09/01/19 (pjf): Add topological_sort().
+    08/11/20 (pjf): Add TaskTimer.
 """
 
 import collections
@@ -527,6 +528,124 @@ def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_pat
         current_path.pop()
         sorted_vertices.appendleft(vertex)
     return sorted_vertices
+
+################################################################
+# timing tracking and estimation
+################################################################
+
+class TaskTimer(object):
+    """A class for tracking timing statistics of tasks or subtasks.
+
+    Attributes:
+        start_time (float): time when class was instantiated
+        end_time (float): time when remaining time has expired
+        safety_factor (float): safety margin for required time
+        minimum_time (float): minimum number of seconds for required time
+        timings (list of float): elapsed time for past timings
+    """
+
+    def __init__(self, remaining_time, safety_factor=1.1, minimum_time=60):
+        """Initialize TaskTimer with timing parameters.
+
+        Arguments:
+            remaining_time (float): amount of time (in seconds) remaining
+            safety_factor (float, optional): safety margin for required time
+            minimum_time (float, optional): minimum number of seconds for required time
+        """
+        self.start_time = time.time()
+        self.end_time = remaining_time + self.start_time
+        self.safety_factor = safety_factor
+        self.minimum_time = minimum_time
+        self.timings = []
+        self._task_start_time = None
+
+    @property
+    def elapsed_time(self):
+        """Time (in seconds) since timer was instantiated."""
+        return time.time() - self.start_time
+
+    @property
+    def remaining_time(self):
+        """Remaining time (in seconds) before InsufficientTime raised."""
+        return max(0., self.end_time - time.time())
+
+    @property
+    def last_time(self):
+        """Time (in seconds) for last timing."""
+        if len(self.timings) == 0:
+            return 0.
+        return self.timings[-1]
+
+    @property
+    def average_time(self):
+        """Average time (in seconds) of past timings."""
+        if len(self.timings) == 0:
+            return 0.
+        return sum(self.timings)/len(self.timings)
+
+    @property
+    def max_time(self):
+        """Maximum time (in seconds) for past timings."""
+        if len(self.timings) == 0:
+            return 0.
+        return max(self.timings)
+
+    @property
+    def min_time(self):
+        """Minimum time (in seconds) for past timings."""
+        if len(self.timings) == 0:
+            return 0.
+        return min(self.timings)
+
+    @property
+    def required_time(self):
+        """Estimated time (in seconds) for next timing."""
+        return max(
+            self.average_time*self.safety_factor,
+            self.last_time*self.safety_factor,
+            self.minimum_time
+            )
+
+    def start_timer(self):
+        """Start timer.
+
+        Raises:
+            (mcscript.exception.InsufficientTime): required time is greater than remaining time
+            (RuntimeError): timer already running
+        """
+        if self.required_time > self.remaining_time:
+            raise exception.InsufficientTime(self.required_time)
+
+        if self._task_start_time is not None:
+            raise RuntimeError("timer already started")
+
+        self._task_start_time = time.time()
+
+    def cancel_timer(self):
+        """Cancel timer without saving current timing information.
+
+        Raises:
+            (RuntimeError): timer not already running
+        """
+        if self._task_start_time is None:
+            raise RuntimeError("timer not running")
+        self._task_start_time = None
+
+    def stop_timer(self):
+        """Stop timer and save timing information.
+
+        Returns:
+            (float): current timing information
+
+        Raises:
+            (RuntimeError): timer not already running
+        """
+        if self._task_start_time is None:
+            raise RuntimeError("timer not running")
+        task_time = time.time() - self._task_start_time
+        self.timings.append(task_time)
+        self._task_start_time = None
+        return task_time
 
 ################################################################
 # coefficient management
