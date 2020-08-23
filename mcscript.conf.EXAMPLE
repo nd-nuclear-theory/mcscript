@@ -1,0 +1,24 @@
+[mcscript]
+# cluster configuration selection (Python module):
+cluster_config = mcscript.config.ompi
+
+# install location for executables
+install_home = $HOME/Research/install
+
+# default location for run scripts
+run_home = $HOME/Research/runs-local
+
+# default location for work directories (typically on scratch filesystem)
+work_home = $SCRATCH/runs
+
+# Python command for use by scripts
+## python_executable = python3
+
+# prefix for run scripts
+## run_prefix = run
+
+# default location for batch output logging directories
+## launch_dir =
+
+# shell script to be sourced before launching run script
+## env_script =
