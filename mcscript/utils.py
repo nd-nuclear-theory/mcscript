@@ -35,6 +35,10 @@
     05/06/19 (pjf): Add scrub_ansi().
     09/01/19 (pjf): Add topological_sort().
     08/11/20 (pjf): Add TaskTimer.
+    09/02/20 (pjf):
+        + Rewrite search_in_subdirectories to allow searching with arbitrary
+          subdirectory tree depths.
+        + Allow expand_path to take a list of paths to expand.
 """
 
 import collections
@@ -305,8 +309,8 @@ def ifelse(cond,a,b):
 ################################################################
 
 def search_in_subdirectories(
-        base_path_or_list,subdirectory_list,filename,
-        base=False,fail_on_not_found=True,error_message=None
+        base_path_or_list, *args,
+        base=False, fail_on_not_found=True, error_message=None, verbose=True
 ):
     """Search for file in a list of subdirectories, beneath a given base
     path (or list of base paths).
@@ -314,7 +318,8 @@ def search_in_subdirectories(
     Arguments:
         base_path_or_list (str or list of str): base path in which to search
             subdirectories (may alternatively be list of base paths)
-        subdirectory_list (list of str): subdirectories to search
+        subdirectory_path_or_list (list of str, optional, repeatable):
+            subdirectories to search
         filename (str): file name (or base file name) to match
         base (bool, optional): whether to accept given search string
             as filename root rather than exact match (then just return
@@ -323,6 +328,7 @@ def search_in_subdirectories(
             failure to match (else returns None)
         error_message (str, optional): custom error message to display on
             file not found
+        verbose (bool, optional): whether to print log messages
 
 
     Returns:
@@ -334,20 +340,32 @@ def search_in_subdirectories(
     """
 
     # process arguments
-    print("----------------------------------------------------------------")
-    if (type(base_path_or_list)==str):
+    if verbose:
+        print("----------------------------------------------------------------")
+        print("Searching for file name...")
+        print("  Base directories:",base_path_or_list)
+    if isinstance(base_path_or_list, str):
         base_path_list = [base_path_or_list]
     else:
         base_path_list = list(base_path_or_list)
-    print("Searching for file name...")
-    print("  Base directories:",base_path_or_list)
-    print("  Subdirectories:",subdirectory_list)
-    print("  Filename:",filename)
+    if len(args) < 1:
+        raise ValueError("not enough arguments:", base_path_or_list, *args)
+    subdirectory_lists = []
+    for subdirectory_path_or_list in args[:-1]:
+        if verbose:
+            print("  Subdirectories:",subdirectory_path_or_list)
+        if isinstance(subdirectory_path_or_list, str):
+            subdirectory_lists.append([subdirectory_path_or_list])
+        else:
+            subdirectory_lists.append(list(subdirectory_path_or_list))
+    filename = args[-1]
+    if verbose:
+        print("  Filename:",filename)
 
     # search in successive directories
     success = False
-    for (base_path,subdirectory) in itertools.product(base_path_list,subdirectory_list):
-        qualified_name = os.path.join(base_path,subdirectory,filename)
+    for directory_list in itertools.product(base_path_list, *subdirectory_lists):
+        qualified_name = os.path.join(*directory_list, filename)
         if (base):
             success = len(glob.glob(qualified_name+"*")>0)
         else:
@@ -356,14 +374,15 @@ def search_in_subdirectories(
             break
 
     # document success or failure
-    if (success):
-        print("  ->", qualified_name)
-    else:
-        if (error_message is None):
-            print("  ERROR: No matching filename found...")
+    if verbose:
+        if success:
+            print("  ->", qualified_name)
         else:
-            print("  ERROR: {}".format(error_message))
-    print("----------------------------------------------------------------")
+            if error_message is None:
+                print("  ERROR: No matching filename found...")
+            else:
+                print("  ERROR: {}".format(error_message))
+        print("----------------------------------------------------------------")
 
     # handle return for success or failure
     if (not success):
@@ -374,20 +393,23 @@ def search_in_subdirectories(
     return qualified_name
 
 
-def expand_path(path):
+def expand_path(path_or_list):
     """Expand and normalize path.
 
     This is a wrapper to various os.path functions, which expand inline
     variables and ~, and normalize nestings of separators.
 
     Arguments:
-        path: (str) path as string
+        path_or_list: (str or list of str) path (or list of paths) as string(s)
     Returns:
-        (str): expanded and normalized path
+        (str or list of str): expanded and normalized path(s)
     """
-    expanded_path = os.path.expanduser(os.path.expandvars(path))
-    norm_path = os.path.normpath(expanded_path)
-    return norm_path
+    if isinstance(path_or_list, (str, bytes, os.PathLike)):
+        expanded_path = os.path.expanduser(os.path.expandvars(path_or_list))
+        norm_path = os.path.normpath(expanded_path)
+        return norm_path
+    else:
+        return list(map(expand_path, path_or_list))
 
 
 ################################################################
