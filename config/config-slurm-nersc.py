@@ -486,7 +486,7 @@ def init():
         )
 
     # get wall time from Slurm
-    if job_id() != 0:
+    if job_id() != "0":
         squeue_output = subprocess.run(
             ["squeue", "-h", "-j", job_id(), "-o", "%L"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
