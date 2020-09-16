@@ -39,6 +39,8 @@
         + Rewrite search_in_subdirectories to allow searching with arbitrary
           subdirectory tree depths.
         + Allow expand_path to take a list of paths to expand.
+    09/16/20 (pjf):
+        + Fix mutable default arguments to topological_sort().
 """
 
 import collections
@@ -509,13 +511,17 @@ def is_compressible(filename, min_size=1048576, min_ratio=1.5):
 # graph sorting
 ################################################################
 
-def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_path=[]):
+def topological_sort(
+    graph, initial_vertices=None,
+    sorted_vertices=None, current_path=None
+):
     """Topologically sort a directed graph using depth-first traversal.
 
     Arguments:
         graph (dict): graph with keys representing vertices and values
             as lists of edges
-        initial_vertices (list): starting vertices for depth-first traversal
+        initial_vertices (list, optional): starting vertices for depth-first
+            traversal; defaults to all vertices
         sorted_vertices (list): internal list, used for recursion on intermediate
             sorted list
         current_path (list): internal list, used for detection of cycles
@@ -533,6 +539,12 @@ def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_pat
         >>> mcscript.utils.topological_sort(graph, [1,2,3])
         deque([3, 2, 1, 7, 4, 6, 10, 9, 8])
     """
+    if initial_vertices is None:
+        initial_vertices = graph.keys()
+    if sorted_vertices is None:
+        sorted_vertices = collections.deque()
+    if current_path is None:
+        current_path = []
     sorted_vertices = collections.deque(sorted_vertices)
     for vertex in sorted(initial_vertices):
         if vertex in sorted_vertices:
