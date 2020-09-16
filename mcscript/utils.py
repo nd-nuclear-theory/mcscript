@@ -41,6 +41,8 @@
         + Allow expand_path to take a list of paths to expand.
     09/16/20 (pjf):
         + Fix mutable default arguments to topological_sort().
+        + Add custom setter to CoefficientDict to avoid storing zero or 
+          non-numerical coefficient.
 """
 
 import collections
@@ -685,12 +687,20 @@ class TaskTimer(object):
 # coefficient management
 ################################################################
 
-class CoefficientDict(dict):
+class CoefficientDict(collections.UserDict):
     """An extended dictionary which represents the coefficients of an algebraic
     expression.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        if not isinstance(value, numbers.Number):
+            raise ValueError("non-numeric coefficient: {}".format(value))
+        elif value == 0. or value == 0:
+            self.pop(key, 0)
+        else:
+            super().__setitem__(key, value)
 
     def __add__(self, rhs):
         """Add two CoefficientDicts, matching coefficients.
