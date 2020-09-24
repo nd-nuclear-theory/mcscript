@@ -75,6 +75,7 @@
         - Use utils.TaskTimer in invoke_tasks_run().
         - Don't return timing from do_task().
         - Use exception.LockContention to allow do_task() to yield on lock clash.
+    + 08/16/20 (pjf): Correctly handle empty file list in save_results_multi().
 """
 
 import datetime
@@ -254,6 +255,11 @@ def save_results_multi(
     else:
         target_directory_path = os.path.join(parameters.run.work_dir, subdirectory)
     utils.mkdir(target_directory_path, parents=True, exist_ok=True)
+
+    # do nothing if empty list passed
+    if len(source_file_list) == 0:
+        print("no source files provided... skipping")
+        return
 
     # move file to destination
     control.call(
