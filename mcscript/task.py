@@ -76,6 +76,7 @@
         - Don't return timing from do_task().
         - Use exception.LockContention to allow do_task() to yield on lock clash.
     + 08/16/20 (pjf): Correctly handle empty file list in save_results_multi().
+    + 10/01/20 (pjf): Call tar with --sort=name so that archives have deterministic structure.
 """
 
 import datetime
@@ -351,6 +352,7 @@ def archive_handler_generic(include_results=True):
             "tar",
             "zcvf",
             archive_filename,
+            "--sort=name",
             "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
             "--show-transformed",
             "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
@@ -418,6 +420,7 @@ def archive_handler_automagic(include_results=True):
                 "tar",
                 "cvf",
                 archive_filename,
+                "--sort=name",
                 "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
                 "--show-transformed",
                 "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
@@ -503,6 +506,7 @@ def archive_handler_subarchives(archive_parameters_list):
                 "tar",
                 tar_flags,
                 archive_filename,
+                "--sort=name",
                 "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
                 "--show-transformed",
                 "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
