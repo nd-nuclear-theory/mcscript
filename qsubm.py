@@ -109,7 +109,7 @@ parser.add_argument("wall", type=int, nargs='?', help="Wall time (minutes)", def
 parser.add_argument("--here", action="store_true", help="Force run in current working directory")
 parser.add_argument("--vars", help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2, PARAM=1.0)")
 ## parser.add_argument("--stat", action="store_true", help="Display queue status information")
-parser.add_argument("--num", type=int, default=1, help="Number of repetitions")
+parser.add_argument("--num", type=int, default=1, help="Number of repetitions (to run multiple copies of same job)")
 parser.add_argument("--opt", action="append", help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=END,FAIL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
 parser.add_argument("--expert", action="store_true", help="Run mcscript in expert mode")
 
