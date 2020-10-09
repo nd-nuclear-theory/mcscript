@@ -41,8 +41,10 @@
         + Allow expand_path to take a list of paths to expand.
     09/16/20 (pjf):
         + Fix mutable default arguments to topological_sort().
-        + Add custom setter to CoefficientDict to avoid storing zero or 
+        + Add custom setter to CoefficientDict to avoid storing zero or
           non-numerical coefficient.
+    10/09/20 (pjf):
+        + Implement additive identity for CoefficientDict.
 """
 
 import collections
@@ -705,6 +707,10 @@ class CoefficientDict(collections.UserDict):
     def __add__(self, rhs):
         """Add two CoefficientDicts, matching coefficients.
         """
+        # additive identity -- "upcast" to empty CoefficientDict
+        if rhs == 0:
+            rhs = CoefficientDict()
+        #
         if not isinstance(rhs, CoefficientDict):
             raise TypeError("unsupported operand type(s) for +: 'CoefficientDict' and "+type_as_str(rhs))
         out = CoefficientDict()
@@ -718,6 +724,13 @@ class CoefficientDict(collections.UserDict):
         for key in (rhs.keys() - self.keys()):
             out[key] = rhs[key]
         return out
+
+    def __radd__(self, lhs):
+        """Left add CoefficientDicts, matching coefficients.
+
+        Simply calls __add__, since addition is commutative.
+        """
+        return (self + lhs)
 
     def __mul__(self, rhs):
         """Scalar multiply by a number.
