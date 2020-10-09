@@ -43,8 +43,9 @@
         + Fix mutable default arguments to topological_sort().
         + Add custom setter to CoefficientDict to avoid storing zero or
           non-numerical coefficient.
-    10/09/20 (pjf):
+    10/09/20 (pjf/mac):
         + Implement additive identity for CoefficientDict.
+        + Add generic dot function as workaround for np.dot.
 """
 
 import collections
@@ -688,6 +689,29 @@ class TaskTimer(object):
 ################################################################
 # coefficient management
 ################################################################
+
+def dot(a,b):
+    """Take generalized dot product of two iterables.
+
+    This is a workaround, since np.dot fails with some abstract types, e.g.,
+    descendants of collections.UserDict (10/9/20).
+
+    Note: Addition of 0 must be defined for the product type, for Python's
+    built-in sum function to work.
+
+    Example:
+
+        >>>dot([1,2,3],[1,2,3])
+        
+        14
+
+    Arguments:
+        a, b (iterables): iterables containing entries to multiply
+
+    Returns
+        (product type): a.b
+    """
+    return sum(map((lambda x,y:x*y),a,b))
 
 class CoefficientDict(collections.UserDict):
     """An extended dictionary which represents the coefficients of an algebraic
