@@ -33,7 +33,6 @@
         - Add core specialization (--core-spec) on multi-node runs.
     + 01/07/20 (pjf): Update deadline for AY20.
     + 06/02/20 (pjf): Get wall_time_sec from Slurm on job launch.
-    + 10/05/20 (mac): Add support for temporary Cori test queue.
 """
 
 # Notes:
@@ -243,10 +242,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         ## elif os.environ["NERSC_HOST"] == "edison":
         ##     submission_invocation += ["--clusters=esedison"]
         control.module(["load", "esslurm"])
-    elif args.queue in [
-            "debug", "regular", "premium", "shared", "low",
-            "test"  # special test queue October 2020
-    ]:
+    elif args.queue in ["debug", "regular", "premium", "shared", "low"]:
         if os.environ["NERSC_HOST"] == "cori":
             # target cpu
             if os.environ["CRAY_CPU_TARGET"] == "haswell":
@@ -264,8 +260,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     # miscellaneous options
     license_list = ["SCRATCH", "cscratch1", "project"]
-    if args.queue in ["test"]:  # special test queue October 2020
-        license_list = ["project"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
 
     if args.account is not None:
