@@ -33,6 +33,7 @@
         - Add core specialization (--core-spec) on multi-node runs.
     + 01/07/20 (pjf): Update deadline for AY20.
     + 06/02/20 (pjf): Get wall_time_sec from Slurm on job launch.
+    + 10/09/20 (pjf): Gracefully recover if unable to get wall time from Slurm.
 """
 
 # Notes:
@@ -492,8 +493,15 @@ def init():
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             universal_newlines=True
             ).stdout.strip()
-        if squeue_output not in ("NOT_SET", "UNLIMITED"):
+        try:
             squeue_time = list(map(int, squeue_output.split(":")))
+        except ValueError as err:
+            print(err)
+            print(
+                "Unable to get remaining time from Slurm..."
+                "using time given at submission."
+            )
+        else:
             # squeue drops leading zeros; pad for unpacking
             (hours, minutes, seconds) = [0]*(3-len(squeue_time)) + squeue_time
             parameters.run.wall_time_sec = hours*3600 + minutes*60 + seconds
