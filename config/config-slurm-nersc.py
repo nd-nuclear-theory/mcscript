@@ -458,6 +458,7 @@ def hybrid_invocation(base):
     invocation = [
         "srun",
         ## "--cpu-bind=verbose",
+        "--nodes={}".format(parameters.run.hybrid_nodes),
         "--ntasks={}".format(parameters.run.hybrid_ranks),
         "--cpus-per-task={}".format(parameters.run.hybrid_threads),
         "--export=ALL"
