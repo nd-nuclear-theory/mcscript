@@ -77,12 +77,15 @@
         - Use exception.LockContention to allow do_task() to yield on lock clash.
     + 08/16/20 (pjf): Correctly handle empty file list in save_results_multi().
     + 10/01/20 (pjf): Call tar with --sort=name so that archives have deterministic structure.
+    + 10/11/20 (pjf): Add random value to locking protocol, to avoid clashes between
+        workers within a job.
 """
 
 import datetime
 import enum
 import glob
 import os
+import random
 import sys
 import time
 import inspect
@@ -720,8 +723,9 @@ def get_lock(task_index,task_phase):
     flag_base = os.path.join(flag_dir, task_flag_base(task_index,task_phase))
 
     # preliminary lock
+    lock_string = "{} {:08x}".format(parameters.run.job_id, random.randrange(2**32))
     lock_stream = open(flag_base+".lock", "w")
-    lock_stream.write("{}".format(parameters.run.job_id))  # omit newline since will do string comparison below
+    lock_stream.write(lock_string)  # omit newline since will do string comparison below
     lock_stream.close()
     # make sure lock was successful
     if (parameters.run.batch_mode):
@@ -735,7 +739,7 @@ def get_lock(task_index,task_phase):
         lock_stream = open(flag_base+".lock", "r")
         line = lock_stream.readline()
         lock_stream.close()
-        if (line == parameters.run.job_id):
+        if (line == lock_string):
             print("Lock was apparently successful...")
         else:
             print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(parameters.run.job_id,line))
