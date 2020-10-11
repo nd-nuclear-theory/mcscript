@@ -307,13 +307,14 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             "--verbose",
             "--jobs={:d}".format(args.workers),
             "--delay={:d}".format(5),
-            # "--line-buffer",
+            "--line-buffer",
+            "--tag",
             "{mcscript_python:s} {job_file:s}".format(
                 mcscript_python=os.environ["MCSCRIPT_PYTHON"],
                 job_file=job_file
             ),
             ":::",
-            " ".join(map(str,range(args.workers))),
+            " ".join(map("worker{:02d}".format,range(args.workers))),
         ]
     else:
         submission_invocation += [
