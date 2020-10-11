@@ -17,6 +17,7 @@
     + 07/06/18 (pjf):
       - Pass entire environment.
       - Completely rewrite mapping and binding logic.
+    + 10/11/20 (pjf): Rename `--num` to `--jobs`.
 
 """
 
@@ -143,8 +144,8 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     pass  # enforced by queue
 
     # array job for repetitions
-    if args.num > 1:
-        submission_invocation += ["-t", "{:g}-{:g}".format(1, args.num)]
+    if args.jobs > 1:
+        submission_invocation += ["-t", "{:g}-{:g}".format(1, args.jobs)]
 
     # miscellaneous options
     submission_invocation += ["-j", "y"]  # merge standard error

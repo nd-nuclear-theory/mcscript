@@ -35,6 +35,9 @@
     + 06/02/20 (pjf): Get wall_time_sec from Slurm on job launch.
     + 10/09/20 (pjf): Gracefully recover if unable to get wall time from Slurm.
     + 10/10/20 (pjf): Further improve Slurm wall time parsing.
+    + 10/11/20 (pjf):
+        - Rename `--num` to `--jobs`.
+        - Add support for multiple workers per job.
 """
 
 # Notes:
@@ -56,6 +59,7 @@ import os
 import sys
 import math
 import subprocess
+import shutil
 
 from . import control
 from . import exception
@@ -235,8 +239,8 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
 
     # job array for repetitions
-    if args.num > 1:
-        submission_invocation += ["--array={:g}-{:g}".format(0, args.num-1)]
+    if args.jobs > 1:
+        submission_invocation += ["--array={:g}-{:g}".format(0, args.jobs-1)]
 
     if args.queue == "xfer":
         ## if os.environ["NERSC_HOST"] == "cori":
@@ -258,7 +262,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             submission_invocation += ["--switches={:d}@{:s}".format(needed_switches, args.switchwaittime)]
 
         # generate parallel environment specifier
-        submission_invocation += ["--nodes={}".format(args.nodes)]
+        submission_invocation += ["--nodes={}".format(args.nodes*args.workers)]
 
     # miscellaneous options
     license_list = ["SCRATCH", "cscratch1", "project"]
@@ -292,9 +296,30 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
     submission_invocation += [
         job_wrapper,
-        os.environ["MCSCRIPT_PYTHON"],
-        job_file
     ]
+
+    # use GNU parallel to launch multiple workers per job
+    if args.workers > 1:
+        if not shutil.which("parallel"):
+            raise exception.ScriptError("multiple workers per job requires GNU parallel")
+        submission_invocation += [
+            "parallel",
+            "--verbose",
+            "--jobs={:d}".format(args.workers),
+            "--delay={:d}".format(5),
+            # "--line-buffer",
+            "{mcscript_python:s} {job_file:s}".format(
+                mcscript_python=os.environ["MCSCRIPT_PYTHON"],
+                job_file=job_file
+            ),
+            ":::",
+            " ".join(map(str,range(args.workers))),
+        ]
+    else:
+        submission_invocation += [
+            os.environ["MCSCRIPT_PYTHON"],
+            job_file
+        ]
 
     # standard input for submission
     submission_string = ""
@@ -363,11 +388,11 @@ def serial_invocation(base):
         # run on front end
         invocation = base
     else:
-        if os.getenv("NERSC_HOST") == "cori":
+        if (os.getenv("NERSC_HOST") == "cori") and (parameters.num_workers == 1):
             # run unwrapped on Cori
             invocation = base
         else:
-            # run on compute node on Edison
+            # run on compute node
             invocation = [
                 "srun",
                 "--ntasks={}".format(1),

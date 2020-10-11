@@ -18,6 +18,7 @@
     - Pass queue via MCSCRIPT_RUN_QUEUE.
     - Remove MCSCRIPT_HYBRID_NODESIZE.
   + 06/02/20 (pjf): Add methods get_elapsed_time() and get_remaining_time().
+  + 10/11/20 (pjf): Add num_workers to parameters.
 """
 
 import os
@@ -79,6 +80,7 @@ class RunParameters(object):
         # job details
         self.job_file = os.environ["MCSCRIPT_JOB_FILE"]
         self.wall_time_sec = int(os.environ["MCSCRIPT_WALL_SEC"])
+        self.num_workers = int(os.getenv("MCSCRIPT_WORKERS"))
 
         # environment definitions: executable install prefix
         self.install_dir = os.environ["MCSCRIPT_INSTALL_HOME"]

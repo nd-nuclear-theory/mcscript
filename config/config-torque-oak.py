@@ -12,6 +12,7 @@
     + 11/3/18 (mac/aem): Adjust qsubm and mpiexec arguments for oak: with qsub
       from torque OpenPBS v2.3 and mpiexec from Intel MPI Library for Linux
       Version 2017:
+    + 10/11/20 (pjf): Rename `--num` to `--jobs`.
 
 """
 
@@ -78,7 +79,7 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     # job name
     # Not valid for PBS script
     #submission_invocation += ["-N {}".format(job_name)]
-    
+
 
     # queue
     submission_invocation += [
@@ -90,16 +91,16 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     pass  # enforced by queue
 
     # array job for repetitions
-    if args.num > 1:
+    if args.jobs > 1:
         submission_invocation += [
             "-t",
-            "{:g}-{:g}".format(1,args.num)]
+            "{:g}-{:g}".format(1,args.jobs)]
 
     # miscellaneous options
     submission_invocation += [
         "-j",
         "oe"
-    ]  # merge standard error, 
+    ]  # merge standard error,
     # may need to change "y" to "oe"
 
 #    submission_invocation += ["-r", "n"]  # job not restartable
