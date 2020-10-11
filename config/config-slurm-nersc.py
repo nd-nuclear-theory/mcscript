@@ -34,6 +34,7 @@
     + 01/07/20 (pjf): Update deadline for AY20.
     + 06/02/20 (pjf): Get wall_time_sec from Slurm on job launch.
     + 10/09/20 (pjf): Gracefully recover if unable to get wall time from Slurm.
+    + 10/10/20 (pjf): Further improve Slurm wall time parsing.
 """
 
 # Notes:
@@ -494,17 +495,18 @@ def init():
             universal_newlines=True
             ).stdout.strip()
         try:
-            squeue_time = list(map(int, squeue_output.split(":")))
+            squeue_time = list(map(int, squeue_output.replace("-", ":").split(":")))
         except ValueError as err:
             print(err)
+            print("Remaining time from squeue: {:s}".format(squeue_output))
             print(
                 "Unable to get remaining time from Slurm..."
                 "using time given at submission."
             )
         else:
             # squeue drops leading zeros; pad for unpacking
-            (hours, minutes, seconds) = [0]*(3-len(squeue_time)) + squeue_time
-            parameters.run.wall_time_sec = hours*3600 + minutes*60 + seconds
+            (days, hours, minutes, seconds) = [0]*(4-len(squeue_time)) + squeue_time
+            parameters.run.wall_time_sec = days*86400 + hours*3600 + minutes*60 + seconds
 
 def termination():
     """ Do any local termination tasks.
