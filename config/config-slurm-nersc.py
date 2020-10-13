@@ -389,7 +389,7 @@ def serial_invocation(base):
         # run on front end
         invocation = base
     else:
-        if (os.getenv("NERSC_HOST") == "cori") and (parameters.num_workers == 1):
+        if (os.getenv("NERSC_HOST") == "cori") and (parameters.run.num_workers == 1):
             # run unwrapped on Cori
             invocation = base
         else:
