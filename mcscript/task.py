@@ -79,6 +79,7 @@
     + 10/01/20 (pjf): Call tar with --sort=name so that archives have deterministic structure.
     + 10/11/20 (pjf): Add random value to locking protocol, to avoid clashes between
         workers within a job.
+    + 12/07/20 (pjf): Write task descriptor to flag files.
 """
 
 import datetime
@@ -709,12 +710,13 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
 # locking protocol
 ################################################################
 
-def get_lock(task_index,task_phase):
+def get_lock(task_index, task_phase, task_descriptor):
     """ Write lock file for given task and given phase.
 
     Arguments:
         task_index (int or str): task index
         task_phase (int): task phase
+        task_descriptor (str): task descriptor
 
     Returns:
         success (bool): if lock was successfully obtained
@@ -750,6 +752,7 @@ def get_lock(task_index,task_phase):
     lock_stream = open(flag_base+".lock","a")
     lock_stream.write("\n".format(flag_base))  # add newline after job id
     lock_stream.write("{}\n".format(flag_base))
+    lock_stream.write("{}\n".format(task_descriptor))
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
 
@@ -840,12 +843,13 @@ def do_archive(task_parameters,archive_phase_handlers):
 
     task_index = "ARCH"  # special value for use in filename generation
     task_phase = task_parameters["phase"]
+    task_descriptor = "ARCH"  # special value written to flag file
     # lock task
     # CAVEAT: file system asynchrony (?) or simultaneus running of
     # different archive phases can cause trouble with tar archiving,
     # if tar senses lock file appearing or disappearing during
     # archiving of flags directory -- results in exit with failure code
-    get_lock(task_index,task_phase)
+    get_lock(task_index,task_phase,task_descriptor)
 
     # initiate timing
     task_start_time = time.time()
@@ -975,7 +979,7 @@ def do_task(task_parameters,task,phase_handlers):
 
     # get lock
     if task_mode != TaskMode.kPrerun:
-        success = get_lock(task_index, task_phase)
+        success = get_lock(task_index, task_phase, task_descriptor)
         # if lock is already taken, yield this task
         if not success:
             raise exception.LockContention(task_index, task_phase)
