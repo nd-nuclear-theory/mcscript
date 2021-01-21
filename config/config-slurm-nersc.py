@@ -38,6 +38,7 @@
     + 10/11/20 (pjf):
         - Rename `--num` to `--jobs`.
         - Add support for multiple workers per job.
+    + 01/21/21 (mac): Update deadline for AY21.
 """
 
 # Notes:
@@ -220,10 +221,13 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # deadline (end of allocation year)
     ay19_end_date = datetime.datetime.fromisoformat("2020-01-13T23:59:59")
     ay20_end_date = datetime.datetime.fromisoformat("2021-01-11T23:59:59")
+    ay21_end_date = datetime.datetime.fromisoformat("2022-01-20T23:59:59")
     if datetime.datetime.now() < ay19_end_date:
         submission_invocation += ["--deadline={}".format(ay19_end_date.isoformat())]
     elif datetime.datetime.now() < ay20_end_date:
         submission_invocation += ["--deadline={}".format(ay20_end_date.isoformat())]
+    elif datetime.datetime.now() < ay21_end_date:
+        submission_invocation += ["--deadline={}".format(ay21_end_date.isoformat())]
 
     # job name
     submission_invocation += ["--job-name={}".format(job_name)]
@@ -389,7 +393,7 @@ def serial_invocation(base):
         # run on front end
         invocation = base
     else:
-        if (os.getenv("NERSC_HOST") == "cori") and (parameters.num_workers == 1):
+        if (os.getenv("NERSC_HOST") == "cori") and (parameters.run.num_workers == 1):
             # run unwrapped on Cori
             invocation = base
         else:
