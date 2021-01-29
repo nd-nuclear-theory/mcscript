@@ -38,7 +38,8 @@
     + 10/11/20 (pjf):
         - Rename `--num` to `--jobs`.
         - Add support for multiple workers per job.
-    + 01/29/21 (pjf): Update deadline for AY21.
+    + 01/21/21 (mac): Update deadline for AY21.
+    + 01/29/21 (pjf): Update deadline for AY21; remove AY19,AY20.
 """
 
 # Notes:
