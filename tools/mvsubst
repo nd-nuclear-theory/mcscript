@@ -11,6 +11,7 @@
 # 03/05/17 (mac): Fix directory trap.
 # 10/31/17 (mac): Add example.
 # 04/27/18 (mac): Add symlink mode.
+# 05/16/21 (mac): Add copy mode.
 
 echo ""
 echo "mvsubst -- rename files based on substitution via sed edit"
@@ -20,7 +21,7 @@ echo ""
 
 # need quotes on $1 to handle case in which argument is switch with meaning inside if test ("-d")
 if (("$1" == "") || ("$1" == "-h") || ("$1" == "-help") || ("$1" == "--help") ) then
-  echo "Usage: mvsubst [--directory] [--git|--ln-s] sedarg file1 file2 ..."
+  echo "Usage: mvsubst [--directory] [--git|--ln-s|--cp] sedarg file1 file2 ..."
   echo
   echo "  Directories are skipped unless explicitly enabled with option --directory."
   echo
@@ -55,6 +56,9 @@ if ( "$1" == "--git" ) then
   shift
 else if ( "$1" == "--ln-s" ) then
   set mv_command = "ln -s"
+  shift
+else if ( "$1" == "--cp" ) then
+  set mv_command = "cp"
   shift
 endif
 
