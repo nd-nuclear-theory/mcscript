@@ -40,6 +40,7 @@
         - Add support for multiple workers per job.
     + 01/21/21 (mac): Update deadline for AY21.
     + 01/29/21 (pjf): Update deadline for AY21; remove AY19,AY20.
+    + 01/10/22 (mac): Push back deadline for AY21.
 """
 
 # Notes:
@@ -220,7 +221,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation = [ "sbatch" ]
 
     # deadline (end of allocation year)
-    ay21_end_date = datetime.datetime.fromisoformat("2022-01-10T23:59:59")
+    ay21_end_date = datetime.datetime.fromisoformat("2022-01-19T00:06:59")
     if datetime.datetime.now() < ay21_end_date:
         submission_invocation += ["--deadline={}".format(ay21_end_date.isoformat())]
 
