@@ -80,6 +80,7 @@
     + 10/11/20 (pjf): Add random value to locking protocol, to avoid clashes between
         workers within a job.
     + 12/07/20 (pjf): Write task descriptor to flag files.
+    + 02/01/22 (pjf): Append to task output if task is resumed.
 """
 
 import datetime
@@ -720,6 +721,7 @@ def get_lock(task_index, task_phase, task_descriptor):
 
     Returns:
         success (bool): if lock was successfully obtained
+        resumed (bool): if task was previously flagged as incomplete
     """
 
     flag_base = os.path.join(flag_dir, task_flag_base(task_index,task_phase))
@@ -746,7 +748,7 @@ def get_lock(task_index, task_phase, task_descriptor):
         else:
             print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(parameters.run.job_id,line))
             ## raise exception.ScriptError("Yielding lock to other instance")
-            return False
+            return (False,False)
 
     # write expanded lock contents
     lock_stream = open(flag_base+".lock","a")
@@ -757,10 +759,12 @@ def get_lock(task_index, task_phase, task_descriptor):
     lock_stream.close()
 
     # remove any prior incomplete flag
+    resumed = False
     if os.path.exists(flag_base+".incp"):
         os.remove(flag_base+".incp")
+        resumed = True
 
-    return True
+    return (True,resumed)
 
 def fail_lock(task_index,task_phase,task_time):
     """Rename lock file to failure file.
@@ -979,7 +983,7 @@ def do_task(task_parameters,task,phase_handlers):
 
     # get lock
     if task_mode != TaskMode.kPrerun:
-        success = get_lock(task_index, task_phase, task_descriptor)
+        success,resumed = get_lock(task_index, task_phase, task_descriptor)
         # if lock is already taken, yield this task
         if not success:
             raise exception.LockContention(task_index, task_phase)
@@ -1002,12 +1006,12 @@ def do_task(task_parameters,task,phase_handlers):
         if (redirect_stdout):
             print("Redirecting to", output_filename)
             saved_stdout = sys.stdout
-            sys.stdout = open(output_filename, "w")
+            sys.stdout = open(output_filename, "a" if resumed else "w")
 
     # generate header for task output file
     if (task_mode != TaskMode.kPrerun):
         print(64*"-")
-        print("task {} phase {}".format(task_index,task_phase))
+        print("task {} phase {}{}".format(task_index,task_phase," (resumed)" if resumed else ""))
         print(task["metadata"]["descriptor"])
         print(64*"-")
         print(parameters.run.run_data_string())
