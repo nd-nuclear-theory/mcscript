@@ -68,6 +68,7 @@
     + 10/11/20 (pjf):
         - Rename `--num` to `--jobs`.
         - Add `--workers` to allow multiple workers per job.
+    + 02/01/22 (pjf): Allow MCSCRIPT_RUN_HOME to be a colon-delimited list.
 """
 
 import argparse
@@ -191,9 +192,9 @@ args = parser.parse_args()
 ################################################################
 
 if (args.here):
-    run_home = os.environ["PWD"]
+    run_home_list = [os.environ["PWD"]]
 elif ("MCSCRIPT_RUN_HOME" in os.environ):
-    run_home = os.environ["MCSCRIPT_RUN_HOME"]
+    run_home_list = os.environ["MCSCRIPT_RUN_HOME"].split(":")
 else:
     print("MCSCRIPT_RUN_HOME not found in environment")
     exit(1)
@@ -241,12 +242,13 @@ print("Run:", run)
 script_extensions = [".py", ".csh"]
 job_file = None
 for extension in script_extensions:
-    filename = os.path.join(run_home, run+extension)
-    if os.path.exists(filename):
-        job_file = filename
-        job_extension = extension
-        break
-print("  Run home:", run_home)  # useful to report now, in case job file missing
+    for run_home in run_home_list:
+        filename = os.path.join(run_home, run+extension)
+        if os.path.exists(filename):
+            job_file = filename
+            job_extension = extension
+            break
+print("  Run homes:", run_home_list)  # useful to report now, in case job file missing
 if (job_file is None):
     print("No job file %s.* found with an extension in the set %s." % (run, script_extensions))
     exit(1)
