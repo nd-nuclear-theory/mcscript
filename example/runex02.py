@@ -30,7 +30,7 @@
 
                 0000 inner X - Mercury
                 0001 inner X - Venus
-                0002 inner X - Earth
+                0002 inner X . Earth
                 0003 inner X - Mars
                 0004 outer - - Jupiter
                 0005 outer - - Saturn
@@ -44,12 +44,14 @@
 
                 0000 inner X X Mercury
                 0001 inner X X Venus
-                0002 inner X X Earth
+                0002 inner X . Earth
                 0003 inner X X Mars
                 0004 outer - - Jupiter
                 0005 outer - - Saturn
                 0006 outer - - Uranus
                 0007 outer - - Neptune
+
+    Note that phase 1 of task 2 (Earth) is masked, so it wasn't executed.
 
     What if we try to do the second phase of the outer planet tasks now?
 
@@ -70,7 +72,7 @@
 
                 0000 inner X X Mercury
                 0001 inner X X Venus
-                0002 inner X X Earth
+                0002 inner X . Earth
                 0003 inner X X Mars
                 0004 outer X X Jupiter
                 0005 outer X X Saturn
@@ -103,6 +105,7 @@
     + 12/11/19 (pjf): Use mcscript.task.save_results_single() and
         mcscript.task.save_results_multi().
     + 06/02/20 (pjf): Add example usage of exception.InsufficientTime.
+    + 02/08/22 (pjf): Add example of task_mask.
 
 """
 
@@ -171,6 +174,15 @@ def task_pool_world(task):
         raise ValueError("no longer a valid world name")
 
     return pool
+
+def task_mask(task, phase):
+    """Return task mask for given task and phase.
+    """
+    # don't say goodbye to Earth
+    if (task["world_name"] == "Earth") and (phase == 1):
+        return False
+
+    return True
 
 ##################################################################
 # implementation functions for doing a "hello/goodbye world" task
@@ -261,9 +273,11 @@ mcscript.task.init(
     tasks,
     task_descriptor=task_descriptor_world,
     task_pool=task_pool_world,
+    task_mask=task_mask,
     phase_handler_list=[say_hello,say_goodbye],
     archive_phase_handler_list=[mcscript.task.archive_handler_hsi]
     )
+
 
 ################################################################
 # termination
