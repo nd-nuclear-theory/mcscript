@@ -41,14 +41,12 @@
     + 01/21/21 (mac): Update deadline for AY21.
     + 01/29/21 (pjf): Update deadline for AY21; remove AY19,AY20.
     + 01/10/22 (mac): Push back deadline for AY21.
-    + 02/08/22 (pjf): Add signal handling for SIGUSR1.
+    + 02/08/22 (pjf):
+        - Add signal handling for SIGUSR1.
+        - Update queues based on NERSC documentation.
 """
 
 # Notes:
-#
-# Edison: 2 sockets * 12 cores * 2 hyperthreads; SLURM "CPU" is logical core (hyperthread)
-#
-#   http://www.nersc.gov/users/computational-systems/edison/running-jobs/example-batch-scripts/
 #
 # Cori Haswell
 #
@@ -124,7 +122,11 @@ def qsubm_arguments(parser):
     )
     group.add_argument(
         "--mail-type", type=str,
-        help="notify user by email when certain event types occur."
+        help="notify user by email when certain event types occur"
+    )
+    group.add_argument(
+        "--time-min", type=str,
+        help="set a minimum time limit on the job allocation"
     )
     group.add_argument(
         "--switchwaittime", type=str, default="12:00:00",
@@ -245,13 +247,9 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     if args.jobs > 1:
         submission_invocation += ["--array={:g}-{:g}".format(0, args.jobs-1)]
 
-    if args.queue == "xfer":
-        ## if os.environ["NERSC_HOST"] == "cori":
-        ##     submission_invocation += ["--clusters=escori"]
-        ## elif os.environ["NERSC_HOST"] == "edison":
-        ##     submission_invocation += ["--clusters=esedison"]
+    if args.queue in ["xfer", "compile"]:
         control.module(["load", "esslurm"])
-    elif args.queue in ["debug", "regular", "premium", "shared", "low"]:
+    elif args.queue in ["debug", "regular", "premium", "shared", "low", "flex", "overrun"]:
         if os.environ["NERSC_HOST"] == "cori":
             # target cpu
             if os.environ["CRAY_CPU_TARGET"] == "haswell":
@@ -260,12 +258,15 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
                 submission_invocation += ["--constraint=knl,quad,cache"]
 
             # ask for compactness (correct number of switches)
-            nodes_per_switch = 384
+            nodes_per_switch = 300  # there are actually up to 384, but NERSC recommends 300
             needed_switches = math.ceil(args.nodes/nodes_per_switch)
             submission_invocation += ["--switches={:d}@{:s}".format(needed_switches, args.switchwaittime)]
 
         # generate parallel environment specifier
         submission_invocation += ["--nodes={}".format(args.nodes*args.workers)]
+    elif args.queue == "bigmem":
+        control.module(["load", "cmem"])
+        submission_invocation += ["--constraint=amd"]
 
     # miscellaneous options
     license_list = ["SCRATCH", "cscratch1", "project"]
@@ -297,6 +298,8 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
     elif "bash" in os.environ.get("SHELL"):
         job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+    else:
+        job_wrapper = ""
     submission_invocation += [
         job_wrapper,
     ]
@@ -516,8 +519,12 @@ def init():
     signal.signal(signal.SIGUSR1, utils.TaskTimer.handle_exit_signal)
 
     # set install prefix based on environment
+    if "cmem" in control.loaded_modules():
+        cpu_target = "znver1"
+    else:
+        cpu_target = os.getenv("CRAY_CPU_TARGET", "")
     parameters.run.install_dir = os.path.join(
-        parameters.run.install_dir, os.getenv("CRAY_CPU_TARGET")
+        parameters.run.install_dir, cpu_target
         )
 
     # get wall time from Slurm
