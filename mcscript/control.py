@@ -21,6 +21,7 @@
       modification to detect hung process.
     - 11/05/19 (mac): Allow restarts after FileWatchdog failure.
     - 11/05/19 (pjf): Restore redirection of subprocess output.
+    - 02/08/22 (pjf): Add loaded_modules().
 """
 
 import enum
@@ -122,6 +123,19 @@ def module(args):
         eval(module_code)  # eval can crash on raw string, so compile first
     else:
         print("  No module code to execute...")
+
+def loaded_modules():
+    """Get dictionary of loaded modules.
+
+    Returns:
+        (dict): loaded module-version mapping
+    """
+    module_list = os.environ.get("LOADEDMODULES", "").split(":")
+    module_dict = {}
+    for module_str in module_list:
+        m,_,v = module_str.partition('/')
+        module_dict[m] = v
+    return module_dict
 
 ################################################################
 # file existence checks
