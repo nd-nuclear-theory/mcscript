@@ -81,6 +81,12 @@
         workers within a job.
     + 12/07/20 (pjf): Write task descriptor to flag files.
     + 02/01/22 (pjf): Append to task output if task is resumed.
+    + 02/07/22 (pjf):
+        - Factor out task_status_list() from task_toc().
+        - Pass task statuses through task_toc() and write_toc().
+        - Generalize task masks to be tuples, allowing for separate masks per
+          phase.
+        - Improve handling of color for task statuses.
 """
 
 import datetime
@@ -119,23 +125,33 @@ class TaskMode(enum.Enum):
 ################################################################
 
 class TaskStatus(enum.Enum):
-    kLocked = "\033[33m"+"L"+"\033[0m"
-    kFailed = "\033[31m"+"F"+"\033[0m"
-    kIncomplete = "\033[34m"+"I"+"\033[0m"
-    kDone = "\033[32m"+"X"+"\033[0m"
-    kMasked = "."
-    kPending = "-"
+    kLocked =     "L"
+    kFailed =     "F"
+    kIncomplete = "I"
+    kDone =       "X"
+    kMasked =     "."
+    kPending =    "-"
+
+k_task_status_color_codes = {
+    TaskStatus.kLocked:     "\033[33m",
+    TaskStatus.kFailed:     "\033[31m",
+    TaskStatus.kIncomplete: "\033[34m",
+    TaskStatus.kDone:       "\033[32m",
+    TaskStatus.kMasked:     "",
+    TaskStatus.kPending:    "",
+}
+k_reset_color_code = "\033[0m"
 
 ################################################################
 # global storage
 ################################################################
 
 # directory structure -- global definitions
-task_root_dir = None
-flag_dir = None
-output_dir = None
-results_dir = None
-archive_dir = None
+task_root_dir:str = None
+flag_dir:str = None
+output_dir:str = None
+results_dir:str = None
+archive_dir:str = None
 
 
 ################################################################
@@ -572,11 +588,39 @@ def index_str(task_index):
     else:
         return str(task_index)
 
-def task_toc(task_list,phase_handlers,color=False):
+def task_status_list(task_list,phase_handlers):
+    """Look up task status for all tasks in list.
+
+    Arguments:
+        task_list (dict): task list
+        phase_handlers (list of callables): phase handlers
+
+    Returns:
+        (list of tuple): tuple of phase statuses for each task
+    """
+    # accumulate task statuses
+    task_statuses:list[tuple[TaskStatus]] = []
+
+    # get flag directory contents
+    flag_dir_list = os.listdir(flag_dir)
+    for task_index,task in enumerate(task_list):
+        # retrieve task properties
+        task_masks = task["metadata"]["masks"]
+
+        # append tuple of phase statuses
+        task_statuses += [tuple(
+            task_status(task_index,task_phase,task_masks,flag_dir_list)
+            for task_phase in range(len(phase_handlers))
+        )]
+
+    return task_statuses
+
+def task_toc(task_list,task_statuses,phase_handlers,color=False):
     """ Generate a task status report as a newline-delimited string.
 
     Arguments:
         task_list (dict): task list
+        task_statuses (list of tuple of TaskStatus): task statuses
         phase_handlers (list of callables): phase handlers
         color (bool, optional): colorize task status
 
@@ -596,21 +640,22 @@ def task_toc(task_list,phase_handlers,color=False):
         phase_summary = "{}".format(phase_docstring).splitlines()[0]
         lines.append("  Phase {:d} summary: {:s}".format(task_phase, phase_summary))
 
-    # get flag directory contents
-    flag_dir_list = os.listdir(flag_dir)
-
     lines.append("Tasks: {:d}".format(len(task_list)))
-    for task_index in range(len(task_list)):
+    for task_index,task in enumerate(task_list):
 
         # retrieve task properties
-        task = task_list[task_index]
         task_pool = task["metadata"]["pool"]
         task_descriptor = task["metadata"]["descriptor"]
-        task_mask = task["metadata"]["mask"]
 
         # assemble line
         fields = [index_str(task_index), task_pool]
-        fields += [task_status(task_index,task_phase,task_mask,flag_dir_list).value for task_phase in range(len(phase_handlers))]
+        if color:
+            fields += [
+                k_task_status_color_codes[status] + status.value + k_reset_color_code
+                for status in task_statuses[task_index]
+                ]
+        else:
+            fields += [status.value for status in task_statuses[task_index]]
         fields += [task_descriptor]
 
         # accumulate line
@@ -659,7 +704,7 @@ def task_output_filename(task_index,phase):
 
     return os.path.join(output_dir,"task-{:s}-{:d}.out".format(index_str(task_index),phase))
 
-def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
+def task_status(task_index,task_phase,task_masks,flag_dir_list=None):
     """ Generate status flag for the given phase of the given task.
 
     Status flag values:
@@ -672,7 +717,7 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
     Arguments:
         task_index (int or str): task index
         task_phase (int): task phase
-        task_mask (bool): mask flag for task
+        task_masks (tuple of bool): mask flags for task phases
         flag_dir_list (list of str): directory listing for flag directory
 
     Returns:
@@ -688,7 +733,7 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
             return TaskStatus.kIncomplete
         elif (flag_base + ".done") in flag_dir_list:
             return TaskStatus.kDone
-        elif not task_mask:
+        elif not task_masks[task_phase]:
             return TaskStatus.kMasked
         else:
             return TaskStatus.kPending
@@ -702,7 +747,7 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
             return TaskStatus.kIncomplete
         elif os.path.exists(flag_base + ".done"):
             return TaskStatus.kDone
-        elif not task_mask:
+        elif not task_masks[task_phase]:
             return TaskStatus.kMasked
         else:
             return TaskStatus.kPending
@@ -815,11 +860,12 @@ def finalize_lock(task_index,task_phase,task_time):
 # special runs: archive
 ################################################################
 
-def write_toc(task_list,phase_handlers):
+def write_toc(task_list,task_statuses,phase_handlers):
     """ Write current table of contents to file runxxxx.toc.
 
     Arguments:
         task_list (dict): task list
+        task_statuses (list of tuple of TaskStatus): task statuses
         phase_handlers (list of callables): phase handlers
 
     Returns:
@@ -829,7 +875,7 @@ def write_toc(task_list,phase_handlers):
     # write current toc
     toc_filename = "{}.toc".format(parameters.run.name)
     toc_stream = open(toc_filename, "w")
-    toc_stream.write(utils.scrub_ansi(task_toc(task_list,phase_handlers)))
+    toc_stream.write(task_toc(task_list,task_statuses,phase_handlers,color=False))
     toc_stream.close()
 
     # return filename
@@ -935,13 +981,13 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
             continue
 
         # skip if task locked or done
-        task_mask = task_list[task_index]["metadata"]["mask"]
-        if task_status(task_index, task_phase, task_mask) not in (TaskStatus.kPending, TaskStatus.kIncomplete):
+        task_masks = task_list[task_index]["metadata"]["masks"]
+        if task_status(task_index, task_phase, task_masks) not in (TaskStatus.kPending, TaskStatus.kIncomplete):
             continue
 
         # skip if prior phase not completed
         if (task_phase > 0):
-            if task_status(task_index, task_phase-1, task_mask) != TaskStatus.kDone:
+            if task_status(task_index, task_phase-1, task_masks) != TaskStatus.kDone:
                 print("Missing prerequisite", task_flag_base(task_index, task_phase-1))
                 continue
 
@@ -975,7 +1021,7 @@ def do_task(task_parameters,task,phase_handlers):
     task_phase = task_parameters["phase"]
     task_index = task["metadata"]["index"]
     task_descriptor = task["metadata"]["descriptor"]
-    task_mask = task["metadata"]["mask"]
+    task_masks = task["metadata"]["masks"]
 
     # fill in further metadata for task handlers
     task["metadata"]["phase"] = task_phase
@@ -1198,17 +1244,21 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
 
     # special run modes
     if (task_mode == TaskMode.kTOC):
+        # get task statuses
+        task_statuses = task_status_list(task_list,phase_handlers)
         # update toc file
-        toc_filename = write_toc(task_list,phase_handlers)
+        toc_filename = write_toc(task_list,task_statuses,phase_handlers)
         # replicate toc file contents to stdout
         print()
         color = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
-        print(task_toc(task_list,phase_handlers,color))
+        print(task_toc(task_list,task_statuses,phase_handlers,color))
         print()
     elif (task_mode == TaskMode.kUnlock):
         task_unlock()
     elif (task_mode == TaskMode.kArchive):
-        write_toc(task_list,phase_handlers)  # update toc for archive
+        # get task statuses
+        task_statuses = task_status_list(task_list,phase_handlers)
+        write_toc(task_list,task_statuses,phase_handlers)  # update toc for archive
         do_archive(task_parameters,archive_phase_handlers)
     elif (task_mode == TaskMode.kPrerun):
         invoke_tasks_prerun(task_parameters,task_list,phase_handlers)
@@ -1233,7 +1283,7 @@ def init(
     """Stores the given list of tasks and postprocesses it, adding
     fields with values given by the given functions.
 
-    The task "descriptor", "pool", and "mask" fields are set by invoking the given
+    The task "descriptor", "pool", and "masks" fields are set by invoking the given
     functions task_descriptor, task_pool, and task_mask, respectively, on each task.
 
     Also registers the phase handlers.  The number of phases is also
@@ -1272,12 +1322,22 @@ def init(
         # encapsulated metadata
         metadata = {
             "descriptor" : task_descriptor(task),
+            "descriptor_function": task_descriptor,
             "pool" : task_pool(task),
-            "mask" : task_mask(task),
             "index" : index,
             "mode" : None,  # to be set at task invocation time
             "phase" : None  # to be set at task invocation time
         }
+        # if task_mask callable takes multiple arguments, pass both task and
+        # phase number
+        if len(inspect.signature(task_mask).parameters) > 1:
+            metadata["masks"] = tuple(
+                task_mask(task, phase)
+                for phase in range(len(phase_handler_list))
+                )
+        else:
+            metadata["masks"] = len(phase_handler_list)*(task_mask(task),)
+
         task["metadata"] = metadata
 
         # check for duplicate task descriptors
