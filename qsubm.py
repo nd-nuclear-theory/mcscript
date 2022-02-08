@@ -69,7 +69,9 @@
         - Rename `--num` to `--jobs`.
         - Add `--workers` to allow multiple workers per job.
     + 02/01/22 (pjf): Allow MCSCRIPT_RUN_HOME to be a colon-delimited list.
-    + 02/08/22 (pjf): Fix script extension selection.
+    + 02/08/22 (pjf):
+        - Fix script extension selection.
+        - Switch from subprocess.Popen to subprocess.run.
 """
 
 import argparse
@@ -443,16 +445,14 @@ if (run_mode == "batch"):
     print()
     print("-"*64)
     for i in range(repetitions):
-        process = subprocess.Popen(
+        subprocess.run(
             submission_args,
-            stdin=subprocess.PIPE,     # to take input from communicate
-            stdout=subprocess.PIPE,    # to send output to communicate -- default merged stderr
+            input=submission_input_string,
+            stdout=sys.stdout,
+            stderr=subprocess.STDOUT,  #  to redirect via stdout
             env=job_environ,
             cwd=launch_dir
             )
-        stdout_bytes = process.communicate(input=submission_input_string)[0]
-        stdout_string = stdout_bytes.decode("utf-8")
-        print(stdout_string)
 
 # handle interactive run
 # Note: We call interpreter rather than trying to directly execute
@@ -467,5 +467,4 @@ elif (run_mode == "local"):
         popen_args = ["csh", job_file]
     print()
     print("-"*64)
-    process = subprocess.Popen(popen_args, cwd=launch_dir, env=job_environ)
-    process.wait()
+    subprocess.run(popen_args, cwd=launch_dir, env=job_environ)
