@@ -69,6 +69,7 @@
         - Rename `--num` to `--jobs`.
         - Add `--workers` to allow multiple workers per job.
     + 02/01/22 (pjf): Allow MCSCRIPT_RUN_HOME to be a colon-delimited list.
+    + 02/08/22 (pjf): Fix script extension selection.
 """
 
 import argparse
@@ -460,9 +461,9 @@ if (run_mode == "batch"):
 # be different from the version of the interpreter found in the below invocation,
 # especially in a "module" environment.
 elif (run_mode == "local"):
-    if (extension == ".py"):
+    if (job_extension == ".py"):
         popen_args = [python_executable, job_file]
-    elif (extension == ".csh"):
+    elif (job_extension == ".csh"):
         popen_args = ["csh", job_file]
     print()
     print("-"*64)
