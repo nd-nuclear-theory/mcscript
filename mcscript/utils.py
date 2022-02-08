@@ -46,7 +46,9 @@
     10/09/20 (pjf/mac):
         + Implement additive identity for CoefficientDict.
         + Add generic dot function as workaround for np.dot.
-    02/08/20 (pjf): Add signal handler to TaskTimer.
+    02/08/20 (pjf):
+        + Add signal handler to TaskTimer.
+        + Add diagnostic output to topological_sort().
 """
 
 import collections
@@ -558,7 +560,11 @@ def topological_sort(
         if vertex in current_path:
             raise ValueError("graph is not directed-acyclic")
         current_path.append(vertex)
-        child_vertices = graph[vertex]
+        try:
+            child_vertices = graph[vertex]
+        except KeyError:
+            print(graph)
+            raise
         sorted_vertices = topological_sort(
             graph,
             initial_vertices=child_vertices,
@@ -718,7 +724,7 @@ def dot(a,b):
     Example:
 
         >>>dot([1,2,3],[1,2,3])
-        
+
         14
 
     Arguments:
