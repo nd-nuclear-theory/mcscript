@@ -46,6 +46,7 @@
     10/09/20 (pjf/mac):
         + Implement additive identity for CoefficientDict.
         + Add generic dot function as workaround for np.dot.
+    02/08/20 (pjf): Add signal handler to TaskTimer.
 """
 
 import collections
@@ -581,7 +582,22 @@ class TaskTimer(object):
         safety_factor (float): safety margin for required time
         minimum_time (float): minimum number of seconds for required time
         timings (list of float): elapsed time for past timings
+
+    Member attributes:
+        received_exit_signal (bool): flag which is set to true when the program
+            has received an exit signal
+
+    Note: In order for TaskTimer to respond to exit signals, the `signal` module
+    must be used to attach the `handle_exit_signal()` handler to a signal. For
+    example:
+
+        signal.signal(signal.SIGTERM, TaskTimer.handle_exit_signal)
     """
+    received_exit_signal = False
+
+    @classmethod
+    def handle_exit_signal(cls, signalnum, frame):
+        cls.received_exit_signal = True
 
     def __init__(self, remaining_time, safety_factor=1.1, minimum_time=60):
         """Initialize TaskTimer with timing parameters.
@@ -652,7 +668,7 @@ class TaskTimer(object):
             (mcscript.exception.InsufficientTime): required time is greater than remaining time
             (RuntimeError): timer already running
         """
-        if self.required_time > self.remaining_time:
+        if (self.required_time > self.remaining_time) or self.received_exit_signal:
             raise exception.InsufficientTime(self.required_time)
 
         if self._task_start_time is not None:
