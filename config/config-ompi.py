@@ -10,13 +10,18 @@
     + 11/22/16 (mac): Created, based on qsubm_local_ndcrc.py and
       mcscript_local_ndcrc.py (originated ~7/13 and last modified
       ~12/14).
+    + 02/08/22 (pjf): Add signal handling for SIGTERM.
 
 """
 
 import os
+import signal
 import sys
 
-from . import parameters
+from . import (
+    parameters,
+    utils,
+)
 
 ################################################################
 ################################################################
@@ -158,7 +163,7 @@ def init():
     and changed the cwd to the scratch directory.
     """
 
-    pass
+    signal.signal(signal.SIGTERM, utils.TaskTimer.handle_exit_signal)
 
 def termination():
     """ Do any local termination tasks.

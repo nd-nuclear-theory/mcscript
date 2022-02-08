@@ -41,6 +41,7 @@
     + 01/21/21 (mac): Update deadline for AY21.
     + 01/29/21 (pjf): Update deadline for AY21; remove AY19,AY20.
     + 01/10/22 (mac): Push back deadline for AY21.
+    + 02/08/22 (pjf): Add signal handling for SIGUSR1.
 """
 
 # Notes:
@@ -61,12 +62,14 @@ import datetime
 import os
 import sys
 import math
+import signal
 import subprocess
 import shutil
 
 from . import control
 from . import exception
 from . import parameters
+from . import utils
 
 
 cluster_specs = {
@@ -508,6 +511,9 @@ def init():
     Invoked after mcscript sets the various configuration variables
     and changed the cwd to the scratch directory.
     """
+
+    # attach signal handler for USR1
+    signal.signal(signal.SIGUSR1, utils.TaskTimer.handle_exit_signal)
 
     # set install prefix based on environment
     parameters.run.install_dir = os.path.join(
