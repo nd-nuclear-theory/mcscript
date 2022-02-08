@@ -87,6 +87,7 @@
         - Generalize task masks to be tuples, allowing for separate masks per
           phase.
         - Improve handling of color for task statuses.
+    + 02/08/22 (pjf): Add task time in minutes.
 """
 
 import datetime
@@ -98,6 +99,7 @@ import sys
 import time
 import inspect
 import fnmatch
+import typing
 
 
 from . import (
@@ -107,6 +109,11 @@ from . import (
     utils,
 )
 
+
+################################################################
+# task type
+################################################################
+TaskDict = typing.NewType('TaskDict', dict)
 
 ################################################################
 # task special run modes
@@ -1218,7 +1225,7 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
             timer.cancel_timer()
         else:
             task_time = timer.stop_timer()
-            print("(Task time: {:.2f} sec)".format(task_time))
+            print("(Task time: {:.2f} sec [={:.2f} min])".format(task_time, task_time/60))
             # tally
             task_count += 1
 
