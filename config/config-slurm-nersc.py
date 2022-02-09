@@ -239,6 +239,11 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]
 
+    # minimum time
+    if args.time_min:
+        submission_invocation += ["--time-min={}".format(args.time_min)]
+        submission_invocation += ["--requeue"]
+
     # core specialization
     if args.nodes > 1:
         submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
