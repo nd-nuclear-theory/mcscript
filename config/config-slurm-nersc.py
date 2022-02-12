@@ -44,6 +44,7 @@
     + 02/08/22 (pjf):
         - Add signal handling for SIGUSR1.
         - Update queues based on NERSC documentation.
+    + 02/12/22 (pjf): Implement requeueing support.
 """
 
 # Notes:
@@ -63,6 +64,8 @@ import math
 import signal
 import subprocess
 import shutil
+import re
+from tabnanny import verbose
 
 from . import control
 from . import exception
@@ -89,6 +92,46 @@ cluster_specs = {
 
 # cache of broadcasted executables -- job local
 broadcasted_executables = {}
+
+################################################################
+# helper functions
+################################################################
+
+def slurm_time_to_seconds(slurm_time:str):
+    """Convert Slurm-formatted time duration string to seconds.
+
+    Arguments:
+        slurm_time (str): Slurm time duration string
+
+    Returns:
+        (int): duration in seconds
+
+    Raises:
+        (ValueError): unable to parse time string
+    """
+    pattern = re.compile(
+        r"((?P<d>\d+)-)?"
+        r"((?P<h>\d+):(?=\d+:\d+))?"  # use lookahead assertion to prefer mm:ss over hh:mm
+        r"(?P<m>\d+)"
+        r"(:(?P<s>\d+))?"
+        )
+
+    match = pattern.match(slurm_time)
+    if not match:
+        raise ValueError("'{}' is not a valid time specification".format(slurm_time))
+
+    time_sec = 0
+    if match.group("d"):
+        time_sec += 86400*int(match.group("d"))
+    if match.group("h"):
+        time_sec += 3600*int(match.group("h"))
+    if match.group("m"):
+        time_sec += 60*int(match.group("m"))
+    if match.group("s"):
+        time_sec += int(match.group("s"))
+
+    return time_sec
+
 
 ################################################################
 ################################################################
@@ -243,6 +286,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     if args.time_min:
         submission_invocation += ["--time-min={}".format(args.time_min)]
         submission_invocation += ["--requeue"]
+        submission_invocation += ["--comment=AccumulatedTime:{}".format(0)]
 
     # core specialization
     if args.nodes > 1:
@@ -532,15 +576,31 @@ def init():
         parameters.run.install_dir, cpu_target
         )
 
-    # get wall time from Slurm
+    # get extract metadata from Slurm
     if job_id() != "0":
+        # query Slurm with `squeue`
         squeue_output = subprocess.run(
-            ["squeue", "-h", "-j", job_id(), "-o", "%L"],
+            ["squeue", "-h", "-j", job_id(), "-O", "TimeLeft:0;,Requeue:1;,MinTime:0;,Comment:0"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             universal_newlines=True
             ).stdout.strip()
+        squeue_output = squeue_output.split(";",maxsplit=4)
         try:
-            squeue_time = list(map(int, squeue_output.replace("-", ":").split(":")))
+            (squeue_time,requeueable,min_time,comment) = squeue_output
+        except ValueError:
+            print("squeue output:", ";".join(squeue_output))
+            print(
+                "Unable to get metadata from Slurm..."
+                "using time given at submission."
+            )
+            (squeue_time,requeueable,min_time,comment) = ["","","",""]
+
+        # save the wall time from submission
+        parameters.run.submission_wall_time_sec = parameters.run.wall_time_sec
+
+        # try to extract time from squeue time string
+        try:
+            parameters.run.wall_time_sec = slurm_time_to_seconds(squeue_time)
         except ValueError as err:
             print(err)
             print("Remaining time from squeue: {:s}".format(squeue_output))
@@ -548,10 +608,27 @@ def init():
                 "Unable to get remaining time from Slurm..."
                 "using time given at submission."
             )
+
+    if job_id() != "0" and parameters.run.batch_mode:
+        # determine if this job is eligible for requeueing
+        parameters.run.requeueable = (requeueable == "1")
+
+        # determine the minimum time for the job
+        try:
+            parameters.run.min_time_sec = slurm_time_to_seconds(min_time)
+        except:
+            pass
+
+        # determine the accumulated time this job has already used
+        if comment == "(null)":
+            comment = ""
+        parameters.run.comment = comment
+        result = re.search(r"AccumulatedTime:([0-9]+)", comment)
+        if result:
+            parameters.run.accumulated_walltime_sec = 60*int(result.group(1))
         else:
-            # squeue drops leading zeros; pad for unpacking
-            (days, hours, minutes, seconds) = [0]*(4-len(squeue_time)) + squeue_time
-            parameters.run.wall_time_sec = days*86400 + hours*3600 + minutes*60 + seconds
+            parameters.run.accumulated_walltime_sec = 0
+
 
 def termination(success=True, complete=True):
     """ Do any local termination tasks.
@@ -560,5 +637,31 @@ def termination(success=True, complete=True):
         success (bool, optional): whether the job is terminating in a success state
         complete (bool, optional): whether the job completed all assigned work
     """
+    # no termination if job ID is "0" or if not in batch mode
+    if job_id() == "0" or not parameters.run.batch_mode:
+        return
 
-    pass
+    # update accumulated walltime
+    parameters.run.accumulated_walltime_sec += parameters.run.get_elapsed_time()
+
+    # requeue job if terminating in a success state but tasks not complete
+    requeue_time_sec = parameters.run.submission_wall_time_sec - parameters.run.accumulated_walltime_sec
+    if success and not complete and parameters.run.requeueable and (requeue_time_sec > parameters.run.min_time_sec):
+        comment = re.sub(
+            r"AccumulatedTime:[0-9]+",
+            "AccumulatedTime:{:.0f}".format(
+                parameters.run.accumulated_walltime_sec/60
+                ),
+            parameters.run.comment
+            )
+        print("Requeuing job {} for {:.0f} minutes...".format(
+            job_id(), requeue_time_sec/60), flush=True
+            )
+        subprocess.run(["scontrol", "requeue", job_id()])
+        subprocess.run([
+            "scontrol",
+            "update",
+            "JobID={}".format(job_id()),
+            "TimeLimit={:.0f}".format(requeue_time_sec/60),
+            "Comment={:s}".format(comment),
+            ])
