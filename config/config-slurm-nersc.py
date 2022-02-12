@@ -553,8 +553,12 @@ def init():
             (days, hours, minutes, seconds) = [0]*(4-len(squeue_time)) + squeue_time
             parameters.run.wall_time_sec = days*86400 + hours*3600 + minutes*60 + seconds
 
-def termination():
+def termination(success=True, complete=True):
     """ Do any local termination tasks.
+
+    Arguments:
+        success (bool, optional): whether the job is terminating in a success state
+        complete (bool, optional): whether the job completed all assigned work
     """
 
     pass

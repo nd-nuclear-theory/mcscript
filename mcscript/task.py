@@ -88,6 +88,12 @@
           phase.
         - Improve handling of color for task statuses.
     + 02/08/22 (pjf): Add task time in minutes.
+    + 02/12/22 (pjf):
+        - Use `finally` clauses to ensure that cleanup tasks (like stdout
+          redirection) are actually completed.
+        - Call mcscript.control.termination in case of early exit.
+        - Catch and raise exceptions at various levels in the call stack, doing
+          clean-up tasks along the way.
 """
 
 import datetime
@@ -1053,11 +1059,9 @@ def do_task(task_parameters,task,phase_handlers):
     if (task_mode != TaskMode.kPrerun):
         redirect_stdout = task_parameters["redirect"]
         output_filename = task_output_filename(task_index,task_phase)
-        # purge any old file -- else it may persist if current task aborts
-        if (os.path.exists(output_filename)):
-            os.remove(output_filename)
         if (redirect_stdout):
             print("Redirecting to", output_filename)
+            sys.stdout.flush()
             saved_stdout = sys.stdout
             sys.stdout = open(output_filename, "a" if resumed else "w")
 
@@ -1096,13 +1100,13 @@ def do_task(task_parameters,task,phase_handlers):
             task_time = task_end_time - task_start_time
             fail_lock(task_index, task_phase, task_time)
         raise
-
-    # undo output redirection
-    if (task_mode != TaskMode.kPrerun):
-        sys.stdout.flush()
-        if (redirect_stdout):
-            sys.stdout.close()
-            sys.stdout = saved_stdout
+    finally:
+        # undo output redirection
+        if (task_mode != TaskMode.kPrerun):
+            sys.stdout.flush()
+            if (redirect_stdout):
+                sys.stdout.close()
+                sys.stdout = saved_stdout
 
     # process timing
     task_end_time = time.time()
@@ -1210,7 +1214,7 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
             timer.start_timer()
         except exception.InsufficientTime:
             print("Reached time limit.")
-            break
+            raise
 
         # display diagnostic header for task
         #     this goes to global (unredirected) output
@@ -1223,7 +1227,7 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
         except exception.LockContention:
             print("(Task yielded)")
             timer.cancel_timer()
-        else:
+        finally:
             task_time = timer.stop_timer()
             print("(Task time: {:.2f} sec [={:.2f} min])".format(task_time, task_time/60))
             # tally
@@ -1270,7 +1274,15 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
     elif (task_mode == TaskMode.kPrerun):
         invoke_tasks_prerun(task_parameters,task_list,phase_handlers)
     elif ((task_mode == TaskMode.kRun) or (task_mode == TaskMode.kOffline)):
-        invoke_tasks_run(task_parameters,task_list,phase_handlers)
+        try:
+            invoke_tasks_run(task_parameters,task_list,phase_handlers)
+        except exception.InsufficientTime:
+            # consider an early termination to be successful
+            control.termination(success=True, complete=False)
+            raise
+        except BaseException as err:
+            control.termination(success=False)
+            raise
     else:
         raise(exception.ScriptError("Unsupported run mode: {:s}".format(task_mode)))
 

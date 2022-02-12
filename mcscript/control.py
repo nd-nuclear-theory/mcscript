@@ -22,6 +22,7 @@
     - 11/05/19 (mac): Allow restarts after FileWatchdog failure.
     - 11/05/19 (pjf): Restore redirection of subprocess output.
     - 02/08/22 (pjf): Add loaded_modules().
+    - 02/12/22 (pjf): Add status information to termination().
 """
 
 import enum
@@ -77,17 +78,23 @@ def init():
 #   to be invoked explicitly by job file
 ################################################################
 
-def termination():
-    """Do global termination tasks."""
+def termination(success=True, complete=True):
+    """Do global termination tasks.
+
+    Arguments:
+        success (bool, optional): whether the job is terminating in a success state
+        complete (bool, optional): whether the job completed all assigned work
+    """
 
     # invoke local termination
-    config.termination()
+    config.termination(success, complete)
 
     # provide verbose ending
     #   only if top-level invocation of job file, not epar daughter
     if parameters.run.verbose:
         sys.stdout.flush()
         print("-"*64)
+        print("Termination status: {}".format("success" if success else "failure"))
         print("End script")
         print(utils.time_stamp())
         print("-"*64)

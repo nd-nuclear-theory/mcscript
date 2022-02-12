@@ -165,8 +165,12 @@ def init():
 
     signal.signal(signal.SIGTERM, utils.TaskTimer.handle_exit_signal)
 
-def termination():
+def termination(success=True, complete=True):
     """ Do any local termination tasks.
+
+    Arguments:
+        success (bool, optional): whether the job is terminating in a success state
+        complete (bool, optional): whether the job completed all assigned work
     """
 
     pass
