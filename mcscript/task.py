@@ -94,6 +94,7 @@
         - Call mcscript.control.termination in case of early exit.
         - Catch and raise exceptions at various levels in the call stack, doing
           clean-up tasks along the way.
+    + 02/25/22 (pjf): Add "resumed" flag to task metadata.
 """
 
 import datetime
@@ -1036,16 +1037,18 @@ def do_task(task_parameters,task,phase_handlers):
     task_descriptor = task["metadata"]["descriptor"]
     task_masks = task["metadata"]["masks"]
 
-    # fill in further metadata for task handlers
-    task["metadata"]["phase"] = task_phase
-    task["metadata"]["mode"] = task_mode
-
     # get lock
+    resumed = False
     if task_mode != TaskMode.kPrerun:
         success,resumed = get_lock(task_index, task_phase, task_descriptor)
         # if lock is already taken, yield this task
         if not success:
             raise exception.LockContention(task_index, task_phase)
+
+    # fill in further metadata for task handlers
+    task["metadata"]["phase"] = task_phase
+    task["metadata"]["mode"] = task_mode
+    task["metadata"]["resumed"] = resumed
 
     # set up task directory
     task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
