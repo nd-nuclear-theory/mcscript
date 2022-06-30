@@ -49,6 +49,7 @@
     02/08/20 (pjf):
         + Add signal handler to TaskTimer.
         + Add diagnostic output to topological_sort().
+    06/29/22 (pjf): Generalize search_in_subdirectories for multiple filenames.
 """
 
 import collections
@@ -319,8 +320,7 @@ def ifelse(cond,a,b):
 ################################################################
 
 def search_in_subdirectories(
-        base_path_or_list, *args,
-        base=False, fail_on_not_found=True, error_message=None, verbose=True
+        *args, base=False, fail_on_not_found=True, error_message=None, verbose=True
 ):
     """Search for file in a list of subdirectories, beneath a given base
     path (or list of base paths).
@@ -330,7 +330,7 @@ def search_in_subdirectories(
             subdirectories (may alternatively be list of base paths)
         subdirectory_path_or_list (list of str, optional, repeatable):
             subdirectories to search
-        filename (str): file name (or base file name) to match
+        filenames (str or list of str): file name(s) (or base file name(s)) to match
         base (bool, optional): whether to accept given search string
             as filename root rather than exact match (then just return
             this base in the result)
@@ -350,34 +350,30 @@ def search_in_subdirectories(
     """
 
     # process arguments
+    if len(args) < 2:
+        raise ValueError("not enough arguments:", *args)
+    path_component_lists = []
+    for path_or_list in args:
+        if isinstance(path_or_list, (str,bytes,os.PathLike)):
+            path_component_lists.append([path_or_list])
+        else:
+            path_component_lists.append(list(path_or_list))
+
     if verbose:
         print("----------------------------------------------------------------")
         print("Searching for file name...")
-        print("  Base directories:",base_path_or_list)
-    if isinstance(base_path_or_list, str):
-        base_path_list = [base_path_or_list]
-    else:
-        base_path_list = list(base_path_or_list)
-    if len(args) < 1:
-        raise ValueError("not enough arguments:", base_path_or_list, *args)
-    subdirectory_lists = []
-    for subdirectory_path_or_list in args[:-1]:
-        if verbose:
-            print("  Subdirectories:",subdirectory_path_or_list)
-        if isinstance(subdirectory_path_or_list, str):
-            subdirectory_lists.append([subdirectory_path_or_list])
-        else:
-            subdirectory_lists.append(list(subdirectory_path_or_list))
-    filename = args[-1]
-    if verbose:
-        print("  Filename:",filename)
+        print("  Base directories:", path_component_lists[0])
+        for subdirectory_list in path_component_lists[1:-1]:
+            print("  Subdirectories:", subdirectory_list)
+        print("  Filenames:", path_component_lists[-1])
 
     # search in successive directories
     success = False
-    for directory_list in itertools.product(base_path_list, *subdirectory_lists):
-        qualified_name = os.path.join(*directory_list, filename)
+    qualified_name = None
+    for path_components in itertools.product(*path_component_lists):
+        qualified_name = os.path.join(*path_components)
         if (base):
-            success = len(glob.glob(qualified_name+"*")>0)
+            success = len(glob.glob(qualified_name+"*"))>0
         else:
             success = os.path.exists(qualified_name)
         if (success):
@@ -397,7 +393,7 @@ def search_in_subdirectories(
     # handle return for success or failure
     if (not success):
         if (fail_on_not_found):
-            raise exception.ScriptError("no match on filename {}".format(filename))
+            raise exception.ScriptError(f"no match on filenames {path_component_lists[-1]}")
         else:
             return None
     return qualified_name
