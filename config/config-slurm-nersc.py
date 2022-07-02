@@ -45,6 +45,9 @@
         - Add signal handling for SIGUSR1.
         - Update queues based on NERSC documentation.
     + 02/12/22 (pjf): Implement requeueing support.
+    + 07/01/22 (pjf):
+        - Use cluster_specs as configuration, removing most special case traps.
+        - Update to support both Cori and Perlmutter.
 """
 
 # Notes:
@@ -75,17 +78,59 @@ from . import utils
 
 cluster_specs = {
     "cori": {
-        "haswell": {
-            "cores": 32,
-            "threads_per_core": 2,
-            "domains": 2,
-            "cores_per_domain": 16,
+        "default": os.environ.get("CRAY_CPU_TARGET"),
+        "node_types": {
+            "haswell": {
+                "constraint": "haswell",
+                "queues": ["regular", "shared", "interactive", "debug", "premium", "flex", "overrun"],
+                "cores_per_node": 32,
+                "threads_per_core": 2,
+                "domains_per_node": 2,
+                "cores_per_domain": 16,
+                "nodes_per_switch": 384,
+            },
+            "mic-knl": {
+                "constraint": "knl,quad,cache",
+                "queues": ["regular", "interactive", "debug", "premium", "low", "flex", "overrun"],
+                "cores_per_node": 68,
+                "threads_per_core": 4,
+                "domains_per_node": 4,
+                "cores_per_domain": 16,
+                "nodes_per_switch": 384,
+            },
+            "cmem": {
+                "constraint": "amd",
+                "queues": ["bigmem", "interactive", "shared"],
+                "cores_per_node": 32,
+                "threads_per_core": 2,
+                "domains_per_node": 2,
+                "cores_per_domain": 16,
+                "nodes_per_switch": 1,
+            }
         },
-        "mic-knl": {
-            "cores": 68,
-            "threads_per_core": 4,
-            "domains": 4,
-            "cores_per_domain": 16,
+    },
+    "perlmutter": {
+        "default": "cpu",
+        "node_types": {
+            "cpu": {
+                "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "constraint": "cpu",
+                "cores_per_node": 128,
+                "threads_per_core": 2,
+                "domains_per_node": 8,
+                "cores_per_domain": 16,
+                "nodes_per_switch": 256,
+            },
+            "gpu": {
+                "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "constraint": "gpu",
+                "cores_per_node": 64,
+                "threads_per_core": 2,
+                "domains_per_node": 4,
+                "cores_per_domain": 16,
+                "gpus_per_node": 4,
+                "nodes_per_switch": 128,
+            },
         },
     },
 }
@@ -146,6 +191,10 @@ def qsubm_arguments(parser):
     Arguments:
         parser (argparse.ArgumentParser): qsubm argument parser context
     """
+    # convenience definitions
+    nersc_host = os.environ["NERSC_HOST"]
+    cluster = cluster_specs[nersc_host]
+
     group = parser.add_argument_group("NERSC-specific options")
     group.add_argument(
         "--account", type=str,
@@ -168,12 +217,16 @@ def qsubm_arguments(parser):
         help="notify user by email when certain event types occur"
     )
     group.add_argument(
+        "--node-type", type=str, default=cluster["default"],
+        choices=cluster["node_types"].keys(), help ="type of node"
+    )
+    group.add_argument(
         "--time-min", type=str,
         help="set a minimum time limit on the job allocation"
     )
     group.add_argument(
         "--switchwaittime", type=str, default="12:00:00",
-        help="maximum time to wait for switch count"
+        help="maximum time to wait for switch count; 0 disables constraint"
     )
 
 
@@ -209,13 +262,17 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     #### check option sanity ####
     # convenience definitions
     nersc_host = os.environ["NERSC_HOST"]
-    cpu_target = os.environ["CRAY_CPU_TARGET"]
-    node_cores = cluster_specs[nersc_host][cpu_target]["cores"]
-    threads_per_core = cluster_specs[nersc_host][cpu_target]["threads_per_core"]
+    node_type = args.node_type
+    node_spec = cluster_specs[nersc_host]["node_types"][node_type]
+    node_constraint = node_spec["constraint"]
+    node_cores = node_spec["cores_per_node"]
+    threads_per_core = node_spec["threads_per_core"]
     node_threads = node_cores*threads_per_core
-    node_domains = cluster_specs[nersc_host][cpu_target]["domains"]
-    domain_cores = cluster_specs[nersc_host][cpu_target]["cores_per_domain"]
+    node_domains = node_spec["domains_per_node"]
+    domain_cores = node_spec["cores_per_domain"]
     domain_threads = domain_cores*threads_per_core
+    nodes_per_switch = node_spec["nodes_per_switch"]
+    nodes_per_switch = max(1,nodes_per_switch*25//32)  # safety factor
 
     try:
         # check for oversubscription
@@ -259,6 +316,18 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
                         math.ceil(args.ranks/args.nodes), args.cores
                     )
                 )
+
+        # check for mismatch between node type and environment
+        if (node_type == "cmem") and ("cmem" not in control.loaded_modules()):
+            raise exception.ScriptError(
+                "ensure 'cmem' module is loaded when using --node-type=cmem"
+            )
+        elif (node_type in ["haswell", "mic-knl"]) and (node_type != os.environ.get("CRAY_CPU_TARGET", "")):
+            raise exception.ScriptError(
+                "--node-type={:s} does not match CRAY_CPU_TARGET={:s}".format(
+                    node_type, os.environ.get("CRAY_CPU_TARGET", "")
+                )
+            )
     except exception.ScriptError as err:
         if args.expert:
             print(str(err))
@@ -298,27 +367,20 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     if args.queue in ["xfer", "compile"]:
         control.module(["load", "esslurm"])
-    elif args.queue in ["debug", "regular", "premium", "shared", "low", "flex", "overrun"]:
-        if os.environ["NERSC_HOST"] == "cori":
-            # target cpu
-            if os.environ["CRAY_CPU_TARGET"] == "haswell":
-                submission_invocation += ["--constraint=haswell"]
-            elif os.environ["CRAY_CPU_TARGET"] == "mic-knl":
-                submission_invocation += ["--constraint=knl,quad,cache"]
+    elif args.queue in node_spec["queues"]:
+        # target cpu
+        submission_invocation += ["--constraint={}".format(node_constraint)]
 
+        if slurm_time_to_seconds(args.switchwaittime) > 0:
             # ask for compactness (correct number of switches)
-            nodes_per_switch = 300  # there are actually up to 384, but NERSC recommends 300
             needed_switches = math.ceil(args.nodes/nodes_per_switch)
             submission_invocation += ["--switches={:d}@{:s}".format(needed_switches, args.switchwaittime)]
 
         # generate parallel environment specifier
         submission_invocation += ["--nodes={}".format(args.nodes*args.workers)]
-    elif args.queue == "bigmem":
-        control.module(["load", "cmem"])
-        submission_invocation += ["--constraint=amd"]
 
     # miscellaneous options
-    license_list = ["SCRATCH", "cscratch1", "project"]
+    license_list = ["SCRATCH", "cfs"]
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
 
     if args.account is not None:
@@ -343,9 +405,9 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     #
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
-    if "csh" in os.environ.get("SHELL"):
+    if "csh" in os.environ.get("SHELL", ""):
         job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
-    elif "bash" in os.environ.get("SHELL"):
+    elif "bash" in os.environ.get("SHELL", ""):
         job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
     else:
         job_wrapper = ""
@@ -568,10 +630,9 @@ def init():
     signal.signal(signal.SIGUSR1, utils.TaskTimer.handle_exit_signal)
 
     # set install prefix based on environment
+    cpu_target = os.getenv("CRAY_CPU_TARGET", "")
     if "cmem" in control.loaded_modules():
-        cpu_target = "znver1"
-    else:
-        cpu_target = os.getenv("CRAY_CPU_TARGET", "")
+        cpu_target = "cmem"
     parameters.run.install_dir = os.path.join(
         parameters.run.install_dir, cpu_target
         )
@@ -585,6 +646,7 @@ def init():
             universal_newlines=True
             ).stdout.strip()
         squeue_output = squeue_output.split(";",maxsplit=4)
+        (squeue_time,requeueable,min_time,comment) = ["","","",""]
         try:
             (squeue_time,requeueable,min_time,comment) = squeue_output
         except ValueError:
@@ -593,7 +655,6 @@ def init():
                 "Unable to get metadata from Slurm..."
                 "using time given at submission."
             )
-            (squeue_time,requeueable,min_time,comment) = ["","","",""]
 
         # save the wall time from submission
         parameters.run.submission_wall_time_sec = parameters.run.wall_time_sec
