@@ -13,5 +13,5 @@ export PATH=${MCSCRIPT_DIR}/tools:${PATH}
 #alias cdr='cd ${MCSCRIPT_WORK_HOME}/${MCSCRIPT_RUN_PREFIX}\!*'
 
 cdr() {
-    cd ${MCSCRIPT_WORK_HOME}/${MCSCRIPT_RUN_PREFIX}$1
+    cd ${MCSCRIPT_WORK_HOME}/run$1
 }

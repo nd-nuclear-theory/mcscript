@@ -18,9 +18,6 @@
       > PATH. However, you can instead specify, e.g., a full, qualified filename
       > (i.e., including path).  See note on "Availability of Python" in INSTALL.md.
 
-      > MCSCRIPT_RUN_PREFIX (optional) specifies the prefix for run names, e.g.,
-      > set to "run" if your scripts are to be named run<XXXX>.py.
-
     Language: Python 3
 
     M. A. Caprio
@@ -72,6 +69,9 @@
     + 02/08/22 (pjf):
         - Fix script extension selection.
         - Switch from subprocess.Popen to subprocess.run.
+    + 07/02/22 (pjf):
+        - Force run_prefix="run".
+        - Warn if MCSCRIPT_RUN_PREFIX still defined.
 """
 
 import argparse
@@ -218,9 +218,12 @@ else:
     launch_home = work_home
 
 if ("MCSCRIPT_RUN_PREFIX" in os.environ):
-    run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
-else:
-    run_prefix = "run"
+    # run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
+    print("****************************************************************")
+    print("MCSCRIPT_RUN_PREFIX is now ignored.")
+    print("Runs MUST use the prefix 'run`.")
+    print("****************************************************************")
+run_prefix = "run"
 
 if ("MCSCRIPT_PYTHON" in os.environ):
     python_executable = os.environ["MCSCRIPT_PYTHON"]
