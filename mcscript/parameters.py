@@ -24,6 +24,9 @@
 import os
 import time
 
+from . import config
+import mcscript
+
 ################################################################
 # run parameters object
 ################################################################
@@ -80,10 +83,10 @@ class RunParameters(object):
         # job details
         self.job_file = os.environ["MCSCRIPT_JOB_FILE"]
         self.wall_time_sec = int(os.environ["MCSCRIPT_WALL_SEC"])
-        self.num_workers = int(os.getenv("MCSCRIPT_WORKERS"))
+        self.num_workers = int(os.getenv("MCSCRIPT_WORKERS", 1))
 
         # environment definitions: executable install prefix
-        self.install_dir = os.environ["MCSCRIPT_INSTALL_HOME"]
+        self.install_dir = config.user_config.install_home
 
         # environment definitions: serial run parameters
         self.serial_threads = int(os.environ["MCSCRIPT_SERIAL_THREADS"])

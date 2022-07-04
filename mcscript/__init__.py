@@ -23,11 +23,11 @@
 #   import package.submodule
 #   from package.submodule import *
 
-# load parameters
-from . import parameters
-
 # load local hooks
 from . import config
+
+# load parameters
+from . import parameters
 
 # load control functions
 #   imported into global namespace

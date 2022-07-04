@@ -11,14 +11,15 @@
       mcscript_local_ndcrc.py (originated ~7/13 and last modified
       ~12/14).
     + 02/08/22 (pjf): Add signal handling for SIGTERM.
-
+    + 07/03/22 (pjf): Remove qsubm_path from submission() signature.
 """
 
 import os
 import signal
 import sys
 
-from . import (
+from mcscript import (
+    exception,
     parameters,
     utils,
 )
@@ -30,7 +31,7 @@ from . import (
 ################################################################
 
 
-def submission(job_name,job_file,qsubm_path,environment_definitions,args):
+def submission(job_name,job_file,environment_definitions,args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -59,7 +60,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
 
     """
 
-    raise(ScriptError("no batch submission"))
+    raise(exception.ScriptError("no batch submission"))
 
 
 ################################################################

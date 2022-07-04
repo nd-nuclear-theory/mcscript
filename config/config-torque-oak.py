@@ -13,13 +13,21 @@
       from torque OpenPBS v2.3 and mpiexec from Intel MPI Library for Linux
       Version 2017:
     + 10/11/20 (pjf): Rename `--num` to `--jobs`.
-
+    + 07/03/22 (pjf):
+        - Use pkg_resources to locate job wrappers.
+        - Use python_executable from config file.
+        - Remove qsubm_path from submission() signature.
 """
 
 import math
 import os
+import pkg_resources
 
-from . import parameters
+from mcscript import (
+    config,
+    parameters,
+)
+import mcscript.exception
 
 ################################################################
 ################################################################
@@ -33,7 +41,7 @@ queues = {
     "oak":       ("oak", 32, 16, 16)
 }
 
-def submission(job_name, job_file, qsubm_path, environment_definitions, args):
+def submission(job_name, job_file, environment_definitions, args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -149,13 +157,21 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     #
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
-    if "csh" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
-    elif "bash" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+    if "csh" in os.environ.get("SHELL", ""):
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/csh_job_wrapper.csh"
+        )
+    elif "bash" in os.environ.get("SHELL", ""):
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/bash_job_wrapper.sh"
+        )
+    else:
+        raise mcscript.exception.ScriptError(
+            f"unknown shell {os.environ.get('SHELL')}"
+        )
     submission_invocation += [
         "-F",  # specifies command line arguments to (wrapper) script
-        "{} {}".format(os.environ["MCSCRIPT_PYTHON"],job_file),  # all arguments to (wrapper) script as single string (with spaces between arguments)
+        "{} {}".format(config.user_config.python_executable,job_file),  # all arguments to (wrapper) script as single string (with spaces between arguments)
         job_wrapper  # the (wrapper) script itself
     ]
 

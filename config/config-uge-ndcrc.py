@@ -18,7 +18,10 @@
       - Pass entire environment.
       - Completely rewrite mapping and binding logic.
     + 10/11/20 (pjf): Rename `--num` to `--jobs`.
-
+    + 07/03/22 (pjf):
+        - Use pkg_resources to locate job wrappers.
+        - Use python_executable from config file.
+        - Remove qsubm_path from submission() signature.
 """
 
 # Notes:
@@ -69,8 +72,12 @@
 
 import math
 import os
+import pkg_resources
 
-from . import parameters
+from mcscript import (
+    config,
+    parameters,
+)
 
 
 queues = {
@@ -91,7 +98,7 @@ queues = {
 ################################################################
 ################################################################
 
-def submission(job_name, job_file, qsubm_path, environment_definitions, args):
+def submission(job_name, job_file, environment_definitions, args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -190,13 +197,22 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     #
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
-    if "csh" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
-    elif "bash" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+    if "csh" in os.environ.get("SHELL", ""):
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/csh_job_wrapper.csh"
+        )
+    elif "bash" in os.environ.get("SHELL", ""):
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/bash_job_wrapper.sh"
+        )
+    else:
+        job_wrapper = None
+
+    if job_wrapper:
+        submission_invocation += [job_wrapper]
+
     submission_invocation += [
-        job_wrapper,
-        os.environ["MCSCRIPT_PYTHON"],
+        config.user_config.python_executable,
         job_file
     ]
 

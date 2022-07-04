@@ -48,6 +48,9 @@
     + 07/01/22 (pjf):
         - Use cluster_specs as configuration, removing most special case traps.
         - Update to support both Cori and Perlmutter.
+    + 07/03/22 (pjf):
+        - Use pkg_resources to locate job wrappers.
+        - Remove qsubm_path from submission() signature.
 """
 
 # Notes:
@@ -62,6 +65,7 @@
 
 import datetime
 import os
+import pkg_resources
 import sys
 import math
 import signal
@@ -70,10 +74,13 @@ import shutil
 import re
 from tabnanny import verbose
 
-from . import control
-from . import exception
-from . import parameters
-from . import utils
+from mcscript import (
+    control,
+    exception,
+    parameters,
+    utils,
+    config,
+)
 
 
 cluster_specs = {
@@ -230,7 +237,7 @@ def qsubm_arguments(parser):
     )
 
 
-def submission(job_name,job_file,qsubm_path,environment_definitions,args):
+def submission(job_name,job_file,environment_definitions,args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -406,14 +413,18 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
     if "csh" in os.environ.get("SHELL", ""):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/csh_job_wrapper.csh"
+        )
     elif "bash" in os.environ.get("SHELL", ""):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/bash_job_wrapper.sh"
+        )
     else:
-        job_wrapper = ""
-    submission_invocation += [
-        job_wrapper,
-    ]
+        job_wrapper = None
+
+    if job_wrapper:
+        submission_invocation += [job_wrapper]
 
     # use GNU parallel to launch multiple workers per job
     if args.workers > 1:
@@ -426,16 +437,13 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             "--delay={:d}".format(5),
             "--line-buffer",
             "--tag",
-            "{mcscript_python:s} {job_file:s}".format(
-                mcscript_python=os.environ["MCSCRIPT_PYTHON"],
-                job_file=job_file
-            ),
+            f"{config.user_config.python_executable:s} {job_file:s}",
             ":::",
             " ".join(map("worker{:02d}".format,range(args.workers))),
         ]
     else:
         submission_invocation += [
-            os.environ["MCSCRIPT_PYTHON"],
+            config.user_config.python_executable,
             job_file
         ]
 
