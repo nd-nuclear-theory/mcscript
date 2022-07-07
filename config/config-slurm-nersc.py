@@ -48,6 +48,7 @@
     + 07/01/22 (pjf):
         - Use cluster_specs as configuration, removing most special case traps.
         - Update to support both Cori and Perlmutter.
+    + 07/07/22 (pjf): Get hostname with `hostname` command.
 """
 
 # Notes:
@@ -639,6 +640,11 @@ def init():
 
     # get extract metadata from Slurm
     if job_id() != "0":
+        # get hostname
+        parameters.run.host_name = subprocess.run(
+            ["hostname"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        ).stdout.strip()
+
         # query Slurm with `squeue`
         squeue_output = subprocess.run(
             ["squeue", "-h", "-j", job_id(), "-O", "TimeLeft:0;,Requeue:1;,MinTime:0;,Comment:0"],

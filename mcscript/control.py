@@ -51,10 +51,18 @@ def init():
     """
 
     # retrieve job information
-
     parameters.run.populate()
     parameters.run.job_id = config.job_id()
 
+    # make and cd to scratch directory
+    if not os.path.exists(parameters.run.work_dir):
+        subprocess.call(["mkdir", "--parents", parameters.run.work_dir])
+    os.chdir(parameters.run.work_dir)
+
+    # invoke local init
+    config.init()
+
+    # print run information
     if parameters.run.verbose:
         print("")
         print("-"*64)
@@ -63,15 +71,6 @@ def init():
         print(utils.time_stamp())
         sys.stdout.flush()
 
-    # make and cd to scratch directory
-
-    if not os.path.exists(parameters.run.work_dir):
-        subprocess.call(["mkdir", "--parents", parameters.run.work_dir])
-    os.chdir(parameters.run.work_dir)
-
-    # invoke local init
-
-    config.init()
 
 ################################################################
 # termination code
