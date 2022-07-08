@@ -23,6 +23,7 @@
     - 11/05/19 (pjf): Restore redirection of subprocess output.
     - 02/08/22 (pjf): Add loaded_modules().
     - 02/12/22 (pjf): Add status information to termination().
+    - 07/07/22 (pjf): Ensure that termination() actually terminates interpreter.
 """
 
 import enum
@@ -98,6 +99,8 @@ def termination(success=True, complete=True):
         print(utils.time_stamp())
         print("-"*64)
     sys.stdout.flush()
+
+    sys.exit(0 if success else 1)
 
 
 ################################################################

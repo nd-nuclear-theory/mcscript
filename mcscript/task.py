@@ -95,6 +95,7 @@
         - Catch and raise exceptions at various levels in the call stack, doing
           clean-up tasks along the way.
     + 02/25/22 (pjf): Add "resumed" flag to task metadata.
+    + 07/07/22 (pjf): Improve handling of exceptions to make logs more useful.
 """
 
 import datetime
@@ -106,6 +107,7 @@ import sys
 import time
 import inspect
 import fnmatch
+import traceback
 import typing
 
 
@@ -1096,7 +1098,7 @@ def do_task(task_parameters,task,phase_handlers):
         raise
     except BaseException as err:
         # on failure, flag failure and propagate exception so script terminates
-        print("Exception:", err)
+        traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__, file=sys.stdout)
         if task_mode is TaskMode.kRun:
             # process timing
             task_end_time = time.time()
@@ -1230,6 +1232,9 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
         except exception.LockContention:
             print("(Task yielded)")
             timer.cancel_timer()
+        except exception.InsufficientTime:
+            print("(Task incomplete)")
+            raise
         finally:
             task_time = timer.stop_timer()
             print("(Task time: {:.2f} sec [={:.2f} min])".format(task_time, task_time/60))
@@ -1282,10 +1287,9 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
         except exception.InsufficientTime:
             # consider an early termination to be successful
             control.termination(success=True, complete=False)
-            raise
         except BaseException as err:
+            traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__)
             control.termination(success=False)
-            raise
     else:
         raise(exception.ScriptError("Unsupported run mode: {:s}".format(task_mode)))
 

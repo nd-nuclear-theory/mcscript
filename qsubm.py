@@ -470,4 +470,5 @@ elif (run_mode == "local"):
         popen_args = ["csh", job_file]
     print()
     print("-"*64)
-    subprocess.run(popen_args, cwd=launch_dir, env=job_environ)
+    process = subprocess.run(popen_args, cwd=launch_dir, env=job_environ)
+    sys.exit(process.returncode)
