@@ -48,7 +48,9 @@
     + 07/01/22 (pjf):
         - Use cluster_specs as configuration, removing most special case traps.
         - Update to support both Cori and Perlmutter.
-    + 07/07/22 (pjf): Get hostname with `hostname` command.
+    + 07/07/22 (pjf):
+        - Get hostname with `hostname` command.
+        - Use core specialization only when supported.
 """
 
 # Notes:
@@ -83,6 +85,7 @@ cluster_specs = {
         "node_types": {
             "haswell": {
                 "constraint": "haswell",
+                "core_specialization": True,
                 "queues": ["regular", "shared", "interactive", "debug", "premium", "flex", "overrun"],
                 "cores_per_node": 32,
                 "threads_per_core": 2,
@@ -91,6 +94,7 @@ cluster_specs = {
                 "nodes_per_switch": 384,
             },
             "mic-knl": {
+                "core_specialization": True,
                 "constraint": "knl,quad,cache",
                 "queues": ["regular", "interactive", "debug", "premium", "low", "flex", "overrun"],
                 "cores_per_node": 68,
@@ -101,6 +105,7 @@ cluster_specs = {
             },
             "cmem": {
                 "constraint": "amd",
+                "core_specialization": True,
                 "queues": ["bigmem", "interactive", "shared"],
                 "cores_per_node": 32,
                 "threads_per_core": 2,
@@ -115,6 +120,7 @@ cluster_specs = {
         "node_types": {
             "cpu": {
                 "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "core_specialization": False,
                 "constraint": "cpu",
                 "cores_per_node": 128,
                 "threads_per_core": 2,
@@ -124,6 +130,7 @@ cluster_specs = {
             },
             "gpu": {
                 "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "core_specialization": False,
                 "constraint": "gpu",
                 "cores_per_node": 64,
                 "threads_per_core": 2,
@@ -359,7 +366,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         submission_invocation += ["--comment=AccumulatedTime:{}".format(0)]
 
     # core specialization
-    if args.nodes > 1:
+    if (node_spec["core_specialization"]) and (args.nodes > 1):
         submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
 
     # job array for repetitions
