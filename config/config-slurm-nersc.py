@@ -650,7 +650,7 @@ def init():
         # get hostname
         parameters.run.host_name = subprocess.run(
             ["hostname"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        ).stdout.strip()
+        ).stdout.decode().strip()
 
         # query Slurm with `squeue`
         squeue_output = subprocess.run(
