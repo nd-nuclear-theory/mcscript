@@ -72,6 +72,9 @@
     + 07/02/22 (pjf):
         - Force run_prefix="run".
         - Warn if MCSCRIPT_RUN_PREFIX still defined.
+    + 07/14/22 (pjf):
+        - Add `--edit` mode.
+        - Update xterm title when running directly.
 """
 
 import argparse
@@ -139,6 +142,7 @@ hybrid_group.add_argument("--nodesize", type=int, default=0, help="logical threa
 
 # multi-task interface: invocation modes
 task_mode_group = parser.add_mutually_exclusive_group()
+task_mode_group.add_argument("--edit", action="store_true", help="Edit run script using EDITOR")
 task_mode_group.add_argument("--toc", action="store_true", help="Invoke run script to generate task table of contents")
 task_mode_group.add_argument("--unlock", action="store_true", help="Delete any .lock or .fail flags for tasks")
 task_mode_group.add_argument("--archive", action="store_true", help="Invoke archive-generation run")
@@ -300,7 +304,10 @@ environment_definitions += [
 
 
 # set multi-task run parameters
-if (args.toc):
+if (args.edit):
+    editor = os.environ.get("EDITOR", "vi")
+    os.execlp(editor, editor, job_file)
+elif (args.toc):
     task_mode = mcscript.task.TaskMode.kTOC
 elif (args.unlock):
     task_mode = mcscript.task.TaskMode.kUnlock
@@ -470,5 +477,7 @@ elif (run_mode == "local"):
         popen_args = ["csh", job_file]
     print()
     print("-"*64)
+    if task_mode is mcscript.task.TaskMode.kRun:
+        print(f"\033]2;qsubm {run}\007")
     process = subprocess.run(popen_args, cwd=launch_dir, env=job_environ)
     sys.exit(process.returncode)
