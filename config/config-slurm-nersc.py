@@ -51,6 +51,7 @@
     + 07/07/22 (pjf):
         - Get hostname with `hostname` command.
         - Use core specialization only when supported.
+    + 07/14/22 (pjf): Only load esslurm on Cori.
 """
 
 # Notes:
@@ -373,7 +374,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     if args.jobs > 1:
         submission_invocation += ["--array={:g}-{:g}".format(0, args.jobs-1)]
 
-    if args.queue in ["xfer", "compile"]:
+    if (nersc_host == "cori") and (args.queue in ["xfer", "compile"]):
         control.module(["load", "esslurm"])
     elif args.queue in node_spec["queues"]:
         # target cpu
@@ -677,7 +678,7 @@ def init():
             parameters.run.wall_time_sec = slurm_time_to_seconds(squeue_time)
         except ValueError as err:
             print(err)
-            print("Remaining time from squeue: {:s}".format(squeue_output))
+            print("Remaining time from squeue: {:s}".format(squeue_time))
             print(
                 "Unable to get remaining time from Slurm..."
                 "using time given at submission."
