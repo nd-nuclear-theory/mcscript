@@ -1227,20 +1227,19 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
         sys.stdout.flush()
 
         # execute task
+        task_time = 0
         try:
             do_task(task_parameters,task,phase_handlers)
         except exception.LockContention:
             print("(Task yielded)")
-            try:  # debugging 07/16/22 (mac)
-                timer.cancel_timer()
-            except Exception as err:
-                print("DEBUG: after exception.LockContention, timer.cancel_timer() raised exception {}".format(err))
-                raise err
+            timer.cancel_timer()
         except exception.InsufficientTime:
             print("(Task incomplete)")
-            raise
-        finally:
             task_time = timer.stop_timer()
+            raise
+        else:
+            task_time = timer.stop_timer()
+        finally:
             print("(Task time: {:.2f} sec [={:.2f} min])".format(task_time, task_time/60))
             # tally
             task_count += 1
