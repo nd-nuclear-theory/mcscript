@@ -1231,7 +1231,11 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
             do_task(task_parameters,task,phase_handlers)
         except exception.LockContention:
             print("(Task yielded)")
-            timer.cancel_timer()
+            try:  # debugging 07/16/22 (mac)
+                timer.cancel_timer()
+            except Exception as err:
+                print("DEBUG: after exception.LockContention, timer.cancel_timer() raised exception {}".format(err))
+                raise err
         except exception.InsufficientTime:
             print("(Task incomplete)")
             raise
