@@ -52,6 +52,7 @@
         - Get hostname with `hostname` command.
         - Use core specialization only when supported.
     + 07/14/22 (pjf): Only load esslurm on Cori.
+    + 08/05/22 (pjf): Fix job_id() for array jobs.
 """
 
 # Notes:
@@ -364,6 +365,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     if args.time_min:
         submission_invocation += ["--time-min={}".format(args.time_min)]
         submission_invocation += ["--requeue"]
+        submission_invocation += ["--open-mode=append"]
         submission_invocation += ["--comment=AccumulatedTime:{}".format(0)]
 
     # core specialization
@@ -471,6 +473,10 @@ def job_id():
 
     Returns job id (as string), or "0" if missing.
     """
+
+    # return masterID_index form if applicable
+    if os.environ.get("SLURM_ARRAY_JOB_ID") and os.environ.get("SLURM_ARRAY_TASK_ID"):
+        return os.environ["SLURM_ARRAY_JOB_ID"]+"_"+os.environ["SLURM_ARRAY_TASK_ID"]
 
     return os.environ.get("SLURM_JOB_ID","0")
 
@@ -659,16 +665,17 @@ def init():
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             universal_newlines=True
             ).stdout.strip()
-        squeue_output = squeue_output.split(";",maxsplit=4)
-        (squeue_time,requeueable,min_time,comment) = ["","","",""]
+        squeue_output_tokens = squeue_output.split(";",maxsplit=4)
         try:
-            (squeue_time,requeueable,min_time,comment) = squeue_output
+            (squeue_time,requeueable,min_time,comment) = squeue_output_tokens
         except ValueError:
-            print("squeue output:", ";".join(squeue_output))
+            print("squeue output:", squeue_output)
+            print("squeue output (tokenized):", squeue_output_tokens)
             print(
                 "Unable to get metadata from Slurm..."
                 "using time given at submission."
             )
+            (squeue_time,requeueable,min_time,comment) = ["","","",""]
 
         # save the wall time from submission
         parameters.run.submission_wall_time_sec = parameters.run.wall_time_sec
