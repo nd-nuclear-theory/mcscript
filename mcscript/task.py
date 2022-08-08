@@ -96,6 +96,7 @@
           clean-up tasks along the way.
     + 02/25/22 (pjf): Add "resumed" flag to task metadata.
     + 07/07/22 (pjf): Improve handling of exceptions to make logs more useful.
+    + 08/08/22 (pjf): Clean up LockContention handling.
 """
 
 import datetime
@@ -1228,24 +1229,22 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
 
         # execute task
         task_time = 0
+        task_yielded = False
         try:
             do_task(task_parameters,task,phase_handlers)
         except exception.LockContention:
             print("(Task yielded)")
+            task_yielded = True
             timer.cancel_timer()
         except exception.InsufficientTime:
             print("(Task incomplete)")
-            task_time = timer.stop_timer()
             raise
-        except:
-            task_time = timer.stop_timer()
-            raise
-        else:
-            task_time = timer.stop_timer()
         finally:
+            if not task_yielded:
+                task_time = timer.stop_timer()
+                # tally
+                task_count += 1
             print("(Task time: {:.2f} sec [={:.2f} min])".format(task_time, task_time/60))
-            # tally
-            task_count += 1
 
 
 def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers):
