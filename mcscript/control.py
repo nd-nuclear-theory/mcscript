@@ -24,6 +24,7 @@
     - 02/08/22 (pjf): Add loaded_modules().
     - 02/12/22 (pjf): Add status information to termination().
     - 07/07/22 (pjf): Ensure that termination() actually terminates interpreter.
+    - 08/05/22 (pjf): Handle SIGINT and SIGTERM signals correctly.
 """
 
 import enum
@@ -50,6 +51,10 @@ def init():
     Global variable:
         run (RunParameters): Record of run parameters from environment.
     """
+
+    # handle signals gracefully -- may be overridden by local init
+    signal.signal(signal.SIGINT, utils.TaskTimer.handle_exit_signal)
+    signal.signal(signal.SIGTERM, lambda signalnum, frame: termination(success=False, complete=False))
 
     # retrieve job information
     parameters.run.populate()
@@ -85,6 +90,10 @@ def termination(success=True, complete=True):
         success (bool, optional): whether the job is terminating in a success state
         complete (bool, optional): whether the job completed all assigned work
     """
+
+    # ignore any futher signals, we're terminating
+    signal.signal(signal.SIGINT, lambda signalnum, frame: None)
+    signal.signal(signal.SIGTERM, lambda signalnum, frame: None)
 
     # invoke local termination
     config.termination(success, complete)
