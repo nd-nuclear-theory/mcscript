@@ -1237,6 +1237,9 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
             print("(Task incomplete)")
             task_time = timer.stop_timer()
             raise
+        except:
+            task_time = timer.stop_timer()
+            raise
         else:
             task_time = timer.stop_timer()
         finally:
