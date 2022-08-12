@@ -25,6 +25,7 @@
     - 02/12/22 (pjf): Add status information to termination().
     - 07/07/22 (pjf): Ensure that termination() actually terminates interpreter.
     - 08/05/22 (pjf): Handle SIGINT and SIGTERM signals correctly.
+    - 08/14/22 (pjf): Add delay between FileWatchdog restarts.
 """
 
 import enum
@@ -359,6 +360,7 @@ def call(
             if file_watchdog_failures > file_watchdog_restarts:
                 raise err
             print("File watchdog failure: will attempt restart {:d}/{:d}".format(file_watchdog_failures, file_watchdog_restarts))
+            time.sleep(5)
         else:
             completed = True
 
