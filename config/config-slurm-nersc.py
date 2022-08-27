@@ -238,6 +238,10 @@ def qsubm_arguments(parser):
         "--switchwaittime", type=str, default="12:00:00",
         help="maximum time to wait for switch count; 0 disables constraint"
     )
+    group.add_argument(
+        "--licenses", type=str, default="scratch,cfs",
+        help="licenses to request for job"
+    )
 
 
 def submission(job_name,job_file,qsubm_path,environment_definitions,args):
@@ -391,7 +395,8 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         submission_invocation += ["--nodes={}".format(args.nodes*args.workers)]
 
     # miscellaneous options
-    license_list = ["SCRATCH", "cfs"]
+    ## license_list = ["SCRATCH", "cfs"]
+    license_list = args.licenses.split(",")
     submission_invocation += ["--licenses={}".format(",".join(license_list))]
 
     if args.account is not None:
