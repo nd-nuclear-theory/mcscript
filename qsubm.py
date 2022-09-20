@@ -75,6 +75,7 @@
     + 07/14/22 (pjf):
         - Add `--edit` mode.
         - Update xterm title when running directly.
+    + 09/20/22 (pjf): Use os.exec instead of subprocess for local run_mode.
 """
 
 import argparse
@@ -479,5 +480,5 @@ elif (run_mode == "local"):
     print("-"*64)
     if task_mode is mcscript.task.TaskMode.kRun:
         print(f"\033]2;qsubm {run}\007")
-    process = subprocess.run(popen_args, cwd=launch_dir, env=job_environ)
-    sys.exit(process.returncode)
+    os.chdir(launch_dir)
+    os.execvpe(popen_args[0], popen_args, env=job_environ)
