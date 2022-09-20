@@ -97,7 +97,9 @@
     + 02/25/22 (pjf): Add "resumed" flag to task metadata.
     + 07/07/22 (pjf): Improve handling of exceptions to make logs more useful.
     + 08/08/22 (pjf): Clean up LockContention handling.
-    + 09/20/22 (pjf): Print masked task flags as lowercase.
+    + 09/20/22 (pjf):
+        - Print masked task flags as lowercase.
+        - Include list of pools in toc.
 """
 
 import datetime
@@ -658,6 +660,14 @@ def task_toc(task_list,task_statuses,phase_handlers,color=False):
         phase_summary = "{}".format(phase_docstring).splitlines()[0]
         lines.append("  Phase {:d} summary: {:s}".format(task_phase, phase_summary))
 
+    pool_list = {task["metadata"]["pool"]: None for task in task_list if task["metadata"]["pool"]}.keys()
+    lines.append("Pools: {:d}".format(len(pool_list)))
+    lines.append(" ")
+    for task_pool in pool_list:
+        if len(lines[-1])+len(task_pool)+1 >= 80:  # wrap lines at 80 columns
+            lines.append(" ")
+        lines[-1] += " " + task_pool
+
     lines.append("Tasks: {:d}".format(len(task_list)))
     for task_index,task in enumerate(task_list):
 
@@ -902,6 +912,7 @@ def write_toc(task_list,task_statuses,phase_handlers):
     toc_filename = "{}.toc".format(parameters.run.name)
     toc_stream = open(toc_filename, "w")
     toc_stream.write(task_toc(task_list,task_statuses,phase_handlers,color=False))
+    toc_stream.write("\n")
     toc_stream.close()
 
     # return filename
