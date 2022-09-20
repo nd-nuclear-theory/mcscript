@@ -97,6 +97,7 @@
     + 02/25/22 (pjf): Add "resumed" flag to task metadata.
     + 07/07/22 (pjf): Improve handling of exceptions to make logs more useful.
     + 08/08/22 (pjf): Clean up LockContention handling.
+    + 09/20/22 (pjf): Print masked task flags as lowercase.
 """
 
 import datetime
@@ -663,16 +664,24 @@ def task_toc(task_list,task_statuses,phase_handlers,color=False):
         # retrieve task properties
         task_pool = task["metadata"]["pool"]
         task_descriptor = task["metadata"]["descriptor"]
+        task_masks = task["metadata"]["masks"]
 
         # assemble line
         fields = [index_str(task_index), task_pool]
         if color:
             fields += [
-                k_task_status_color_codes[status] + status.value + k_reset_color_code
-                for status in task_statuses[task_index]
+                (
+                    k_task_status_color_codes[status] 
+                    + (status.value if mask else status.value.lower()) 
+                    + k_reset_color_code
+                )
+                for mask,status in zip(task_masks,task_statuses[task_index])
                 ]
         else:
-            fields += [status.value for status in task_statuses[task_index]]
+            fields += [
+                (status.value if mask else status.value.lower())
+                for mask,status in zip(task_masks,task_statuses[task_index])
+            ]
         fields += [task_descriptor]
 
         # accumulate line
