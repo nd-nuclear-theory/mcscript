@@ -53,6 +53,7 @@
         - Use core specialization only when supported.
     + 07/14/22 (pjf): Only load esslurm on Cori.
     + 08/05/22 (pjf): Fix job_id() for array jobs.
+    + 09/20/22 (pjf): Prevent use of `--jobs` with `--time-min`.
 """
 
 # Notes:
@@ -340,6 +341,14 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             raise exception.ScriptError(
                 "--node-type={:s} does not match CRAY_CPU_TARGET={:s}".format(
                     node_type, os.environ.get("CRAY_CPU_TARGET", "")
+                )
+            )
+
+        # check for multiple workers with requeueable jobs
+        if args.time_min and (args.workers > 1):
+            raise exception.ScriptError(
+                "--time-min={} will lead to early task termination when used with --workers={}".format(
+                    args.time_min, args.workers
                 )
             )
     except exception.ScriptError as err:
