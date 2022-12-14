@@ -77,6 +77,7 @@
         - Use exception.LockContention to allow do_task() to yield on lock clash.
     + 08/16/20 (pjf): Correctly handle empty file list in save_results_multi().
     + 10/01/20 (pjf): Call tar with --sort=name so that archives have deterministic structure.
+    + 10/09/20 (pjf): Add logic to archive_handler_hsi() to split large archives.
     + 10/11/20 (pjf): Add random value to locking protocol, to avoid clashes between
         workers within a job.
     + 12/07/20 (pjf): Write task descriptor to flag files.
@@ -560,12 +561,16 @@ def archive_handler_subarchives(archive_parameters_list):
 def archive_handler_no_results():
     return archive_handler_generic(include_results=False)
 
-def archive_handler_hsi(archive_filename_list=None):
+def archive_handler_hsi(archive_filename_list=None, max_size=2**41, segment_size=2**39):
     """Save archive to tape.
 
     Arguments:
         archive_filename: (list of str, optional) names of files to move to tape;
             generate standard archive if omitted
+        max_size (int, optional): maximum size (in bytes) of an archive which will
+            be store to tape without being split; defaults to 2**41 B = 2 TiB
+        segment_size (int, optional): size of segments (in bytes) for split
+            archives; defaults to 2**39 B = 512 GiB = 0.5 TiB
 
     Returns:
         (list of str): names of files moved to tape (for convenience of calling
@@ -579,12 +584,29 @@ def archive_handler_hsi(archive_filename_list=None):
     # put to hsi
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
     for archive_filename in archive_filename_list:
-        hsi_argument = "lcd {archive_directory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
-            archive_filename=os.path.basename(archive_filename),
-            archive_directory=os.path.dirname(archive_filename),
-            hsi_subdir=hsi_subdir
-        )
-        control.call(["hsi",hsi_argument])
+        archive_size = os.path.getsize(archive_filename)
+        if archive_size > max_size:
+            # split archive if larger than max_size
+            hsi_argument = "put -P - : {hsi_subdir}/$FILE".format(hsi_subdir=hsi_subdir)
+            control.call(
+                [
+                    "split",
+                    "-d",  # numeric suffixes
+                    "--bytes={:d}".format(segment_size),
+                    '--filter=hsi -q "{hsi_argument}'.format(hsi_argument=hsi_argument),
+                    os.path.relpath(archive_filename),
+                    os.path.basename(archive_filename)+"."
+                ],
+                check_return=True
+            )
+        else:
+            # directly put to hsi otherwise
+            hsi_argument = "put -P {archive_filename} : {hsi_subdir}/{archive_basename}".format(
+                archive_filename=os.path.relpath(archive_filename),
+                archive_basename=os.path.basename(archive_filename),
+                hsi_subdir=hsi_subdir
+            )
+            control.call(["hsi", "-q", hsi_argument])
 
     return archive_filename_list
 
