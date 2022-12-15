@@ -54,6 +54,7 @@
     + 07/14/22 (pjf): Only load esslurm on Cori.
     + 08/05/22 (pjf): Fix job_id() for array jobs.
     + 09/20/22 (pjf): Prevent use of `--jobs` with `--time-min`.
+    + 12/15/22 (mac): Revert default license to uppercase SCRATCH on Cori.
 """
 
 # Notes:
@@ -239,8 +240,12 @@ def qsubm_arguments(parser):
         "--switchwaittime", type=str, default="12:00:00",
         help="maximum time to wait for switch count; 0 disables constraint"
     )
+    if nersc_host == "cori":
+        default_licenses = "SCRATCH,cfs"
+    else:
+        default_licenses = "scratch,cfs"
     group.add_argument(
-        "--licenses", type=str, default="scratch,cfs",
+        "--licenses", type=str, default=default_licenses,
         help="licenses to request for job"
     )
 
