@@ -101,6 +101,7 @@
     + 09/20/22 (pjf):
         - Print masked task flags as lowercase.
         - Include list of pools in toc.
+    + 12/15/22 (pjf): Add archive_handler_subarchives_hsi().
 """
 
 import datetime
@@ -112,11 +113,13 @@ import sys
 import time
 import inspect
 import fnmatch
+import subprocess
 import traceback
 import typing
 
 
 from . import (
+    config,
     control,
     exception,
     parameters,
@@ -479,8 +482,33 @@ def archive_handler_automagic(include_results=True):
 
     return archive_filename_list
 
+def subarchive_filename(archive_parameters):
+    # extract parameters
+    postfix = archive_parameters["postfix"]
+    paths = archive_parameters["paths"]
+    compress = archive_parameters.get("compress",False)
+    include_metadata = archive_parameters.get("include_metadata",False)
+
+    # construct archive filename
+    extension = ".tgz" if compress else ".tar"
+    archive_filename = os.path.join(
+        archive_dir,
+        "{:s}-archive-{:s}{:s}{:s}".format(parameters.run.name,utils.date_tag(),postfix,extension)
+        )
+
+    # check that at least some contents exist (else return None)
+    available_paths = []
+    for path in paths:
+        if os.path.exists(path):
+            available_paths.append(path)
+    if (len(available_paths)==0) and (not include_metadata):
+        print(f"None of paths {paths} available and no request to save metadata.  Skipping archive {archive_filename}...")
+        return None
+
+    return archive_filename
+
 def archive_handler_subarchives(archive_parameters_list):
-    """Make sepearate archives of specified results subdirectories, plus metadata.
+    """Make separate archives of specified results subdirectories, plus metadata.
 
     That is, each archive contains all files or a single subdirectory of the
     results directory, plus all metadata (i.e. everything except the archive
@@ -514,34 +542,22 @@ def archive_handler_subarchives(archive_parameters_list):
     for archive_parameters in archive_parameters_list:
 
         # extract parameters
-        postfix = archive_parameters["postfix"]
         paths = archive_parameters["paths"]
         compress = archive_parameters.get("compress",False)
         include_metadata = archive_parameters.get("include_metadata",False)
 
-        # construct archive filename
-        extension = ".tgz" if compress else ".tar"
-        archive_filename = os.path.join(
-            archive_dir,
-            "{:s}-archive-{:s}{:s}{:s}".format(parameters.run.name,utils.date_tag(),postfix,extension)
-            )
-        print("Archive: {}".format(archive_filename))
-
-        # check that at least some contents exist (else skip)
-        available_paths = []
-        for path in paths:
-            if (os.path.isdir(path)):
-                available_paths.append(path)
-        if ((len(available_paths)==0) and (not include_metadata)):
-            print("None of paths {} available and no request to save metadata.  Skipping archive...".format(paths))
+        # get archive filename
+        archive_filename = subarchive_filename(archive_parameters)
+        if archive_filename is None:
             continue
-        archive_filename_list.append(archive_filename)
+        archive_filename_list += archive_filename
+        print("Archive: {}".format(archive_filename))
 
         # construct archive
         filename_list = [toc_filename]
         if (include_metadata):
             filename_list += ["flags","output","batch"]
-        filename_list += available_paths
+        filename_list += paths
         tar_flags = "zcvf" if compress else "cvf"
         control.call(
             [
@@ -587,11 +603,13 @@ def archive_handler_hsi(archive_filename_list=None, max_size=2**41, segment_size
         archive_size = os.path.getsize(archive_filename)
         if archive_size > max_size:
             # split archive if larger than max_size
-            hsi_argument = "put -P - : {hsi_subdir}/$FILE".format(hsi_subdir=hsi_subdir)
+            hpss_cos = config.hpss_cos(segment_size)
+            hsi_argument = f"put cos={hpss_cos} -P - : {hsi_subdir}/$FILE"
             control.call(
                 [
                     "split",
                     "-d",  # numeric suffixes
+                    "--verbose",
                     "--bytes={:d}".format(segment_size),
                     '--filter=hsi -q "{hsi_argument}'.format(hsi_argument=hsi_argument),
                     os.path.relpath(archive_filename),
@@ -607,6 +625,134 @@ def archive_handler_hsi(archive_filename_list=None, max_size=2**41, segment_size
                 hsi_subdir=hsi_subdir
             )
             control.call(["hsi", "-q", hsi_argument])
+
+    return archive_filename_list
+
+def archive_handler_subarchives_hsi(archive_parameters_list, max_size=2**41, segment_size=2**39):
+    """Save subarchives to tape.
+
+    This function uses named pipes (via os.mkfifo) to avoid writing temporary
+    archive files to disk.
+
+    Arguments:
+        archive_filename: (list of str, optional) names of files to move to tape;
+            generate standard archive if omitted
+        max_size (int, optional): maximum size (in bytes) of an archive which will
+            be store to tape without being split; defaults to 2**41 B = 2 TiB
+        segment_size (int, optional): size of segments (in bytes) for split
+            archives; defaults to 2**39 B = 512 GiB = 0.5 TiB
+
+    Returns:
+        (list of str): names of files moved to tape (for convenience of calling
+            function if wrapped in larger task handler)
+    """
+
+    toc_filename = "{}.toc".format(parameters.run.name)
+    hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
+    archive_filename_list = []
+    for archive_parameters in archive_parameters_list:
+
+        # extract parameters
+        paths = archive_parameters["paths"]
+        compress = archive_parameters.get("compress",False)
+        include_metadata = archive_parameters.get("include_metadata",False)
+
+        # get archive filename
+        archive_filename = subarchive_filename(archive_parameters)
+        if archive_filename is None:
+            continue
+        archive_filename_list += archive_filename
+        print("----------------------------------------------------------------")
+        print("Archive: {}".format(archive_filename))
+
+        # create named pipes for archives
+        os.mkfifo(archive_filename)
+
+        # construct hsi command
+        print("Determining archive size...")
+        sys.stdout.flush()
+        archive_size = sum(map(utils.get_directory_size, paths))
+        print(f"Archive size: {archive_size} bytes")
+        if archive_size > max_size:
+            # split archive if larger than max_size
+            print(f"Archive larger than {max_size} bytes; splitting into {segment_size} segments.")
+            hpss_cos = config.hpss_cos(segment_size)
+            hsi_argument = f"cos = {hpss_cos}; put -P - : {hsi_subdir}/$FILE"
+            invocation = [
+                "split",
+                "-d",  # numeric suffixes
+                "--verbose",
+                "--bytes={:d}".format(segment_size),
+                '--filter=hsi -q "{hsi_argument}"'.format(hsi_argument=hsi_argument),
+                os.path.relpath(archive_filename),
+                os.path.basename(archive_filename)+"."
+            ]
+        else:
+            # directly put to hsi otherwise
+            hpss_cos = config.hpss_cos(archive_size)
+            hsi_argument = 'cos = {hpss_cos}; put -P "|cat {archive_filename}" : {hsi_subdir}/{archive_basename}'.format(
+                hpss_cos=hpss_cos,
+                archive_filename=os.path.relpath(archive_filename),
+                archive_basename=os.path.basename(archive_filename),
+                hsi_subdir=hsi_subdir
+            )
+
+            invocation = ["hsi", "-q", hsi_argument]
+
+        # log header output
+        print("----------------------------------------------------------------")
+        print("Executing external code")
+        print("Command line: {:s}".format(str(invocation)))
+        print("Call mode: {:s}".format(str(control.CallMode.kLocal)))
+        print("Start time: {:s}".format(utils.time_stamp()))
+        print("Output:")
+        sys.stdout.flush()
+
+        # launch hsi subprocess
+        hsi_process = subprocess.Popen(
+            invocation,
+            stdout=sys.stdout,
+            stderr=subprocess.STDOUT,
+        )
+
+        # construct archive
+        filename_list = [toc_filename]
+        if (include_metadata):
+            filename_list += ["flags","output","batch"]
+        filename_list += paths
+        tar_flags = "zcvf" if compress else "cvf"
+        try:
+            control.call(
+                [
+                    "tar",
+                    tar_flags,
+                    archive_filename,
+                    "--sort=name",
+                    "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
+                    "--show-transformed",
+                    "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
+                ] + filename_list,
+                cwd=parameters.run.work_dir, check_return=True
+                )
+        except:
+            hsi_process.terminate()
+            raise
+        finally:
+            # wait for hsi to finish
+            hsi_process.wait()
+            os.remove(archive_filename)
+
+
+        # handle return value
+        returncode = hsi_process.returncode
+        print("Return code: {}".format(returncode))
+        # finish logging
+        print("----------------------------------------------------------------")
+        sys.stdout.flush()  # just for good measure
+
+        # return (or abort)
+        if returncode != 0:
+            raise exception.ScriptError("nonzero return")
 
     return archive_filename_list
 
@@ -703,8 +849,8 @@ def task_toc(task_list,task_statuses,phase_handlers,color=False):
         if color:
             fields += [
                 (
-                    k_task_status_color_codes[status] 
-                    + (status.value if mask else status.value.lower()) 
+                    k_task_status_color_codes[status]
+                    + (status.value if mask else status.value.lower())
                     + k_reset_color_code
                 )
                 for mask,status in zip(task_masks,task_statuses[task_index])

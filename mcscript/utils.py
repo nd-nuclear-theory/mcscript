@@ -50,6 +50,7 @@
         + Add signal handler to TaskTimer.
         + Add diagnostic output to topological_sort().
     06/29/22 (pjf): Generalize search_in_subdirectories for multiple filenames.
+    12/15/22 (pjf): Add get_directory_size().
 """
 
 import collections
@@ -468,6 +469,21 @@ def mkdir(dirname, exist_ok=False, parents=False):
         subprocess.call(["mkdir", "--parents", dirname])
     else:
         subprocess.call(["mkdir", dirname])
+
+def get_directory_size(dirname):
+    """Get total size of directory in bytes, like `du`.
+
+    Args:
+        dirname (str): name of directory of which to compute size
+
+    Returns:
+        (int): total size of directory in bytes
+    """
+    size = 0
+    for root, dirs, files in os.walk(dirname):
+        size += sum(os.path.getsize(os.path.join(root, name)) for name in files)
+        size += sum(os.path.getsize(os.path.join(root, name)) for name in dirs)
+    return size
 
 ################################################################
 # compression

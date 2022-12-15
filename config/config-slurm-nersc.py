@@ -650,6 +650,48 @@ def openmp_setup(threads):
 
 
 ################################################################
+# HPSS Class of Service determination
+################################################################
+
+def hpss_cos(size:int) -> str:
+    """Get HPSS Class of Service for given file size.
+
+    ~~~~~~~~~~~~~~~~
+    > hsi -q 'lscos'
+
+    8 HPSS Classes of Service defined
+     COS        Name                     Exclusion Copies Subsys        Min - Max
+     ID                                    Flags            IDs        Size   Size + 1
+    ---------------------------------------------------------------------------------------
+        1 Large COS deprecated (1)            N     1    ALL            41943041 - 128MB
+        2 Large COS deprecated (2)            N     1    ALL            41943041 - 128MB
+        3 Medium COS deprecated (3)           N     1    ALL            2097153 - 40MB
+        4 Small COS                                 1    ALL            0 - 1GB
+        5 Medium COS                                1    ALL            1073741825 - 256GB
+       12 Large COS                                 1    ALL            274877906945 - 20TB
+       14 Direct Tape COS(14)                 N     1    ALL            1TB - 100TB
+       20 Medium Test COS                     N     1    ALL            64MB - 20TB
+    ---------------------------------------------------------------------------------------
+    Flags:  U/G/A - unavailable to current uid/gid/account   N-no auto assignment
+    ~~~~~~~~~~~~~~~~
+
+    Args:
+        size (int): size of file in bytes
+
+    Returns:
+        (str): Class of Service string
+    """
+    if size <= 2**30:
+        cos = 4
+    elif size <= 2**38:
+        cos = 5
+    else:
+        cos = 12
+
+    return f"{cos}"
+
+
+################################################################
 # local setup and termination hooks
 ################################################################
 
