@@ -561,20 +561,27 @@ def archive_handler_subarchives(archive_parameters_list):
 def archive_handler_no_results():
     return archive_handler_generic(include_results=False)
 
-def archive_handler_hsi(archive_filename_list=None, max_size=2**41, segment_size=2**39):
+def archive_handler_hsi(archive_filename_list=None, split_large_archives=False, max_size=2**41, segment_size=2**39):
     """Save archive to tape.
 
     Arguments:
-        archive_filename: (list of str, optional) names of files to move to tape;
+
+        archive_filename (list of str, optional): names of files to move to tape;
             generate standard archive if omitted
+
+        split_large_archives (bool, optional): whether or not to split large
+        archives into segments
+  
         max_size (int, optional): maximum size (in bytes) of an archive which will
             be store to tape without being split; defaults to 2**41 B = 2 TiB
+
         segment_size (int, optional): size of segments (in bytes) for split
             archives; defaults to 2**39 B = 512 GiB = 0.5 TiB
 
     Returns:
         (list of str): names of files moved to tape (for convenience of calling
             function if wrapped in larger task handler)
+
     """
 
     # make archive -- whole dir
@@ -585,7 +592,7 @@ def archive_handler_hsi(archive_filename_list=None, max_size=2**41, segment_size
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
     for archive_filename in archive_filename_list:
         archive_size = os.path.getsize(archive_filename)
-        if archive_size > max_size:
+        if split_large_archives and archive_size > max_size:
             # split archive if larger than max_size
             hsi_argument = "put -P - : {hsi_subdir}/$FILE".format(hsi_subdir=hsi_subdir)
             control.call(
