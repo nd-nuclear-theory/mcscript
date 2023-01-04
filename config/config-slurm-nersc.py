@@ -123,7 +123,7 @@ cluster_specs = {
         "default": "cpu",
         "node_types": {
             "cpu": {
-                "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "queues": ["regular", "interactive", "debug", "preempt", "overrun"],
                 "core_specialization": False,
                 "constraint": "cpu",
                 "cores_per_node": 128,
@@ -133,7 +133,7 @@ cluster_specs = {
                 "nodes_per_switch": 256,
             },
             "gpu": {
-                "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "queues": ["regular", "interactive", "debug", "preempt", "overrun"],
                 "core_specialization": False,
                 "constraint": "gpu",
                 "cores_per_node": 64,
