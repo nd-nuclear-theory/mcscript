@@ -138,7 +138,7 @@ hybrid_group.add_argument("--nodes", type=int, default=1, help="number of nodes"
 hybrid_group.add_argument("--ranks", type=int, default=1, help="number of MPI ranks")
 hybrid_group.add_argument("--threads", type=int, default=1, help="OMP threads per rank)")
 hybrid_group.add_argument("--nodesize", type=int, default=0, help="logical threads available per node"
-                          " (might instead be interpreted physical CPUs depending on local config file)")
+                          " (might instead be interpreted as physical CPUs depending on local config file)")
 ##hybrid_group.add_argument("--undersubscription", type=int, default=1, help="undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 
 # multi-task interface: invocation modes
@@ -152,7 +152,7 @@ task_mode_group.add_argument("--offline", action="store_true", help="Invoke offl
 
 # multi-task interface: task selection
 task_selection_group = parser.add_argument_group("multi-task run options")
-task_selection_group.add_argument("--pool", help="Set task pool (or ALL) for task selection")
+task_selection_group.add_argument("--pool", help="Set task pool (may be Unix-style filename pattern, or comma-delimited list, or ALL) for task selection")
 task_selection_group.add_argument("--phase", type=int, default=0, help="Set task phase for task selection")
 task_selection_group.add_argument("--start", type=int, help="Set starting task number for task selection")
 task_selection_group.add_argument("--limit", type=int, help="Set task count limit for task selection")
