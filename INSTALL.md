@@ -50,6 +50,7 @@ Department of Physics, University of Notre Dame
 
   ~~~~~~~~~~~~~~~~
   % git pull
+  % pip install --user --editable .
   ~~~~~~~~~~~~~~~~
 
 # 2. Local configuration
