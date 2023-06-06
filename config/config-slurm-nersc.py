@@ -123,7 +123,7 @@ cluster_specs = {
         "default": "cpu",
         "node_types": {
             "cpu": {
-                "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "queues": ["regular", "interactive", "debug", "preempt", "overrun"],
                 "core_specialization": False,
                 "constraint": "cpu",
                 "cores_per_node": 128,
@@ -133,7 +133,7 @@ cluster_specs = {
                 "nodes_per_switch": 256,
             },
             "gpu": {
-                "queues": ["regular", "interactive", "debug", "preempt", "early_science"],
+                "queues": ["regular", "interactive", "debug", "preempt", "overrun"],
                 "core_specialization": False,
                 "constraint": "gpu",
                 "cores_per_node": 64,
@@ -248,8 +248,13 @@ def qsubm_arguments(parser):
         "--licenses", type=str, default=default_licenses,
         help="licenses to request for job"
     )
-
-
+    default_deadline = os.environ.get("MCSCRIPT_DEADLINE")
+    group.add_argument(
+        "--deadline", type=str, default=default_deadline,
+        help="deadline for job execution (e.g., \"2022-01-19T00:06:59\"); default "
+        "set by MCSCRIPT_DEADLINE"
+    )
+    
 def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     """Prepare submission command invocation.
 
@@ -366,9 +371,10 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     submission_invocation = [ "sbatch" ]
 
     # deadline (end of allocation year)
-    ay21_end_date = datetime.datetime.fromisoformat("2022-01-19T00:06:59")
-    if datetime.datetime.now() < ay21_end_date:
-        submission_invocation += ["--deadline={}".format(ay21_end_date.isoformat())]
+    if args.deadline:
+        deadline = datetime.datetime.fromisoformat(args.deadline)
+        if datetime.datetime.now() < deadline:
+            submission_invocation += ["--deadline={}".format(deadline.isoformat())]
 
     # job name
     submission_invocation += ["--job-name={}".format(job_name)]
