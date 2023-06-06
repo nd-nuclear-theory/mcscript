@@ -102,6 +102,7 @@
         - Print masked task flags as lowercase.
         - Include list of pools in toc.
     + 12/15/22 (pjf): Add archive_handler_subarchives_hsi().
+    + 06/06/23 (pjf): Fix archive filenames in archive_handler_subarchives*.
 """
 
 import datetime
@@ -550,7 +551,7 @@ def archive_handler_subarchives(archive_parameters_list):
         archive_filename = subarchive_filename(archive_parameters)
         if archive_filename is None:
             continue
-        archive_filename_list += archive_filename
+        archive_filename_list += [archive_filename]
         print("Archive: {}".format(archive_filename))
 
         # construct archive
@@ -661,7 +662,7 @@ def archive_handler_subarchives_hsi(archive_parameters_list, max_size=2**41, seg
         archive_filename = subarchive_filename(archive_parameters)
         if archive_filename is None:
             continue
-        archive_filename_list += archive_filename
+        archive_filename_list += [archive_filename]
         print("----------------------------------------------------------------")
         print("Archive: {}".format(archive_filename))
 
@@ -741,7 +742,6 @@ def archive_handler_subarchives_hsi(archive_parameters_list, max_size=2**41, seg
             # wait for hsi to finish
             hsi_process.wait()
             os.remove(archive_filename)
-
 
         # handle return value
         returncode = hsi_process.returncode
