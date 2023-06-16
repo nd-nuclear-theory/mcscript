@@ -394,7 +394,7 @@ def search_in_subdirectories(
     # handle return for success or failure
     if (not success):
         if (fail_on_not_found):
-            raise exception.ScriptError(f"no match on filenames {path_component_lists[-1]}")
+            raise exception.ScriptError(f"no match on filenames {path_component_lists[-1]} in {path_component_lists[0:-1]}")
         else:
             return None
     return qualified_name
