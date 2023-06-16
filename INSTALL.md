@@ -53,6 +53,9 @@ Department of Physics, University of Notre Dame
   % pip install --user --editable .
   ~~~~~~~~~~~~~~~~
 
+  This subsqeuent `pip install`, when updating the source code, is a precaution
+  in case, e.g., the package dependencies have changed.
+  
 # 2. Local configuration
 
   The local configuration file provides functions which construct the batch
