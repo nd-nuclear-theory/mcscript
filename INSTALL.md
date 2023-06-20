@@ -40,20 +40,23 @@ Department of Physics, University of Notre Dame
   % git checkout -t origin/develop
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Set up the package in your `PYTHONPATH` by running `pip` (or `pip3` on Debian):
+  Set up the package in your `PYTHONPATH` by running `pip`:
 
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  % pip install --user --editable .
+  % python3 -m pip install --user --editable .
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+  Note that the `.` here means to install the Python package defined by the code
+  in the current directory.
+  
   a. Subsequently updating source:
 
   ~~~~~~~~~~~~~~~~
   % git pull
-  % pip install --user --editable .
+  % python3 -m pip install --user --editable .
   ~~~~~~~~~~~~~~~~
 
-  This subsqeuent `pip install`, when updating the source code, is a precaution
+  This subsequent `pip install`, when updating the source code, is a precaution
   in case, e.g., the package dependencies have changed.
   
 # 2. Local configuration
