@@ -1,37 +1,22 @@
-#!/usr/bin/python3
 """qsubm -- generic queue submission for task-oriented batch scripts
 
-    Environment variables:
+    See INSTALL.md for configuration information:
 
-    MCSCRIPT_DIR should specify the directory in which the mcscript package is
-    installed, i.e., the directory where the file qsubm.py is found.  (Note that
-    qsubm uses this information to locate certain auxiliary script files used as
-    part of the job submission process.)
+    - A local definitions file config.py must be defined.
 
-    MCSCRIPT_RUN_HOME must specify the directory in which job files are found.
+    - Several environment variables must be defined.  In addition to the
+      mandatory environment variables defined there, the following (deprecated?)
+      variables are recognized (but not frequently useful):
 
-    MCSCRIPT_WORK_HOME should specify the parent directory in which run scratch
-    directories should be made.
+      > MCSCRIPT_LAUNCH_HOME (optional) specifies the parent directory in which
+      > run subdirectories for qsub invocation and output logging should be made.
+      > Otherwise, this will default to MCSCRIPT_WORK_HOME.
 
-    MCSCRIPT_INSTALL_HOME must specify the directory in which executables are found.
-
-    MCSCRIPT_LAUNCH_HOME (optional) should specify the parent directory in which
-    run subdirectories for qsub invocation and output logging should be made.
-    Otherwise, this will default to MCSCRIPT_WORK_HOME.
-
-    MCSCRIPT_PYTHON should give the full qualified filename (i.e., including
-    path) to the Python 3 executable for running run script files.  A typical
-    value will simply be "python3", assuming the Python 3 executable is in the
-    shell's command search PATH. However, see note on "Availability of Python"
-    in INSTALL.md.
-
-    MCSCRIPT_RUN_PREFIX should specify the prefix for run names, e.g., set to
-    "run" if your scripts are to be named run<XXXX>.py.
-
-    Requires local definitions file config.py to translate options into
-    arguments for local batch server.  See directions in readme.txt.  Your local
-    definitions might not make use of or support all the parallel environment
-    options.
+      > MCSCRIPT_PYTHON (optional) specifies the command name to use to invoke
+      > Python 3 to execut run script files.  The default is simply "python3",
+      > assuming the Python 3 executable is in the shell's command search
+      > PATH. However, you can instead specify, e.g., a full, qualified filename
+      > (i.e., including path).  See note on "Availability of Python" in INSTALL.md.
 
     Language: Python 3
 
@@ -75,6 +60,22 @@
         - Add hook for individual configurations to add command-line arguments.
         - Move --switchwaittime option into config-slurm-nersc.py.
     + 09/11/19 (pjf): Add expert mode argument.
+    + 11/18/19 (pjf): Fix job file existence check.
+    + 06/26/20 (mac): Make MCSCRIPT_PYTHON and MCSCRIPT_RUN_PREFIX optional.
+    + 10/11/20 (pjf):
+        - Rename `--num` to `--jobs`.
+        - Add `--workers` to allow multiple workers per job.
+    + 02/01/22 (pjf): Allow MCSCRIPT_RUN_HOME to be a colon-delimited list.
+    + 02/08/22 (pjf):
+        - Fix script extension selection.
+        - Switch from subprocess.Popen to subprocess.run.
+    + 07/02/22 (pjf):
+        - Force run_prefix="run".
+        - Warn if MCSCRIPT_RUN_PREFIX still defined.
+    + 07/14/22 (pjf):
+        - Add `--edit` mode.
+        - Update xterm title when running directly.
+    + 09/20/22 (pjf): Use os.exec instead of subprocess for local run_mode.
 """
 
 import argparse
@@ -119,7 +120,8 @@ parser.add_argument("wall", type=int, nargs='?', help="Wall time (minutes)", def
 parser.add_argument("--here", action="store_true", help="Force run in current working directory")
 parser.add_argument("--vars", help="Environment variables to pass to script, with optional values, comma delimited (e.g., --vars=METHOD2, PARAM=1.0)")
 ## parser.add_argument("--stat", action="store_true", help="Display queue status information")
-parser.add_argument("--num", type=int, default=1, help="Number of repetitions")
+parser.add_argument("--jobs", type=int, default=1, help="Number of (identical) jobs to submit")
+parser.add_argument("--workers", type=int, default=1, help="Number of workers to launch per job (not supported by all queues)")
 parser.add_argument("--opt", action="append", help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=END,FAIL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
 parser.add_argument("--expert", action="store_true", help="Run mcscript in expert mode")
 
@@ -136,11 +138,12 @@ hybrid_group.add_argument("--nodes", type=int, default=1, help="number of nodes"
 hybrid_group.add_argument("--ranks", type=int, default=1, help="number of MPI ranks")
 hybrid_group.add_argument("--threads", type=int, default=1, help="OMP threads per rank)")
 hybrid_group.add_argument("--nodesize", type=int, default=0, help="logical threads available per node"
-                          " (might instead be interpreted physical CPUs depending on local config file)")
+                          " (might instead be interpreted as physical CPUs depending on local config file)")
 ##hybrid_group.add_argument("--undersubscription", type=int, default=1, help="undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 
 # multi-task interface: invocation modes
 task_mode_group = parser.add_mutually_exclusive_group()
+task_mode_group.add_argument("--edit", action="store_true", help="Edit run script using EDITOR")
 task_mode_group.add_argument("--toc", action="store_true", help="Invoke run script to generate task table of contents")
 task_mode_group.add_argument("--unlock", action="store_true", help="Delete any .lock or .fail flags for tasks")
 task_mode_group.add_argument("--archive", action="store_true", help="Invoke archive-generation run")
@@ -149,7 +152,7 @@ task_mode_group.add_argument("--offline", action="store_true", help="Invoke offl
 
 # multi-task interface: task selection
 task_selection_group = parser.add_argument_group("multi-task run options")
-task_selection_group.add_argument("--pool", help="Set task pool (or ALL) for task selection")
+task_selection_group.add_argument("--pool", help="Set task pool (may be Unix-style filename pattern, or comma-delimited list, or ALL) for task selection")
 task_selection_group.add_argument("--phase", type=int, default=0, help="Set task phase for task selection")
 task_selection_group.add_argument("--start", type=int, help="Set starting task number for task selection")
 task_selection_group.add_argument("--limit", type=int, help="Set task count limit for task selection")
@@ -197,9 +200,9 @@ args = parser.parse_args()
 ################################################################
 
 if (args.here):
-    run_home = os.environ["PWD"]
+    run_home_list = [os.environ["PWD"]]
 elif ("MCSCRIPT_RUN_HOME" in os.environ):
-    run_home = os.environ["MCSCRIPT_RUN_HOME"]
+    run_home_list = os.environ["MCSCRIPT_RUN_HOME"].split(":")
 else:
     print("MCSCRIPT_RUN_HOME not found in environment")
     exit(1)
@@ -220,16 +223,17 @@ else:
     launch_home = work_home
 
 if ("MCSCRIPT_RUN_PREFIX" in os.environ):
-    run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
-else:
-    print("MCSCRIPT_RUN_PREFIX not found in environment")
-    exit(1)
+    # run_prefix = os.environ["MCSCRIPT_RUN_PREFIX"]
+    print("****************************************************************")
+    print("MCSCRIPT_RUN_PREFIX is now ignored.")
+    print("Runs MUST use the prefix 'run`.")
+    print("****************************************************************")
+run_prefix = "run"
 
 if ("MCSCRIPT_PYTHON" in os.environ):
     python_executable = os.environ["MCSCRIPT_PYTHON"]
 else:
-    print("MCSCRIPT_PYTHON not found in environment")
-    exit(1)
+    python_executable = "python3"
 
 if ("MCSCRIPT_DIR" in os.environ):
     qsubm_path = os.environ["MCSCRIPT_DIR"]
@@ -249,12 +253,13 @@ print("Run:", run)
 script_extensions = [".py", ".csh"]
 job_file = None
 for extension in script_extensions:
-    filename = os.path.join(run_home, run+extension)
-    if (filename):
-        job_file = filename
-        job_extension = extension
-        break
-print("  Run home:", run_home)  # useful to report now, in case job file missing
+    for run_home in run_home_list:
+        filename = os.path.join(run_home, run+extension)
+        if os.path.exists(filename):
+            job_file = filename
+            job_extension = extension
+            break
+print("  Run homes:", run_home_list)  # useful to report now, in case job file missing
 if (job_file is None):
     print("No job file %s.* found with an extension in the set %s." % (run, script_extensions))
     exit(1)
@@ -282,7 +287,8 @@ environment_definitions = [
     "MCSCRIPT_JOB_FILE={:s}".format(job_file),
     "MCSCRIPT_RUN_MODE={:s}".format(run_mode),
     "MCSCRIPT_RUN_QUEUE={:s}".format(run_queue),
-    "MCSCRIPT_WALL_SEC={:d}".format(wall_time_sec)
+    "MCSCRIPT_WALL_SEC={:d}".format(wall_time_sec),
+    "MCSCRIPT_WORKERS={:d}".format(args.workers),
 ]
 
 # environment definitions: serial run parameters
@@ -299,7 +305,10 @@ environment_definitions += [
 
 
 # set multi-task run parameters
-if (args.toc):
+if (args.edit):
+    editor = os.environ.get("EDITOR", "vi")
+    os.execlp(editor, editor, job_file)
+elif (args.toc):
     task_mode = mcscript.task.TaskMode.kTOC
 elif (args.unlock):
     task_mode = mcscript.task.TaskMode.kUnlock
@@ -447,16 +456,14 @@ if (run_mode == "batch"):
     print()
     print("-"*64)
     for i in range(repetitions):
-        process = subprocess.Popen(
+        subprocess.run(
             submission_args,
-            stdin=subprocess.PIPE,     # to take input from communicate
-            stdout=subprocess.PIPE,    # to send output to communicate -- default merged stderr
+            input=submission_input_string,
+            stdout=sys.stdout,
+            stderr=subprocess.STDOUT,  #  to redirect via stdout
             env=job_environ,
             cwd=launch_dir
             )
-        stdout_bytes = process.communicate(input=submission_input_string)[0]
-        stdout_string = stdout_bytes.decode("utf-8")
-        print(stdout_string)
 
 # handle interactive run
 # Note: We call interpreter rather than trying to directly execute
@@ -465,11 +472,13 @@ if (run_mode == "batch"):
 # be different from the version of the interpreter found in the below invocation,
 # especially in a "module" environment.
 elif (run_mode == "local"):
-    if (extension == ".py"):
+    if (job_extension == ".py"):
         popen_args = [python_executable, job_file]
-    elif (extension == ".csh"):
+    elif (job_extension == ".csh"):
         popen_args = ["csh", job_file]
     print()
     print("-"*64)
-    process = subprocess.Popen(popen_args, cwd=launch_dir, env=job_environ)
-    process.wait()
+    if task_mode is mcscript.task.TaskMode.kRun:
+        print(f"\033]2;qsubm {run}\007")
+    os.chdir(launch_dir)
+    os.execvpe(popen_args[0], popen_args, env=job_environ)

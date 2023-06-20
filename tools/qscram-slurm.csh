@@ -29,7 +29,6 @@ while ($1 =~ "-*")
   if ($1 == "--all") then
     set all = 1
   else if ($1 == "--hold") then
-    echo gh
     set hold = 1
   else if ($1 == "--release") then
     set release = 1

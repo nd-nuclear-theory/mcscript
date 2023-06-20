@@ -1,4 +1,4 @@
-""" mcscript_task -- task control utility functions
+"""mcscript_task -- task control utility functions
 
     Meant to be loaded as part of mcscript.  Provides the
     mcscript.task.* definitions in mcscript.
@@ -58,26 +58,80 @@
         - Restore archive_handler_generic as archive handler for generic use case from commit b12373a.
         - Rename pjf archive_handler_generic to archive_handler_automagic().
         - Add archive_handler_subarchives(), taking custom subarchive list.
-
+    + 11/05/19 (pjf): Catch all exceptions derived from BaseException, to create
+        fail flags more robustly.
+    + 11/13/19 (mac): Change creation condition for subarchives in
+        archive_handler_subarchives().
+    + 12/10/19 (pjf):
+        - Remove extraneous directory existence checks.
+        - Fail on duplicate task descriptor.
+    + 12/11/19 (pjf): Add save_results_single() and save_results_multi() for
+        convenient saving of results files to appropriate locations.
+    + 06/02/20 (pjf):
+        - Allow tasks to signal incompleteness by raising exception.InsufficientTime.
+        - Get elapsed and remaining time using interface from parameters.
+    + 06/29/20 (mac): Fix default (generic) case of archive_handler_hsi().
+    + 08/11/20 (pjf):
+        - Use utils.TaskTimer in invoke_tasks_run().
+        - Don't return timing from do_task().
+        - Use exception.LockContention to allow do_task() to yield on lock clash.
+    + 08/16/20 (pjf): Correctly handle empty file list in save_results_multi().
+    + 10/01/20 (pjf): Call tar with --sort=name so that archives have deterministic structure.
+    + 10/09/20 (pjf): Add logic to archive_handler_hsi() to split large archives.
+    + 10/11/20 (pjf): Add random value to locking protocol, to avoid clashes between
+        workers within a job.
+    + 12/07/20 (pjf): Write task descriptor to flag files.
+    + 02/01/22 (pjf): Append to task output if task is resumed.
+    + 02/07/22 (pjf):
+        - Factor out task_status_list() from task_toc().
+        - Pass task statuses through task_toc() and write_toc().
+        - Generalize task masks to be tuples, allowing for separate masks per
+          phase.
+        - Improve handling of color for task statuses.
+    + 02/08/22 (pjf): Add task time in minutes.
+    + 02/12/22 (pjf):
+        - Use `finally` clauses to ensure that cleanup tasks (like stdout
+          redirection) are actually completed.
+        - Call mcscript.control.termination in case of early exit.
+        - Catch and raise exceptions at various levels in the call stack, doing
+          clean-up tasks along the way.
+    + 02/25/22 (pjf): Add "resumed" flag to task metadata.
+    + 07/07/22 (pjf): Improve handling of exceptions to make logs more useful.
+    + 08/08/22 (pjf): Clean up LockContention handling.
+    + 09/20/22 (pjf):
+        - Print masked task flags as lowercase.
+        - Include list of pools in toc.
+    + 12/15/22 (pjf): Add archive_handler_subarchives_hsi().
+    + 06/06/23 (pjf): Fix archive filenames in archive_handler_subarchives*.
 """
 
 import datetime
 import enum
 import glob
 import os
+import random
 import sys
 import time
 import inspect
 import fnmatch
+import subprocess
+import traceback
+import typing
 
 
 from . import (
+    config,
     control,
     exception,
     parameters,
     utils,
 )
 
+
+################################################################
+# task type
+################################################################
+TaskDict = typing.NewType('TaskDict', dict)
 
 ################################################################
 # task special run modes
@@ -96,22 +150,33 @@ class TaskMode(enum.Enum):
 ################################################################
 
 class TaskStatus(enum.Enum):
-    kLocked = "\033[33m"+"L"+"\033[0m"
-    kFailed = "\033[31m"+"F"+"\033[0m"
-    kDone = "\033[32m"+"X"+"\033[0m"
-    kMasked = "."
-    kPending = "-"
+    kLocked =     "L"
+    kFailed =     "F"
+    kIncomplete = "I"
+    kDone =       "X"
+    kMasked =     "."
+    kPending =    "-"
+
+k_task_status_color_codes = {
+    TaskStatus.kLocked:     "\033[33m",
+    TaskStatus.kFailed:     "\033[31m",
+    TaskStatus.kIncomplete: "\033[34m",
+    TaskStatus.kDone:       "\033[32m",
+    TaskStatus.kMasked:     "",
+    TaskStatus.kPending:    "",
+}
+k_reset_color_code = "\033[0m"
 
 ################################################################
 # global storage
 ################################################################
 
 # directory structure -- global definitions
-task_root_dir = None
-flag_dir = None
-output_dir = None
-results_dir = None
-archive_dir = None
+task_root_dir:str = None
+flag_dir:str = None
+output_dir:str = None
+results_dir:str = None
+archive_dir:str = None
 
 
 ################################################################
@@ -157,23 +222,101 @@ def task_read_env():
 ################################################################
 
 def make_task_dirs ():
-    """ make_task_dirs () ensures the existence of special subdirectories for task processing
-
-    TODO: since existence check is not robust against multiple scripts
-    attempting in close succession, replace this with a try/except.
+    """Ensure the existence of special subdirectories for task processing.
     """
 
-    if ( not os.path.exists(flag_dir)):
-        utils.mkdir(flag_dir)
+    utils.mkdir(flag_dir, exist_ok=True)
+    utils.mkdir(output_dir, exist_ok=True)
+    utils.mkdir(results_dir, exist_ok=True)
+    utils.mkdir(archive_dir, exist_ok=True)
 
-    if ( not os.path.exists(output_dir)):
-        utils.mkdir(output_dir)
+################################################################
+# generic result storage support
+################################################################
 
-    if ( not os.path.exists(results_dir)):
-        utils.mkdir(results_dir)
+def save_results_single(
+    task,
+    source_file_path,
+    target_filename=None,
+    subdirectory="",
+    command="mv"
+):
+    """Save single results file from task.
 
-    if ( not os.path.exists(archive_dir)):
-        utils.mkdir(archive_dir)
+    Arguments:
+        task (dict): task dictionary
+        source_file_path (str): path of file to be saved
+        target_filename (str, optional): target filename, default to
+            source filename
+        subdirectory (str, optional): destination subdirectory for results
+        command (str, optional): type of save, "mv" or "cp", defaults to "mv"
+    """
+    # determine results directory path and ensure existence
+    if results_dir is not None:
+        res_dir = os.path.join(results_dir, subdirectory)
+    else:
+        res_dir = os.path.join(parameters.run.work_dir, subdirectory)
+    utils.mkdir(res_dir, exist_ok=True)
+
+    # determine target file path
+    if target_filename is not None:
+        target_file_path = os.path.join(res_dir, target_filename)
+    else:
+        target_file_path = os.path.join(res_dir, os.path.basename(source_file_path))
+
+    # move file to destination
+    control.call(
+        [
+            command,
+            "--verbose",
+            source_file_path,
+            target_file_path
+        ]
+    )
+
+
+def save_results_multi(
+    task,
+    source_file_list,
+    target_directory_name=None,
+    subdirectory="",
+    command="mv"
+):
+    """Save multiple results files from task.
+
+    Arguments:
+        task (dict): task dictionary
+        source_file_list (list of str): list of files to be saved
+        target_directory_name (str, optional): target directory name, default to
+            task descriptor
+        subdirectory (str, optional): destination subdirectory for results
+        command (str, optional): type of save, "mv" or "cp", defaults to "mv"
+    """
+    # determine results directory path and ensure existence
+    if results_dir is not None:
+        res_dir = os.path.join(results_dir, subdirectory)
+        if target_directory_name is not None:
+            target_directory_path = os.path.join(res_dir, target_directory_name)
+        else:
+            target_directory_path = os.path.join(res_dir, task["metadata"]["descriptor"])
+    else:
+        target_directory_path = os.path.join(parameters.run.work_dir, subdirectory)
+    utils.mkdir(target_directory_path, parents=True, exist_ok=True)
+
+    # do nothing if empty list passed
+    if len(source_file_list) == 0:
+        print("no source files provided... skipping")
+        return
+
+    # move file to destination
+    control.call(
+        [
+            command,
+            "--verbose",
+            "--target-directory={}".format(target_directory_path)
+        ] + source_file_list
+    )
+
 
 ################################################################
 # generic archiving support
@@ -255,6 +398,7 @@ def archive_handler_generic(include_results=True):
             "tar",
             "zcvf",
             archive_filename,
+            "--sort=name",
             "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
             "--show-transformed",
             "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
@@ -322,6 +466,7 @@ def archive_handler_automagic(include_results=True):
                 "tar",
                 "cvf",
                 archive_filename,
+                "--sort=name",
                 "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
                 "--show-transformed",
                 "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
@@ -338,8 +483,33 @@ def archive_handler_automagic(include_results=True):
 
     return archive_filename_list
 
+def subarchive_filename(archive_parameters):
+    # extract parameters
+    postfix = archive_parameters["postfix"]
+    paths = archive_parameters["paths"]
+    compress = archive_parameters.get("compress",False)
+    include_metadata = archive_parameters.get("include_metadata",False)
+
+    # construct archive filename
+    extension = ".tgz" if compress else ".tar"
+    archive_filename = os.path.join(
+        archive_dir,
+        "{:s}-archive-{:s}{:s}{:s}".format(parameters.run.name,utils.date_tag(),postfix,extension)
+        )
+
+    # check that at least some contents exist (else return None)
+    available_paths = []
+    for path in paths:
+        if os.path.exists(path):
+            available_paths.append(path)
+    if (len(available_paths)==0) and (not include_metadata):
+        print(f"None of paths {paths} available and no request to save metadata.  Skipping archive {archive_filename}...")
+        return None
+
+    return archive_filename
+
 def archive_handler_subarchives(archive_parameters_list):
-    """Make sepearate archives of specified results subdirectories, plus metadata.
+    """Make separate archives of specified results subdirectories, plus metadata.
 
     That is, each archive contains all files or a single subdirectory of the
     results directory, plus all metadata (i.e. everything except the archive
@@ -347,6 +517,9 @@ def archive_handler_subarchives(archive_parameters_list):
     archive directory.  These are just local archives in scratch, so
     subsequent intervention is required to transfer the archives more
     permanently to, e.g., a home directory or tape storage.
+
+    A subarchive is created if if *any* of the requested paths exist or if the
+    archive is supposed to include metadata.  Otherwise, it is skipped.
 
     The files in the archives are of the form runxxxx/results/res/*,
     runxxxx/results/out/*, runxxxx/results/*, etc.
@@ -370,28 +543,17 @@ def archive_handler_subarchives(archive_parameters_list):
     for archive_parameters in archive_parameters_list:
 
         # extract parameters
-        postfix = archive_parameters["postfix"]
         paths = archive_parameters["paths"]
         compress = archive_parameters.get("compress",False)
         include_metadata = archive_parameters.get("include_metadata",False)
-        
-        # construct archive filename
-        extension = ".tgz" if compress else ".tar"
-        archive_filename = os.path.join(
-            archive_dir,
-            "{:s}-archive-{:s}{:s}{:s}".format(parameters.run.name,utils.date_tag(),postfix,extension)
-            )
+
+        # get archive filename
+        archive_filename = subarchive_filename(archive_parameters)
+        if archive_filename is None:
+            continue
+        archive_filename_list += [archive_filename]
         print("Archive: {}".format(archive_filename))
 
-        # check contents exist
-        paths_available = True
-        for path in paths:
-            paths_available &= os.path.isdir(path)
-        if (not paths_available):
-            print("One or more of paths {} not found.  Skipping archive...".format(paths))
-            continue
-        archive_filename_list.append(archive_filename)
-                  
         # construct archive
         filename_list = [toc_filename]
         if (include_metadata):
@@ -403,6 +565,7 @@ def archive_handler_subarchives(archive_parameters_list):
                 "tar",
                 tar_flags,
                 archive_filename,
+                "--sort=name",
                 "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
                 "--show-transformed",
                 "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
@@ -415,31 +578,188 @@ def archive_handler_subarchives(archive_parameters_list):
 def archive_handler_no_results():
     return archive_handler_generic(include_results=False)
 
-def archive_handler_hsi(archive_filename_list=None):
+def archive_handler_hsi(archive_filename_list=None, split_large_archives=False, max_size=2**41, segment_size=2**39):
     """Save archive to tape.
+
+    Arguments:
+
+        archive_filename (list of str, optional): names of files to move to tape;
+            generate standard archive if omitted
+
+        split_large_archives (bool, optional): whether or not to split large
+        archives into segments
+  
+        max_size (int, optional): maximum size (in bytes) of an archive which will
+            be store to tape without being split; defaults to 2**41 B = 2 TiB
+
+        segment_size (int, optional): size of segments (in bytes) for split
+            archives; defaults to 2**39 B = 512 GiB = 0.5 TiB
+
+    Returns:
+        (list of str): names of files moved to tape (for convenience of calling
+            function if wrapped in larger task handler)
+
+    """
+
+    # make archive -- whole dir
+    if archive_filename_list is None:
+        archive_filename_list = [archive_handler_generic()]
+
+    # put to hsi
+    hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
+    for archive_filename in archive_filename_list:
+        archive_size = os.path.getsize(archive_filename)
+        if split_large_archives and archive_size > max_size:
+            # split archive if larger than max_size
+            hpss_cos = config.hpss_cos(segment_size)
+            hsi_argument = f"put cos={hpss_cos} -P - : {hsi_subdir}/$FILE"
+            control.call(
+                [
+                    "split",
+                    "-d",  # numeric suffixes
+                    "--verbose",
+                    "--bytes={:d}".format(segment_size),
+                    '--filter=hsi -q "{hsi_argument}'.format(hsi_argument=hsi_argument),
+                    os.path.relpath(archive_filename),
+                    os.path.basename(archive_filename)+"."
+                ],
+                check_return=True
+            )
+        else:
+            # directly put to hsi otherwise
+            hsi_argument = "put -P {archive_filename} : {hsi_subdir}/{archive_basename}".format(
+                archive_filename=os.path.relpath(archive_filename),
+                archive_basename=os.path.basename(archive_filename),
+                hsi_subdir=hsi_subdir
+            )
+            control.call(["hsi", "-q", hsi_argument])
+
+    return archive_filename_list
+
+def archive_handler_subarchives_hsi(archive_parameters_list, max_size=2**41, segment_size=2**39):
+    """Save subarchives to tape.
+
+    This function uses named pipes (via os.mkfifo) to avoid writing temporary
+    archive files to disk.
 
     Arguments:
         archive_filename: (list of str, optional) names of files to move to tape;
             generate standard archive if omitted
+        max_size (int, optional): maximum size (in bytes) of an archive which will
+            be store to tape without being split; defaults to 2**41 B = 2 TiB
+        segment_size (int, optional): size of segments (in bytes) for split
+            archives; defaults to 2**39 B = 512 GiB = 0.5 TiB
 
     Returns:
         (list of str): names of files moved to tape (for convenience of calling
             function if wrapped in larger task handler)
     """
 
-    # make archive -- whole dir
-    if archive_filename_list is None:
-        archive_filename_list = archive_handler_generic()
-
-    # put to hsi
+    toc_filename = "{}.toc".format(parameters.run.name)
     hsi_subdir = format(datetime.date.today().year,"04d")  # subdirectory named by year
-    for archive_filename in archive_filename_list:
-        hsi_argument = "lcd {archive_directory}; mkdir {hsi_subdir}; cd {hsi_subdir}; put {archive_filename}".format(
-            archive_filename=os.path.basename(archive_filename),
-            archive_directory=os.path.dirname(archive_filename),
-            hsi_subdir=hsi_subdir
+    archive_filename_list = []
+    for archive_parameters in archive_parameters_list:
+
+        # extract parameters
+        paths = archive_parameters["paths"]
+        compress = archive_parameters.get("compress",False)
+        include_metadata = archive_parameters.get("include_metadata",False)
+
+        # get archive filename
+        archive_filename = subarchive_filename(archive_parameters)
+        if archive_filename is None:
+            continue
+        archive_filename_list += [archive_filename]
+        print("----------------------------------------------------------------")
+        print("Archive: {}".format(archive_filename))
+
+        # create named pipes for archives
+        os.mkfifo(archive_filename)
+
+        # construct hsi command
+        print("Determining archive size...")
+        sys.stdout.flush()
+        archive_size = sum(map(utils.get_directory_size, paths))
+        print(f"Archive size: {archive_size} bytes")
+        if archive_size > max_size:
+            # split archive if larger than max_size
+            print(f"Archive larger than {max_size} bytes; splitting into {segment_size} segments.")
+            hpss_cos = config.hpss_cos(segment_size)
+            hsi_argument = f"cos = {hpss_cos}; put -P - : {hsi_subdir}/$FILE"
+            invocation = [
+                "split",
+                "-d",  # numeric suffixes
+                "--verbose",
+                "--bytes={:d}".format(segment_size),
+                '--filter=hsi -q "{hsi_argument}"'.format(hsi_argument=hsi_argument),
+                os.path.relpath(archive_filename),
+                os.path.basename(archive_filename)+"."
+            ]
+        else:
+            # directly put to hsi otherwise
+            hpss_cos = config.hpss_cos(archive_size)
+            hsi_argument = 'cos = {hpss_cos}; put -P "|cat {archive_filename}" : {hsi_subdir}/{archive_basename}'.format(
+                hpss_cos=hpss_cos,
+                archive_filename=os.path.relpath(archive_filename),
+                archive_basename=os.path.basename(archive_filename),
+                hsi_subdir=hsi_subdir
+            )
+
+            invocation = ["hsi", "-q", hsi_argument]
+
+        # log header output
+        print("----------------------------------------------------------------")
+        print("Executing external code")
+        print("Command line: {:s}".format(str(invocation)))
+        print("Call mode: {:s}".format(str(control.CallMode.kLocal)))
+        print("Start time: {:s}".format(utils.time_stamp()))
+        print("Output:")
+        sys.stdout.flush()
+
+        # launch hsi subprocess
+        hsi_process = subprocess.Popen(
+            invocation,
+            stdout=sys.stdout,
+            stderr=subprocess.STDOUT,
         )
-        control.call(["hsi",hsi_argument])
+
+        # construct archive
+        filename_list = [toc_filename]
+        if (include_metadata):
+            filename_list += ["flags","output","batch"]
+        filename_list += paths
+        tar_flags = "zcvf" if compress else "cvf"
+        try:
+            control.call(
+                [
+                    "tar",
+                    tar_flags,
+                    archive_filename,
+                    "--sort=name",
+                    "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
+                    "--show-transformed",
+                    "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
+                ] + filename_list,
+                cwd=parameters.run.work_dir, check_return=True
+                )
+        except:
+            hsi_process.terminate()
+            raise
+        finally:
+            # wait for hsi to finish
+            hsi_process.wait()
+            os.remove(archive_filename)
+
+        # handle return value
+        returncode = hsi_process.returncode
+        print("Return code: {}".format(returncode))
+        # finish logging
+        print("----------------------------------------------------------------")
+        sys.stdout.flush()  # just for good measure
+
+        # return (or abort)
+        if returncode != 0:
+            raise exception.ScriptError("nonzero return")
 
     return archive_filename_list
 
@@ -463,11 +783,39 @@ def index_str(task_index):
     else:
         return str(task_index)
 
-def task_toc(task_list,phase_handlers,color=False):
+def task_status_list(task_list,phase_handlers):
+    """Look up task status for all tasks in list.
+
+    Arguments:
+        task_list (dict): task list
+        phase_handlers (list of callables): phase handlers
+
+    Returns:
+        (list of tuple): tuple of phase statuses for each task
+    """
+    # accumulate task statuses
+    task_statuses:list[tuple[TaskStatus]] = []
+
+    # get flag directory contents
+    flag_dir_list = os.listdir(flag_dir)
+    for task_index,task in enumerate(task_list):
+        # retrieve task properties
+        task_masks = task["metadata"]["masks"]
+
+        # append tuple of phase statuses
+        task_statuses += [tuple(
+            task_status(task_index,task_phase,task_masks,flag_dir_list)
+            for task_phase in range(len(phase_handlers))
+        )]
+
+    return task_statuses
+
+def task_toc(task_list,task_statuses,phase_handlers,color=False):
     """ Generate a task status report as a newline-delimited string.
 
     Arguments:
         task_list (dict): task list
+        task_statuses (list of tuple of TaskStatus): task statuses
         phase_handlers (list of callables): phase handlers
         color (bool, optional): colorize task status
 
@@ -487,21 +835,38 @@ def task_toc(task_list,phase_handlers,color=False):
         phase_summary = "{}".format(phase_docstring).splitlines()[0]
         lines.append("  Phase {:d} summary: {:s}".format(task_phase, phase_summary))
 
-    # get flag directory contents
-    flag_dir_list = os.listdir(flag_dir)
+    pool_list = {task["metadata"]["pool"]: None for task in task_list if task["metadata"]["pool"]}.keys()
+    lines.append("Pools: {:d}".format(len(pool_list)))
+    lines.append(" ")
+    for task_pool in pool_list:
+        if len(lines[-1])+len(task_pool)+1 >= 80:  # wrap lines at 80 columns
+            lines.append(" ")
+        lines[-1] += " " + task_pool
 
     lines.append("Tasks: {:d}".format(len(task_list)))
-    for task_index in range(len(task_list)):
+    for task_index,task in enumerate(task_list):
 
         # retrieve task properties
-        task = task_list[task_index]
         task_pool = task["metadata"]["pool"]
         task_descriptor = task["metadata"]["descriptor"]
-        task_mask = task["metadata"]["mask"]
+        task_masks = task["metadata"]["masks"]
 
         # assemble line
         fields = [index_str(task_index), task_pool]
-        fields += [task_status(task_index,task_phase,task_mask,flag_dir_list).value for task_phase in range(len(phase_handlers))]
+        if color:
+            fields += [
+                (
+                    k_task_status_color_codes[status]
+                    + (status.value if mask else status.value.lower())
+                    + k_reset_color_code
+                )
+                for mask,status in zip(task_masks,task_statuses[task_index])
+                ]
+        else:
+            fields += [
+                (status.value if mask else status.value.lower())
+                for mask,status in zip(task_masks,task_statuses[task_index])
+            ]
         fields += [task_descriptor]
 
         # accumulate line
@@ -509,11 +874,15 @@ def task_toc(task_list,phase_handlers,color=False):
 
     return "\n".join(lines)
 
-def task_unlock():
+def task_unlock(lock_types=(TaskStatus.kLocked,TaskStatus.kFailed)):
     """ Remove all lock and fail flags.
     """
 
-    flag_files = glob.glob(os.path.join(flag_dir,"task*.lock")) + glob.glob(os.path.join(flag_dir,"task*.fail"))
+    flag_files = []
+    if TaskStatus.kLocked in lock_types:
+        flag_files += glob.glob(os.path.join(flag_dir,"task*.lock"))
+    if TaskStatus.kFailed in lock_types:
+        flag_files += glob.glob(os.path.join(flag_dir,"task*.fail"))
     print("Removing lock/fail files:", flag_files)
     for flag_file in flag_files:
         os.remove(flag_file)
@@ -546,7 +915,7 @@ def task_output_filename(task_index,phase):
 
     return os.path.join(output_dir,"task-{:s}-{:d}.out".format(index_str(task_index),phase))
 
-def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
+def task_status(task_index,task_phase,task_masks,flag_dir_list=None):
     """ Generate status flag for the given phase of the given task.
 
     Status flag values:
@@ -559,7 +928,7 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
     Arguments:
         task_index (int or str): task index
         task_phase (int): task phase
-        task_mask (bool): mask flag for task
+        task_masks (tuple of bool): mask flags for task phases
         flag_dir_list (list of str): directory listing for flag directory
 
     Returns:
@@ -571,9 +940,11 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
             return TaskStatus.kLocked
         elif (flag_base + ".fail") in flag_dir_list:
             return TaskStatus.kFailed
+        elif (flag_base + ".incp") in flag_dir_list:
+            return TaskStatus.kIncomplete
         elif (flag_base + ".done") in flag_dir_list:
             return TaskStatus.kDone
-        elif not task_mask:
+        elif not task_masks[task_phase]:
             return TaskStatus.kMasked
         else:
             return TaskStatus.kPending
@@ -583,9 +954,11 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
             return TaskStatus.kLocked
         elif os.path.exists(flag_base + ".fail"):
             return TaskStatus.kFailed
+        elif os.path.exists(flag_base + ".incp"):
+            return TaskStatus.kIncomplete
         elif os.path.exists(flag_base + ".done"):
             return TaskStatus.kDone
-        elif not task_mask:
+        elif not task_masks[task_phase]:
             return TaskStatus.kMasked
         else:
             return TaskStatus.kPending
@@ -594,22 +967,25 @@ def task_status(task_index,task_phase,task_mask,flag_dir_list=None):
 # locking protocol
 ################################################################
 
-def get_lock(task_index,task_phase):
+def get_lock(task_index, task_phase, task_descriptor):
     """ Write lock file for given task and given phase.
 
     Arguments:
         task_index (int or str): task index
         task_phase (int): task phase
+        task_descriptor (str): task descriptor
 
     Returns:
         success (bool): if lock was successfully obtained
+        resumed (bool): if task was previously flagged as incomplete
     """
 
     flag_base = os.path.join(flag_dir, task_flag_base(task_index,task_phase))
 
     # preliminary lock
+    lock_string = "{} {:08x}".format(parameters.run.job_id, random.randrange(2**32))
     lock_stream = open(flag_base+".lock", "w")
-    lock_stream.write("{}".format(parameters.run.job_id))  # omit newline since will do string comparison below
+    lock_stream.write(lock_string)  # omit newline since will do string comparison below
     lock_stream.close()
     # make sure lock was successful
     if (parameters.run.batch_mode):
@@ -623,21 +999,28 @@ def get_lock(task_index,task_phase):
         lock_stream = open(flag_base+".lock", "r")
         line = lock_stream.readline()
         lock_stream.close()
-        if (line == parameters.run.job_id):
+        if (line == lock_string):
             print("Lock was apparently successful...")
         else:
             print("Locking clash: Current job is {} but lock file is from {}.  Yielding lock.".format(parameters.run.job_id,line))
             ## raise exception.ScriptError("Yielding lock to other instance")
-            return False
+            return (False,False)
 
     # write expanded lock contents
     lock_stream = open(flag_base+".lock","a")
     lock_stream.write("\n".format(flag_base))  # add newline after job id
     lock_stream.write("{}\n".format(flag_base))
+    lock_stream.write("{}\n".format(task_descriptor))
     lock_stream.write("{}\n".format(time.asctime()))
     lock_stream.close()
 
-    return True
+    # remove any prior incomplete flag
+    resumed = False
+    if os.path.exists(flag_base+".incp"):
+        os.remove(flag_base+".incp")
+        resumed = True
+
+    return (True,resumed)
 
 def fail_lock(task_index,task_phase,task_time):
     """Rename lock file to failure file.
@@ -649,6 +1032,18 @@ def fail_lock(task_index,task_phase,task_time):
 
     flag_base = os.path.join(flag_dir, task_flag_base(task_index,task_phase))
     os.rename(flag_base+".lock",flag_base+".fail")
+
+def incomplete_lock(task_index, task_phase, task_time):
+    """Rename lock to incomplete file.
+
+    Arguments:
+        task_index (int or str): task index
+        task_phase (int): task phase
+        task_time (float): timing for task
+    """
+
+    flag_base = os.path.join(flag_dir, task_flag_base(task_index, task_phase))
+    os.rename(flag_base+".lock",flag_base+".incp")
 
 def finalize_lock(task_index,task_phase,task_time):
     """Finalize lock file for given task and given phase, and covert it
@@ -676,11 +1071,12 @@ def finalize_lock(task_index,task_phase,task_time):
 # special runs: archive
 ################################################################
 
-def write_toc(task_list,phase_handlers):
+def write_toc(task_list,task_statuses,phase_handlers):
     """ Write current table of contents to file runxxxx.toc.
 
     Arguments:
         task_list (dict): task list
+        task_statuses (list of tuple of TaskStatus): task statuses
         phase_handlers (list of callables): phase handlers
 
     Returns:
@@ -690,7 +1086,8 @@ def write_toc(task_list,phase_handlers):
     # write current toc
     toc_filename = "{}.toc".format(parameters.run.name)
     toc_stream = open(toc_filename, "w")
-    toc_stream.write(utils.scrub_ansi(task_toc(task_list,phase_handlers)))
+    toc_stream.write(task_toc(task_list,task_statuses,phase_handlers,color=False))
+    toc_stream.write("\n")
     toc_stream.close()
 
     # return filename
@@ -708,12 +1105,13 @@ def do_archive(task_parameters,archive_phase_handlers):
 
     task_index = "ARCH"  # special value for use in filename generation
     task_phase = task_parameters["phase"]
+    task_descriptor = "ARCH"  # special value written to flag file
     # lock task
     # CAVEAT: file system asynchrony (?) or simultaneus running of
     # different archive phases can cause trouble with tar archiving,
     # if tar senses lock file appearing or disappearing during
     # archiving of flags directory -- results in exit with failure code
-    get_lock(task_index,task_phase)
+    get_lock(task_index,task_phase,task_descriptor)
 
     # initiate timing
     task_start_time = time.time()
@@ -795,13 +1193,13 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
             continue
 
         # skip if task locked or done
-        task_mask = task_list[task_index]["metadata"]["mask"]
-        if (task_status(task_index, task_phase, task_mask) != TaskStatus.kPending):
+        task_masks = task_list[task_index]["metadata"]["masks"]
+        if task_status(task_index, task_phase, task_masks) not in (TaskStatus.kPending, TaskStatus.kIncomplete):
             continue
 
         # skip if prior phase not completed
         if (task_phase > 0):
-            if task_status(task_index, task_phase-1, task_mask) != TaskStatus.kDone:
+            if task_status(task_index, task_phase-1, task_masks) != TaskStatus.kDone:
                 print("Missing prerequisite", task_flag_base(task_index, task_phase-1))
                 continue
 
@@ -812,7 +1210,7 @@ def seek_task(task_list,task_pool,task_phase,prior_task_index):
     return next_index
 
 def do_task(task_parameters,task,phase_handlers):
-    """ do_task() --> time sets up a task/phase, calls its handler, and closes up
+    """ do_task() --> sets up a task/phase, calls its handler, and closes up
 
     The current working directory is changed to the task directory.
     A lock file is created for the task and phase.
@@ -835,23 +1233,24 @@ def do_task(task_parameters,task,phase_handlers):
     task_phase = task_parameters["phase"]
     task_index = task["metadata"]["index"]
     task_descriptor = task["metadata"]["descriptor"]
-    task_mask = task["metadata"]["mask"]
+    task_masks = task["metadata"]["masks"]
+
+    # get lock
+    resumed = False
+    if task_mode != TaskMode.kPrerun:
+        success,resumed = get_lock(task_index, task_phase, task_descriptor)
+        # if lock is already taken, yield this task
+        if not success:
+            raise exception.LockContention(task_index, task_phase)
 
     # fill in further metadata for task handlers
     task["metadata"]["phase"] = task_phase
     task["metadata"]["mode"] = task_mode
-
-    # get lock
-    if (task_mode != TaskMode.kPrerun):
-        success = get_lock(task_index,task_phase)
-        # if lock is already taken, yield this task
-        if (not success):
-            return None
+    task["metadata"]["resumed"] = resumed
 
     # set up task directory
     task_dir = os.path.join(task_root_dir, "task-{:04d}.dir".format(task_index))
-    if (not os.path.exists(task_dir)):
-        utils.mkdir(task_dir)
+    utils.mkdir(task_dir, exist_ok=True)
     os.chdir(task_dir)
 
     # initiate timing
@@ -861,18 +1260,16 @@ def do_task(task_parameters,task,phase_handlers):
     if (task_mode != TaskMode.kPrerun):
         redirect_stdout = task_parameters["redirect"]
         output_filename = task_output_filename(task_index,task_phase)
-        # purge any old file -- else it may persist if current task aborts
-        if (os.path.exists(output_filename)):
-            os.remove(output_filename)
         if (redirect_stdout):
             print("Redirecting to", output_filename)
+            sys.stdout.flush()
             saved_stdout = sys.stdout
-            sys.stdout = open(output_filename, "w")
+            sys.stdout = open(output_filename, "a" if resumed else "w")
 
     # generate header for task output file
     if (task_mode != TaskMode.kPrerun):
         print(64*"-")
-        print("task {} phase {}".format(task_index,task_phase))
+        print("task {} phase {}{}".format(task_index,task_phase," (resumed)" if resumed else ""))
         print(task["metadata"]["descriptor"])
         print(64*"-")
         print(parameters.run.run_data_string())
@@ -884,22 +1281,33 @@ def do_task(task_parameters,task,phase_handlers):
     # invoke task handler
     try:
         phase_handlers[task_phase](task)
-    except Exception as err:
+    except exception.InsufficientTime as err:
+        print("Insufficient time to complete task")
+        if task_mode is TaskMode.kRun:
+            task_end_time = time.time()
+            task_time = task_end_time - task_start_time
+            print("  task elapsed: {:g}, total elapsed: {:g}, required: {:g}, remaining: {:g}".format(
+                task_time, parameters.run.get_elapsed_time(),
+                err.required_time, parameters.run.get_remaining_time()
+                ))
+            incomplete_lock(task_index, task_phase, task_time)
+        raise
+    except BaseException as err:
         # on failure, flag failure and propagate exception so script terminates
-        print("Exception:", err)
+        traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__, file=sys.stdout)
         if task_mode is TaskMode.kRun:
             # process timing
             task_end_time = time.time()
             task_time = task_end_time - task_start_time
             fail_lock(task_index, task_phase, task_time)
         raise
-
-    # undo output redirection
-    if (task_mode != TaskMode.kPrerun):
-        sys.stdout.flush()
-        if (redirect_stdout):
-            sys.stdout.close()
-            sys.stdout = saved_stdout
+    finally:
+        # undo output redirection
+        if (task_mode != TaskMode.kPrerun):
+            sys.stdout.flush()
+            if (redirect_stdout):
+                sys.stdout.close()
+                sys.stdout = saved_stdout
 
     # process timing
     task_end_time = time.time()
@@ -911,8 +1319,6 @@ def do_task(task_parameters,task,phase_handlers):
 
     # cd back to task root directory
     os.chdir(task_root_dir)
-
-    return task_time
 
 
 ################################################################
@@ -977,56 +1383,63 @@ def invoke_tasks_run(task_parameters,task_list,phase_handlers):
 
     task_index = task_start_index-1  # "last run task" for seeking purposes
     task_count = 0
-    loop_start_time = time.time()
     avg_task_time = 0.
     task_time = 0.
-    while (True):
+    timer = utils.TaskTimer(
+        remaining_time=parameters.run.get_remaining_time(),
+        safety_factor=1.1,
+        minimum_time=60
+        )
+    while True:
 
         # check limits
-        if (not ( (task_count_limit == -1) or (task_count < task_count_limit) ) ):
+        if not ((task_count_limit == -1) or (task_count < task_count_limit)) :
             print("Reached task count limit.")
             break
 
         # check remaining time
-        loop_elapsed_time = time.time() - loop_start_time
-        remaining_time = parameters.run.wall_time_sec - loop_elapsed_time
-        safety_factor = 1.1
-        minimum_time = 60  # a fixed percentage safety factor is inadequate on short tasks where launch time can fluctuate
-        required_time = max(avg_task_time*safety_factor,task_time*safety_factor,minimum_time)
         print()
         print("Task timing: elapsed {:g}, remaining {:g}, last task {:g}, average {:g}, required {:g}".format(
-            loop_elapsed_time,remaining_time,task_time,avg_task_time,required_time
+            timer.elapsed_time,timer.remaining_time,timer.last_time,timer.average_time,timer.required_time
             ))
         print()
-        if ( required_time > remaining_time ):
-            print("Reached time limit.")
-            break
 
         # seek next task
         task_index = seek_task(task_list,task_pool,task_phase,task_index)
-        if (task_index is None):
+        if task_index is None:
             print("No more available tasks in pool", task_pool)
             break
         task = task_list[task_index]
+
+        try:
+            timer.start_timer()
+        except exception.InsufficientTime:
+            print("Reached time limit.")
+            raise
 
         # display diagnostic header for task
         #     this goes to global (unredirected) output
         print("[task {} phase {} {}]".format(task_index,task_phase,task["metadata"]["descriptor"]))
         sys.stdout.flush()
 
-        # execute task (with timing)
-        task_time_or_none = do_task(task_parameters,task,phase_handlers)
-        if (task_time_or_none is None):
+        # execute task
+        task_time = 0
+        task_yielded = False
+        try:
+            do_task(task_parameters,task,phase_handlers)
+        except exception.LockContention:
             print("(Task yielded)")
-        else:
-            task_time = task_time_or_none
-            if (avg_task_time == 0.):
-                avg_task_time = task_time
-            avg_task_time = (task_time + avg_task_time)/2.
-            print("(Task time: {:.2f} sec)".format(task_time))
-
-        # tally
-        task_count += 1
+            task_yielded = True
+            timer.cancel_timer()
+        except exception.InsufficientTime:
+            print("(Task incomplete)")
+            raise
+        finally:
+            if not task_yielded:
+                task_time = timer.stop_timer()
+                # tally
+                task_count += 1
+            print("(Task time: {:.2f} sec [={:.2f} min])".format(task_time, task_time/60))
 
 
 def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers):
@@ -1050,22 +1463,33 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
 
     # special run modes
     if (task_mode == TaskMode.kTOC):
+        # get task statuses
+        task_statuses = task_status_list(task_list,phase_handlers)
         # update toc file
-        toc_filename = write_toc(task_list,phase_handlers)
+        toc_filename = write_toc(task_list,task_statuses,phase_handlers)
         # replicate toc file contents to stdout
         print()
         color = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
-        print(task_toc(task_list,phase_handlers,color))
+        print(task_toc(task_list,task_statuses,phase_handlers,color))
         print()
     elif (task_mode == TaskMode.kUnlock):
         task_unlock()
     elif (task_mode == TaskMode.kArchive):
-        write_toc(task_list,phase_handlers)  # update toc for archive
+        # get task statuses
+        task_statuses = task_status_list(task_list,phase_handlers)
+        write_toc(task_list,task_statuses,phase_handlers)  # update toc for archive
         do_archive(task_parameters,archive_phase_handlers)
     elif (task_mode == TaskMode.kPrerun):
         invoke_tasks_prerun(task_parameters,task_list,phase_handlers)
     elif ((task_mode == TaskMode.kRun) or (task_mode == TaskMode.kOffline)):
-        invoke_tasks_run(task_parameters,task_list,phase_handlers)
+        try:
+            invoke_tasks_run(task_parameters,task_list,phase_handlers)
+        except exception.InsufficientTime:
+            # consider an early termination to be successful
+            control.termination(success=True, complete=False)
+        except BaseException as err:
+            traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__)
+            control.termination(success=False)
     else:
         raise(exception.ScriptError("Unsupported run mode: {:s}".format(task_mode)))
 
@@ -1085,7 +1509,7 @@ def init(
     """Stores the given list of tasks and postprocesses it, adding
     fields with values given by the given functions.
 
-    The task "descriptor", "pool", and "mask" fields are set by invoking the given
+    The task "descriptor", "pool", and "masks" fields are set by invoking the given
     functions task_descriptor, task_pool, and task_mask, respectively, on each task.
 
     Also registers the phase handlers.  The number of phases is also
@@ -1119,24 +1543,35 @@ def init(
     make_task_dirs()
 
     # process task list
-    for index in range(len(task_list)):
-        task = task_list[index]
-
-        # legacy descriptor field
-        # DEPRECATED in favor of ["metadata"]["descriptor"]
-        # TODO -- remove legacy fields once sure nobody uses them
-        task["descriptor"] = task_descriptor(task)
-
+    task_descriptor_set = set()
+    for (index, task) in enumerate(task_list):
         # encapsulated metadata
         metadata = {
             "descriptor" : task_descriptor(task),
+            "descriptor_function": task_descriptor,
             "pool" : task_pool(task),
-            "mask" : task_mask(task),
             "index" : index,
             "mode" : None,  # to be set at task invocation time
             "phase" : None  # to be set at task invocation time
         }
+        # if task_mask callable takes multiple arguments, pass both task and
+        # phase number
+        if len(inspect.signature(task_mask).parameters) > 1:
+            metadata["masks"] = tuple(
+                task_mask(task, phase)
+                for phase in range(len(phase_handler_list))
+                )
+        else:
+            metadata["masks"] = len(phase_handler_list)*(task_mask(task),)
+
         task["metadata"] = metadata
+
+        # check for duplicate task descriptors
+        if metadata["descriptor"] in task_descriptor_set:
+            raise exception.ScriptError(
+                "duplicate task descriptor: {}".format(metadata["descriptor"])
+            )
+        task_descriptor_set.add(metadata["descriptor"])
 
     # alias handler arguments
     phase_handlers = phase_handler_list

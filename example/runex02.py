@@ -1,105 +1,111 @@
-"""runex02.py -- multi-task example of hello world
+""" runex02.py -- multi-task example of hello world
 
-   There are several ways you should try invoking this script, to have
-   a chance to try out the range of possiblities...
+    There are several ways you should try invoking this script, to have
+    a chance to try out the range of possiblities...
 
-   When you are writing and debugging the script, you might first do a
-   do-nothing test run (for syntax only) on front end, just to make
-   sure it doesn't crash in the setup phase, i.e., as it generates the
-   task list:
+    When you are writing and debugging the script, you might first do a
+    do-nothing test run (for syntax only) on front end, just to make
+    sure it doesn't crash in the setup phase, i.e., as it generates the
+    task list:
 
-       % qsubm ex02
+        % qsubm ex02
 
-   But, actually, probably at the same time you would print a table of
-   contents of the tasks, still running on front end:
+    But, actually, probably at the same time you would print a table of
+    contents of the tasks, still running on front end:
 
-       % qsubm ex02 --toc
+        % qsubm ex02 --toc
 
-   To actually execute a task, you have to specify the task's pool.
-   Tasks within a given pool should all require the same computing
-   resources and take approximately the same amount of time.  Here,
-   for instance, we try to run the tasks in the pool for inner planets
-   ("inner"), still on front end:
+    To actually execute a task, you have to specify the task's pool.
+    Tasks within a given pool should all require the same computing
+    resources and take approximately the same amount of time.  Here,
+    for instance, we try to run the tasks in the pool for inner planets
+    ("inner"), still on front end:
 
-       % qsubm ex02 --pool=inner --phase=0
+        % qsubm ex02 --pool=inner --phase=0
 
-   Now if you generate a table of contents again, you should see some
-   tasks marked as completed:
+    Now if you generate a table of contents again, you should see some
+    tasks marked as completed:
 
-       % qsubm ex02 --toc
+        % qsubm ex02 --toc
 
-            0000 inner X - Mercury
-            0001 inner X - Venus
-            0002 inner X - Earth
-            0003 inner X - Mars
-            0004 outer - - Jupiter
-            0005 outer - - Saturn
-            0006 outer - - Uranus
-            0007 outer - - Neptune
+                0000 inner X - Mercury
+                0001 inner X - Venus
+                0002 inner X . Earth
+                0003 inner X - Mars
+                0004 outer - - Jupiter
+                0005 outer - - Saturn
+                0006 outer - - Uranus
+                0007 outer - - Neptune
 
-   Once phase 0 is completed, we can run phase 1:
+    Once phase 0 is completed, we can run phase 1:
 
-       % qsubm ex02 --pool=inner --phase=1
-       % qsubm ex02 --toc
+        % qsubm ex02 --pool=inner --phase=1
+        % qsubm ex02 --toc
 
-            0000 inner X X Mercury
-            0001 inner X X Venus
-            0002 inner X X Earth
-            0003 inner X X Mars
-            0004 outer - - Jupiter
-            0005 outer - - Saturn
-            0006 outer - - Uranus
-            0007 outer - - Neptune
+                0000 inner X X Mercury
+                0001 inner X X Venus
+                0002 inner X . Earth
+                0003 inner X X Mars
+                0004 outer - - Jupiter
+                0005 outer - - Saturn
+                0006 outer - - Uranus
+                0007 outer - - Neptune
 
-   What if we try to do the second phase of the outer planet tasks now?
+    Note that phase 1 of task 2 (Earth) is masked, so it wasn't executed.
 
-       % qsubm ex02 --pool=outer --phase=1
+    What if we try to do the second phase of the outer planet tasks now?
 
-            Missing prerequisite /scratch/runs/runex02/flags/task-0004-0
-            Missing prerequisite /scratch/runs/runex02/flags/task-0005-0
-            Missing prerequisite /scratch/runs/runex02/flags/task-0006-0
-            Missing prerequisite /scratch/runs/runex02/flags/task-0007-0
+        % qsubm ex02 --pool=outer --phase=1
 
-   The script will skip over all of them, since phase 0 was not
-   completed for these tasks.  We have to do phase 0 first, then we
-   can do phase 1...
+                Missing prerequisite /scratch/runs/runex02/flags/task-0004-0
+                Missing prerequisite /scratch/runs/runex02/flags/task-0005-0
+                Missing prerequisite /scratch/runs/runex02/flags/task-0006-0
+                Missing prerequisite /scratch/runs/runex02/flags/task-0007-0
 
-       % qsubm ex02 --pool=outer --phase=0
-       % qsubm ex02 --pool=outer --phase=1
-       % qsubm ex02 --toc
+    The script will skip over all of them, since phase 0 was not
+    completed for these tasks.  We have to do phase 0 first, then we
+    can do phase 1...
 
-            0000 inner X X Mercury
-            0001 inner X X Venus
-            0002 inner X X Earth
-            0003 inner X X Mars
-            0004 outer X X Jupiter
-            0005 outer X X Saturn
-            0006 outer X X Uranus
-            0007 outer X X Neptune
+        % qsubm ex02 --pool=outer --phase=0
+        % qsubm ex02 --pool=outer --phase=1
+        % qsubm ex02 --toc
 
-   If you are on a cluster, on the other hand, you can go ahead and
-   run these jobs on some appropriate queue, with some time limit (the
-   details are cluster specific), for instance:
+                0000 inner X X Mercury
+                0001 inner X X Venus
+                0002 inner X . Earth
+                0003 inner X X Mars
+                0004 outer X X Jupiter
+                0005 outer X X Saturn
+                0006 outer X X Uranus
+                0007 outer X X Neptune
+
+    If you are on a cluster, on the other hand, you can go ahead and
+    run these jobs on some appropriate queue, with some time limit (the
+    details are cluster specific), for instance:
 
 
-   Note:
+    Note:
 
-      -- task standard output is always redirected to directory named
-      output
+        -- task standard output is always redirected to directory named
+        output
 
-      -- task completion logs are saved to directory flags
+        -- task completion logs are saved to directory flags
 
-      -- task runs in working directory task-nnnn.dir
+        -- task runs in working directory task-nnnn.dir
 
-  M. A. Caprio
-  Department of Physics
-  University of Notre Dame
+    M. A. Caprio
+    Department of Physics
+    University of Notre Dame
 
-  1/8/17 (mac): Add renamed results file.  Rename to runex02.py.
-  1/20/17 (mac): Add second phase to example.
-  3/16/17 (mac): Add generic archive handler.
-  3/18/17 (mac): Update to use task descriptor from metadata record.
-  5/30/19 (pjf): Sort results into inner and outer directories.
+    + 01/08/17 (mac): Add renamed results file.  Rename to runex02.py.
+    + 01/20/17 (mac): Add second phase to example.
+    + 03/16/17 (mac): Add generic archive handler.
+    + 03/18/17 (mac): Update to use task descriptor from metadata record.
+    + 05/30/19 (pjf): Sort results into inner and outer directories.
+    + 12/11/19 (pjf): Use mcscript.task.save_results_single() and
+        mcscript.task.save_results_multi().
+    + 06/02/20 (pjf): Add example usage of exception.InsufficientTime.
+    + 02/08/22 (pjf): Add example of task_mask.
 
 """
 
@@ -169,6 +175,15 @@ def task_pool_world(task):
 
     return pool
 
+def task_mask(task, phase):
+    """Return task mask for given task and phase.
+    """
+    # don't say goodbye to Earth
+    if (task["world_name"] == "Earth") and (phase == 1):
+        return False
+
+    return True
+
 ##################################################################
 # implementation functions for doing a "hello/goodbye world" task
 #
@@ -207,16 +222,7 @@ def say_hello(task):
             results_filename
         ]
     )
-    results_dir = os.path.join(mcscript.task.results_dir, task["metadata"]["pool"])
-    mcscript.utils.mkdir(results_dir, exist_ok=True)
-    mcscript.call(
-        [
-            "cp",
-            "--verbose",
-            results_filename,
-            "--target-directory={}".format(results_dir)
-        ]
-    )
+    mcscript.task.save_results_single(task, results_filename, subdirectory=task["metadata"]["pool"])
 
 def say_goodbye(task):
     """Do a goodbye world task given current task parameters.
@@ -231,6 +237,11 @@ def say_goodbye(task):
     "world_name" : name of world to greet
 
     """
+
+    # saying goodbye is hard -- make sure we have enough time
+    print(mcscript.parameters.run.get_remaining_time())
+    if mcscript.parameters.run.get_remaining_time() < 300:
+        raise mcscript.exception.InsufficientTime(required_time=300)
 
     # write greeting message to file
     mcscript.utils.write_input(
@@ -252,16 +263,7 @@ def say_goodbye(task):
             results_filename
         ]
     )
-    results_dir = os.path.join(mcscript.task.results_dir, task["metadata"]["pool"])
-    mcscript.utils.mkdir(results_dir, exist_ok=True)
-    mcscript.call(
-        [
-            "cp",
-            "--verbose",
-            results_filename,
-            "--target-directory={}".format(results_dir)
-        ]
-    )
+    mcscript.task.save_results_multi(task, [results_filename], subdirectory="goodbyes")
 
 ##################################################################
 # master loop
@@ -271,9 +273,11 @@ mcscript.task.init(
     tasks,
     task_descriptor=task_descriptor_world,
     task_pool=task_pool_world,
+    task_mask=task_mask,
     phase_handler_list=[say_hello,say_goodbye],
     archive_phase_handler_list=[mcscript.task.archive_handler_hsi]
     )
+
 
 ################################################################
 # termination

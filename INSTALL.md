@@ -12,7 +12,7 @@ Department of Physics, University of Notre Dame
 + 12/21/17 (pjf): Move to INSTALL.md and update to Markdown.
 + 01/01/18 (pjf): Update for installation with `pip`.
 + 02/06/18 (pjf): Update MCSCRIPT_SOURCE file path.
-+ 02/09/18 (mac): Update environment description.
++ 02/09/18 (mac): Overhaul configuration instructions.
 
 ----------------------------------------------------------------
 
@@ -40,39 +40,46 @@ Department of Physics, University of Notre Dame
   % git checkout -t origin/develop
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Set up the package in your `PYTHONPATH` by running `pip` (or `pip3` on Debian):
+  Set up the package in your `PYTHONPATH` by running `pip`:
 
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  % pip install --user --editable .
+  % python3 -m pip install --user --editable .
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  a. Subsequently updating source
+  Note that the `.` here means to install the Python package defined by the code
+  in the current directory.
+  
+  a. Subsequently updating source:
 
   ~~~~~~~~~~~~~~~~
   % git pull
+  % python3 -m pip install --user --editable .
   ~~~~~~~~~~~~~~~~
 
+  This subsequent `pip install`, when updating the source code, is a precaution
+  in case, e.g., the package dependencies have changed.
+  
 # 2. Local configuration
 
-  You need to create a symbolic link `config.py` to point to the
-  correct configuration file for the system or cluster you are running
-  on.
+  The local configuration file provides functions which construct the batch
+  submission (qsub, sbatch, etc.) command lines and and serial/parallel
+  execution launch (mpiexec, srun, etc.)  invocations appropriate to your
+  cluster and running needs.  You need to create a symbolic link `config.py` to
+  point to the correct configuration file for the system or cluster you are
+  running on.
 
-  If you are only doing *local* runs (i.e., no batch job submission)
-  on your laptop/workstation with OpenMPI as your MPI implementation,
-  you can use the generic configuration file config-ompi.py in
+  If you are only doing *local* runs (i.e., no batch job submission) on your
+  laptop/workstation, and if you are using with OpenMPI as your MPI
+  implementation, you can use the generic configuration file config-ompi.py in
   mcscript/config:
+  
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   % ln -s config/config-ompi.py config.py
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Otherwise, whenever you move to a new cluster, you will have to
-  write such a file, to take into account the pecularities of the
-  batch submission software and queue structure of that cluster.
-
   Example local configuration files for Univa Grid Engine at the Notre
   Dame Center for Research Computing and SLURM at NERSC are included
-  in this directory.
+  in the mcscript/config directory.
 
   >#### @NDCRC: ####
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -84,132 +91,100 @@ Department of Physics, University of Notre Dame
   % ln -s config/config-slurm-nersc.py config.py
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  You will need to follow these models to define the batch submission
-  (qsub, sbatch, etc.) and serial/parallel execution launch (mpiexec,
-  srun, etc.) invocations appropriate to your cluster and your running
-  needs.
+  Otherwise, whenever you move to a new cluster, you will have to
+  write such a file, to take into account the pecularities of the
+  batch submission software and queue structure of that cluster.
+  You can use the above example files as models to define your own configuration
+  file appropriate to your own cluster and your own running needs.
 
 # 3. Environment variables
 
-  The mcscript job submission utility "qsubm" expects certain
-  environment variables to be defined at submission time.  The easiest
-  way to ensure that these variables are defined is to define them in
-  the shell initialization file for you your login shell (e.g., csh or
-  bash).
+  You will also need to add the `mcscript\tools` directory to your command path.
+  Furthermore, the mcscript job submission utility "qsubm" expects certain
+  environment variables to be defined at submission time:
 
-  In your csh initialization file, define initialization as follows
-  (adjusting directory names to match your own choices as
-  appropriate):
+  > MCSCRIPT_DIR specifies the directory in which the mcscript package is
+  > installed, i.e., the directory where the file qsubm.py is found.  (Note
+  > that qsubm uses this information to locate certain auxiliary script files
+  > used as part of the job submission process.)
+
+  > MCSCRIPT_INSTALL_HOME specifies the directory in which executables are
+  > found.
+
+  > MCSCRIPT_RUN_HOME specifies the directory in which job files are found.
+
+  > MCSCRIPT_WORK_HOME specifies the parent directory in which run scratch
+  > directories should be made.  This will normally be on a fast scratch
+  > filesystem.
+
+  A few other optional environment variables (which you are not likely to
+  need) are defined in the documentation inside `qsubm.py`.
+
+  The easiest way to ensure that these variables are defined is to define them
+  in the shell initialization file for your login shell.  That is, if you are a
+  tcsh user, you would add something like the following to your .cshrc file:
+  
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
   setenv MCSCRIPT_DIR ${HOME}/code/mcscript
   setenv MCSCRIPT_INSTALL_HOME ${HOME}/code/install
   setenv MCSCRIPT_RUN_HOME ${HOME}/runs
   setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
-  setenv MCSCRIPT_PYTHON python3
-  setenv MCSCRIPT_RUN_PREFIX run
-  source ${MCSCRIPT_DIR}/mcscript_init.csh
+  setenv PATH ${MCSCRIPT_DIR}/tools:${PATH}
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Alternatively, if your default shell is bash (we translate the
-  `setenv` statements above into `export` statements and invoke the
-  alternative initialization script file `mcscript_init.sh`):
+  Alternatively, if you are a bash user, you would add something like the
+  following to your .bashrc file:
+  
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
   export MCSCRIPT_DIR=${HOME}/code/mcscript
   export MCSCRIPT_INSTALL_HOME=${HOME}/code/install
   export MCSCRIPT_RUN_HOME=${HOME}/runs
   export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
-  export MCSCRIPT_PYTHON=python3
-  export MCSCRIPT_RUN_PREFIX=run
-  source ${MCSCRIPT_DIR}/mcscript_init.sh
+  export PATH=${MCSCRIPT_DIR}/tools:${PATH}
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  You may also need to set environment variables for specific
-  application scripts you plan to use with mcscript.
-
-  A description of the environment variables for qsubm follows:
-
-  > MCSCRIPT_DIR should specify the directory in which the mcscript
-  > package is installed, i.e., the directory where the file qsubm.py
-  > is found.  (Note that qsubm uses this information to locate
-  > certain auxiliary script files used as part of the job submission
-  > process.)
-
-  > MCSCRIPT_RUN_HOME must specify the directory in which job files
-  > are found.
-
-  > MCSCRIPT_WORK_HOME should specify the parent directory in which
-  > run scratch directories should be made.
-
-  > MCSCRIPT_INSTALL_HOME must specify the directory in which
-  > executables are found.
-
-  > MCSCRIPT_LAUNCH_HOME (optional) should specify the parent
-  > directory in which run subdirectories for qsub invocation and
-  > output logging should be made.  Otherwise, this will default to
-  > MCSCRIPT_WORK_HOME.
-
-  > MCSCRIPT_PYTHON should give the full qualified filename (i.e.,
-  > including path) to the Python 3 executable for running run script
-  > files.  A typical value will simply be "python3", assuming the
-  > Python 3 executable is in the shell's command search PATH.
-  > However, see note on "Availability of Python" below.
-
-  > MCSCRIPT_RUN_PREFIX should specify the prefix for run names,
-  > e.g., set to "run" if your scripts are to be named
-  > run<XXXX>.py.
-
-  If you are running batch jobs, you will typically also need to make
-  sure certain modules are loaded or environment variables are set
-  before your code executes.  For instance, you may need to load
-  modules for certain libraries which your code uses, possibly even
-  the compiler's own run-time libraries.  This choice may vary from
-  job to job.  You can control this by storing the various definitions
-  in a shell file (e.g., csh or bash, depending on which shell your
-  jobs are launched under, on your local system or cluster).  Then
-  mcscript will ensure that these definitions are "sourced" when your
-  job starts on the compute node.
+  You may also need to set environment variables expected by the scripting for
+  specific application you plan to run under mcscript.  But those should be
+  defined in the documentation for the relevant scripting.
 
   To tell mcscript about this file, make sure you set MCSCRIPT_SOURCE
   at the time you submit the job, i.e., before calling qsubm:
 
   > MCSCRIPT_SOURCE (optional) should give the full qualified
   > filename (i.e., including path) to any shell code which should
-  > be "sourced" at the beginning of the batch job.
+  > be "sourced" at the beginning of the batch job.  This should be
+  > sh/bash-compatible code.
 
-  Availability of Python: You will need to make sure that
-  `MCSCRIPT_PYTHON` points to a valid Python 3 executable both (a) on
-  the front end node, for qsubm and for local runs by qsubm, and (b)
-  on the compute node, in order for your job script to launch on the
-  compute node.  Even if a python3 module is loaded on the front end
-  at submission time, the relevant environment variables (PATH, etc.)
-  typically will *not* automatically convey to batch job when it runs
-  on the compute node (this depends on your batch system).  The
-  simplest solution, which works in most circumstances, is to load a
-  python3 module from your login shell initialization file.
-  Alternatively, you may use the `MCSCRIPT_SOURCE` hook to ensure that
-  a python3 module is loaded when your batch job starts and/or to
-  reset `MCSCRIPT_PYTHON` to give a valid filename for a Python
-  executable accessible from the compute node.
-
-  > @NDCRC: We need to load all required runtime libraries are loaded
-  > on the compute node at run time (ompi, etc.) and that the python3
-  > module is loaded at run time.  If you are always using the intel
-  > suite, for instance, you can simply include this definition in
-  > your .cshrc:
+  > @NDCRC: For example, if you are using the ND shell tools at the ND CRC, you need to
+  > ensure all required runtime libraries (such as the MPI library) are loaded on
+  > the compute node at run time.  If you are always using the intel suite, for
+  > instance, you can simply include this definition in your .cshrc:
+  > 
   > ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   > setenv MCSCRIPT_SOURCE ${HOME}/code/ndconfig/env-intel-ndcrc.csh
   > ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  > 
   > Otherwise, be sure to redefine this environment variable before
   > calling qsubm.
 
+  Availability of Python 3: You will need to make sure that a valid Python 3
+  executable can be invoked both (a) on the front end node, for qsubm and for
+  local runs by qsubm, and (b) on the compute node, in order for your job script
+  to launch on the compute node.  Even if a python3 module is loaded on the
+  front end at submission time, the relevant environment variables (PATH, etc.)
+  might or might not automatically convey to batch job when it runs on the
+  compute node (this depends on your batch system).  The simplest solution,
+  which works in most circumstances, is to load a python3 module from your login
+  shell initialization file.  Alternatively, you may use the `MCSCRIPT_SOURCE`
+  hook to ensure that a python3 module is loaded when your batch job starts.
+
 # 4. Basic tests
 
-  Basic test scripts may be found in `mcscript/example`.  But qsubm will
-  be looking for tem in your "run" directory.  So you can start by
-  putting symbolic links to these example scripts in your "run"
-  directory:
+  Basic test scripts may be found in `mcscript/example`.  But qsubm will be
+  looking for them in your "run" directory.  So you can start by putting
+  symbolic links to these example scripts in your "run" directory:
 
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   % cd ${MCSCRIPT_RUN_HOME}

@@ -34,6 +34,23 @@
         + Add is_compressible() to estimate if a file should be compressed.
     05/06/19 (pjf): Add scrub_ansi().
     09/01/19 (pjf): Add topological_sort().
+    08/11/20 (pjf): Add TaskTimer.
+    09/02/20 (pjf):
+        + Rewrite search_in_subdirectories to allow searching with arbitrary
+          subdirectory tree depths.
+        + Allow expand_path to take a list of paths to expand.
+    09/16/20 (pjf):
+        + Fix mutable default arguments to topological_sort().
+        + Add custom setter to CoefficientDict to avoid storing zero or
+          non-numerical coefficient.
+    10/09/20 (pjf/mac):
+        + Implement additive identity for CoefficientDict.
+        + Add generic dot function as workaround for np.dot.
+    02/08/20 (pjf):
+        + Add signal handler to TaskTimer.
+        + Add diagnostic output to topological_sort().
+    06/29/22 (pjf): Generalize search_in_subdirectories for multiple filenames.
+    12/15/22 (pjf): Add get_directory_size().
 """
 
 import collections
@@ -304,8 +321,7 @@ def ifelse(cond,a,b):
 ################################################################
 
 def search_in_subdirectories(
-        base_path_or_list,subdirectory_list,filename,
-        base=False,fail_on_not_found=True,error_message=None
+        *args, base=False, fail_on_not_found=True, error_message=None, verbose=True
 ):
     """Search for file in a list of subdirectories, beneath a given base
     path (or list of base paths).
@@ -313,8 +329,9 @@ def search_in_subdirectories(
     Arguments:
         base_path_or_list (str or list of str): base path in which to search
             subdirectories (may alternatively be list of base paths)
-        subdirectory_list (list of str): subdirectories to search
-        filename (str): file name (or base file name) to match
+        subdirectory_path_or_list (list of str, optional, repeatable):
+            subdirectories to search
+        filenames (str or list of str): file name(s) (or base file name(s)) to match
         base (bool, optional): whether to accept given search string
             as filename root rather than exact match (then just return
             this base in the result)
@@ -322,6 +339,7 @@ def search_in_subdirectories(
             failure to match (else returns None)
         error_message (str, optional): custom error message to display on
             file not found
+        verbose (bool, optional): whether to print log messages
 
 
     Returns:
@@ -333,60 +351,72 @@ def search_in_subdirectories(
     """
 
     # process arguments
-    print("----------------------------------------------------------------")
-    if (type(base_path_or_list)==str):
-        base_path_list = [base_path_or_list]
-    else:
-        base_path_list = list(base_path_or_list)
-    print("Searching for file name...")
-    print("  Base directories:",base_path_or_list)
-    print("  Subdirectories:",subdirectory_list)
-    print("  Filename:",filename)
+    if len(args) < 2:
+        raise ValueError("not enough arguments:", *args)
+    path_component_lists = []
+    for path_or_list in args:
+        if isinstance(path_or_list, (str,bytes,os.PathLike)):
+            path_component_lists.append([path_or_list])
+        else:
+            path_component_lists.append(list(path_or_list))
+
+    if verbose:
+        print("----------------------------------------------------------------")
+        print("Searching for file name...")
+        print("  Base directories:", path_component_lists[0])
+        for subdirectory_list in path_component_lists[1:-1]:
+            print("  Subdirectories:", subdirectory_list)
+        print("  Filenames:", path_component_lists[-1])
 
     # search in successive directories
     success = False
-    for (base_path,subdirectory) in itertools.product(base_path_list,subdirectory_list):
-        qualified_name = os.path.join(base_path,subdirectory,filename)
+    qualified_name = None
+    for path_components in itertools.product(*path_component_lists):
+        qualified_name = os.path.join(*path_components)
         if (base):
-            success = len(glob.glob(qualified_name+"*")>0)
+            success = len(glob.glob(qualified_name+"*"))>0
         else:
             success = os.path.exists(qualified_name)
         if (success):
             break
 
     # document success or failure
-    if (success):
-        print("  ->", qualified_name)
-    else:
-        if (error_message is None):
-            print("  ERROR: No matching filename found...")
+    if verbose:
+        if success:
+            print("  ->", qualified_name)
         else:
-            print("  ERROR: {}".format(error_message))
-    print("----------------------------------------------------------------")
+            if error_message is None:
+                print("  ERROR: No matching filename found...")
+            else:
+                print("  ERROR: {}".format(error_message))
+        print("----------------------------------------------------------------")
 
     # handle return for success or failure
     if (not success):
         if (fail_on_not_found):
-            raise exception.ScriptError("no match on filename".format(filename))
+            raise exception.ScriptError(f"no match on filenames {path_component_lists[-1]} in {path_component_lists[0:-1]}")
         else:
             return None
     return qualified_name
 
 
-def expand_path(path):
+def expand_path(path_or_list):
     """Expand and normalize path.
 
     This is a wrapper to various os.path functions, which expand inline
     variables and ~, and normalize nestings of separators.
 
     Arguments:
-        path: (str) path as string
+        path_or_list: (str or list of str) path (or list of paths) as string(s)
     Returns:
-        (str): expanded and normalized path
+        (str or list of str): expanded and normalized path(s)
     """
-    expanded_path = os.path.expanduser(os.path.expandvars(path))
-    norm_path = os.path.normpath(expanded_path)
-    return norm_path
+    if isinstance(path_or_list, (str, bytes, os.PathLike)):
+        expanded_path = os.path.expanduser(os.path.expandvars(path_or_list))
+        norm_path = os.path.normpath(expanded_path)
+        return norm_path
+    else:
+        return list(map(expand_path, path_or_list))
 
 
 ################################################################
@@ -440,6 +470,21 @@ def mkdir(dirname, exist_ok=False, parents=False):
     else:
         subprocess.call(["mkdir", dirname])
 
+def get_directory_size(dirname):
+    """Get total size of directory in bytes, like `du`.
+
+    Args:
+        dirname (str): name of directory of which to compute size
+
+    Returns:
+        (int): total size of directory in bytes
+    """
+    size = 0
+    for root, dirs, files in os.walk(dirname):
+        size += sum(os.path.getsize(os.path.join(root, name)) for name in files)
+        size += sum(os.path.getsize(os.path.join(root, name)) for name in dirs)
+    return size
+
 ################################################################
 # compression
 ################################################################
@@ -486,13 +531,17 @@ def is_compressible(filename, min_size=1048576, min_ratio=1.5):
 # graph sorting
 ################################################################
 
-def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_path=[]):
+def topological_sort(
+    graph, initial_vertices=None,
+    sorted_vertices=None, current_path=None
+):
     """Topologically sort a directed graph using depth-first traversal.
 
     Arguments:
         graph (dict): graph with keys representing vertices and values
             as lists of edges
-        initial_vertices (list): starting vertices for depth-first traversal
+        initial_vertices (list, optional): starting vertices for depth-first
+            traversal; defaults to all vertices
         sorted_vertices (list): internal list, used for recursion on intermediate
             sorted list
         current_path (list): internal list, used for detection of cycles
@@ -510,6 +559,12 @@ def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_pat
         >>> mcscript.utils.topological_sort(graph, [1,2,3])
         deque([3, 2, 1, 7, 4, 6, 10, 9, 8])
     """
+    if initial_vertices is None:
+        initial_vertices = graph.keys()
+    if sorted_vertices is None:
+        sorted_vertices = collections.deque()
+    if current_path is None:
+        current_path = []
     sorted_vertices = collections.deque(sorted_vertices)
     for vertex in sorted(initial_vertices):
         if vertex in sorted_vertices:
@@ -517,7 +572,11 @@ def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_pat
         if vertex in current_path:
             raise ValueError("graph is not directed-acyclic")
         current_path.append(vertex)
-        child_vertices = graph[vertex]
+        try:
+            child_vertices = graph[vertex]
+        except KeyError:
+            print(graph)
+            raise
         sorted_vertices = topological_sort(
             graph,
             initial_vertices=child_vertices,
@@ -529,19 +588,187 @@ def topological_sort(graph, initial_vertices=[], sorted_vertices=[], current_pat
     return sorted_vertices
 
 ################################################################
+# timing tracking and estimation
+################################################################
+
+class TaskTimer(object):
+    """A class for tracking timing statistics of tasks or subtasks.
+
+    Attributes:
+        start_time (float): time when class was instantiated
+        end_time (float): time when remaining time has expired
+        safety_factor (float): safety margin for required time
+        minimum_time (float): minimum number of seconds for required time
+        timings (list of float): elapsed time for past timings
+
+    Member attributes:
+        received_exit_signal (bool): flag which is set to true when the program
+            has received an exit signal
+
+    Note: In order for TaskTimer to respond to exit signals, the `signal` module
+    must be used to attach the `handle_exit_signal()` handler to a signal. For
+    example:
+
+        signal.signal(signal.SIGTERM, TaskTimer.handle_exit_signal)
+    """
+    received_exit_signal = False
+
+    @classmethod
+    def handle_exit_signal(cls, signalnum, frame):
+        cls.received_exit_signal = True
+
+    def __init__(self, remaining_time, safety_factor=1.1, minimum_time=60):
+        """Initialize TaskTimer with timing parameters.
+
+        Arguments:
+            remaining_time (float): amount of time (in seconds) remaining
+            safety_factor (float, optional): safety margin for required time
+            minimum_time (float, optional): minimum number of seconds for required time
+        """
+        self.start_time = time.time()
+        self.end_time = remaining_time + self.start_time
+        self.safety_factor = safety_factor
+        self.minimum_time = minimum_time
+        self.timings = []
+        self._task_start_time = None
+
+    @property
+    def elapsed_time(self):
+        """Time (in seconds) since timer was instantiated."""
+        return time.time() - self.start_time
+
+    @property
+    def remaining_time(self):
+        """Remaining time (in seconds) before InsufficientTime raised."""
+        return max(0., self.end_time - time.time())
+
+    @property
+    def last_time(self):
+        """Time (in seconds) for last timing."""
+        if len(self.timings) == 0:
+            return 0.
+        return self.timings[-1]
+
+    @property
+    def average_time(self):
+        """Average time (in seconds) of past timings."""
+        if len(self.timings) == 0:
+            return 0.
+        return sum(self.timings)/len(self.timings)
+
+    @property
+    def max_time(self):
+        """Maximum time (in seconds) for past timings."""
+        if len(self.timings) == 0:
+            return 0.
+        return max(self.timings)
+
+    @property
+    def min_time(self):
+        """Minimum time (in seconds) for past timings."""
+        if len(self.timings) == 0:
+            return 0.
+        return min(self.timings)
+
+    @property
+    def required_time(self):
+        """Estimated time (in seconds) for next timing."""
+        return max(
+            self.average_time*self.safety_factor,
+            self.last_time*self.safety_factor,
+            self.minimum_time
+            )
+
+    def start_timer(self):
+        """Start timer.
+
+        Raises:
+            (mcscript.exception.InsufficientTime): required time is greater than remaining time
+            (RuntimeError): timer already running
+        """
+        if (self.required_time > self.remaining_time) or self.received_exit_signal:
+            raise exception.InsufficientTime(self.required_time)
+
+        if self._task_start_time is not None:
+            raise RuntimeError("timer already started")
+
+        self._task_start_time = time.time()
+
+    def cancel_timer(self):
+        """Cancel timer without saving current timing information.
+
+        Raises:
+            (RuntimeError): timer not already running
+        """
+        if self._task_start_time is None:
+            raise RuntimeError("timer not running")
+        self._task_start_time = None
+
+    def stop_timer(self):
+        """Stop timer and save timing information.
+
+        Returns:
+            (float): current timing information
+
+        Raises:
+            (RuntimeError): timer not already running
+        """
+        if self._task_start_time is None:
+            raise RuntimeError("timer not running")
+        task_time = time.time() - self._task_start_time
+        self.timings.append(task_time)
+        self._task_start_time = None
+        return task_time
+
+################################################################
 # coefficient management
 ################################################################
 
-class CoefficientDict(dict):
+def dot(a,b):
+    """Take generalized dot product of two iterables.
+
+    This is a workaround, since np.dot fails with some abstract types, e.g.,
+    descendants of collections.UserDict (10/9/20).
+
+    Note: Addition of 0 must be defined for the product type, for Python's
+    built-in sum function to work.
+
+    Example:
+
+        >>>dot([1,2,3],[1,2,3])
+
+        14
+
+    Arguments:
+        a, b (iterables): iterables containing entries to multiply
+
+    Returns
+        (product type): a.b
+    """
+    return sum(map((lambda x,y:x*y),a,b))
+
+class CoefficientDict(collections.UserDict):
     """An extended dictionary which represents the coefficients of an algebraic
     expression.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def __setitem__(self, key, value):
+        if not isinstance(value, numbers.Number):
+            raise ValueError("non-numeric coefficient: {}".format(value))
+        elif value == 0. or value == 0:
+            self.pop(key, 0)
+        else:
+            super().__setitem__(key, value)
+
     def __add__(self, rhs):
         """Add two CoefficientDicts, matching coefficients.
         """
+        # additive identity -- "upcast" to empty CoefficientDict
+        if rhs == 0:
+            rhs = CoefficientDict()
+        #
         if not isinstance(rhs, CoefficientDict):
             raise TypeError("unsupported operand type(s) for +: 'CoefficientDict' and "+type_as_str(rhs))
         out = CoefficientDict()
@@ -555,6 +782,13 @@ class CoefficientDict(dict):
         for key in (rhs.keys() - self.keys()):
             out[key] = rhs[key]
         return out
+
+    def __radd__(self, lhs):
+        """Left add CoefficientDicts, matching coefficients.
+
+        Simply calls __add__, since addition is commutative.
+        """
+        return (self + lhs)
 
     def __mul__(self, rhs):
         """Scalar multiply by a number.

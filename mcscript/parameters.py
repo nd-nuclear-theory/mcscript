@@ -17,9 +17,12 @@
   + 07/06/18 (pjf):
     - Pass queue via MCSCRIPT_RUN_QUEUE.
     - Remove MCSCRIPT_HYBRID_NODESIZE.
+  + 06/02/20 (pjf): Add methods get_elapsed_time() and get_remaining_time().
+  + 10/11/20 (pjf): Add num_workers to parameters.
 """
 
 import os
+import time
 
 ################################################################
 # run parameters object
@@ -77,6 +80,7 @@ class RunParameters(object):
         # job details
         self.job_file = os.environ["MCSCRIPT_JOB_FILE"]
         self.wall_time_sec = int(os.environ["MCSCRIPT_WALL_SEC"])
+        self.num_workers = int(os.getenv("MCSCRIPT_WORKERS"))
 
         # environment definitions: executable install prefix
         self.install_dir = os.environ["MCSCRIPT_INSTALL_HOME"]
@@ -104,6 +108,9 @@ class RunParameters(object):
         ##                 ((self.epar_rank == None) or (self.epar_rank == 1))
         ##                 )
 
+        # time information
+        self.start_time = time.time()
+
     def run_data_string(self):
         """ Generate multiline string documenting run variables for
         diagnostic output.
@@ -127,6 +134,14 @@ class RunParameters(object):
             )
 
         return message
+
+    def get_elapsed_time(self):
+        """Get total elapsed time."""
+        return (time.time() - self.start_time)
+
+    def get_remaining_time(self):
+        """Get remaining allocated time."""
+        return (self.wall_time_sec - self.get_elapsed_time())
 
 # instantiate, but don't populate, since qsubm won't have needed variables in environment
 run = RunParameters()
