@@ -77,10 +77,12 @@ import shutil
 import re
 from tabnanny import verbose
 
-from . import control
-from . import exception
-from . import parameters
-from . import utils
+from .. import (
+    control,
+    exception,
+    parameters,
+    utils,
+)
 
 
 cluster_specs = {

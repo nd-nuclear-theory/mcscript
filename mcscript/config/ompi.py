@@ -18,7 +18,7 @@ import os
 import signal
 import sys
 
-from . import (
+from .. import (
     parameters,
     utils,
 )

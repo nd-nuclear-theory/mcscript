@@ -70,7 +70,7 @@
 import math
 import os
 
-from . import parameters
+from .. import parameters
 
 
 queues = {
