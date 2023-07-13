@@ -30,7 +30,7 @@ from .. import (
 ################################################################
 
 
-def submission(job_name,job_file,qsubm_path,environment_definitions,args):
+def submission(job_name,job_file,environment_definitions,args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -38,8 +38,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         job_name (str): job name string
 
         job_file (str): job script file
-
-        qsubm_path (str): path to qsubm files (for locating wrapper script)
 
         environment_definitions (list of str): list of environment variable definitions
         to include in queue submission arguments

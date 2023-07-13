@@ -69,6 +69,7 @@
 
 import math
 import os
+import pkg_resources
 
 from .. import parameters
 
@@ -91,7 +92,7 @@ queues = {
 ################################################################
 ################################################################
 
-def submission(job_name, job_file, qsubm_path, environment_definitions, args):
+def submission(job_name, job_file, environment_definitions, args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -99,8 +100,6 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
         job_name (str): job name string
 
         job_file (str): job script file
-
-        qsubm_path (str): path to qsubm files (for locating wrapper script)
 
         environment_definitions (list of str): list of environment variable definitions
         to include in queue submission arguments
@@ -190,12 +189,21 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     #
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
-    if "csh" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
-    elif "bash" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+    if "csh" in os.environ.get("SHELL", ""):
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/csh_job_wrapper.csh"
+        )
+    elif "bash" in os.environ.get("SHELL", ""):
+        job_wrapper = pkg_resources.resource_filename(
+            "mcscript", "job_wrappers/bash_job_wrapper.sh"
+        )
+    else:
+        job_wrapper = None
+
+    if job_wrapper:
+        submission_invocation += [job_wrapper]
+
     submission_invocation += [
-        job_wrapper,
         os.environ["MCSCRIPT_PYTHON"],
         job_file
     ]
