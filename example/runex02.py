@@ -122,7 +122,12 @@ import os
 # -- make available some functions for use in script
 #    (including mcscript utility functions and mcscript.task task management)
 import mcscript
-mcscript.init()
+import mcscript.control
+import mcscript.task
+import mcscript.parameters
+import mcscript.utils
+import mcscript.exception
+mcscript.control.init()
 
 ##################################################################
 # build task list
@@ -214,7 +219,7 @@ def say_hello(task):
     # save results file to common results directory
     print("Saving renamed output file...")
     results_filename = "{}-hello-{:s}.txt".format(mcscript.parameters.run.name,task["metadata"]["descriptor"])
-    mcscript.call(
+    mcscript.control.call(
         [
             "cp",
             "--verbose",
@@ -255,7 +260,7 @@ def say_goodbye(task):
     # save results file to common results directory
     print("Saving renamed output file...")
     results_filename = "{}-goodbye-{:s}.txt".format(mcscript.parameters.run.name,task["metadata"]["descriptor"])
-    mcscript.call(
+    mcscript.control.call(
         [
             "cp",
             "--verbose",
@@ -283,4 +288,4 @@ mcscript.task.init(
 # termination
 ################################################################
 
-mcscript.termination()
+mcscript.control.termination()

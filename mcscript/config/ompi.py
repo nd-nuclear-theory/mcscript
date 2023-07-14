@@ -19,6 +19,7 @@ import signal
 import sys
 
 from .. import (
+    exception,
     parameters,
     utils,
 )
@@ -57,7 +58,7 @@ def submission(job_name,job_file,environment_definitions,args):
 
     """
 
-    raise(ScriptError("no batch submission"))
+    raise exception.ScriptError("no batch submission")
 
 
 ################################################################

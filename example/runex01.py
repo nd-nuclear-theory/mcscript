@@ -14,8 +14,11 @@
 """
 
 import mcscript
+import mcscript.control
+import mcscript.parameters
+import mcscript.utils
 
-mcscript.init()
+mcscript.control.init()
 
 ##################################################################
 # main body
@@ -55,7 +58,7 @@ mcscript.utils.write_input(
 
 # example of running an executable
 #
-#   Note that mcscript.call is a wrapper to the subprocess
+#   Note that mcscript.control.call is a wrapper to the subprocess
 #   package, but does a lot more...  It generates logging output, it
 #   checks the return code and generates an exception on failure
 #   (i.e., a nonzero return), it can provide input lines to the code
@@ -64,10 +67,10 @@ mcscript.utils.write_input(
 #
 #   See the docstring for mcscript.utils.call for further information.
 
-mcscript.call(["/bin/cat","hello.txt"])
+mcscript.control.call(["/bin/cat","hello.txt"])
 
 ################################################################
 # termination
 ################################################################
 
-mcscript.termination()
+mcscript.control.termination()
