@@ -83,23 +83,26 @@ import os
 import shutil
 import subprocess
 import sys
-
-import mcscript.config
-import mcscript.utils
 import types
+
+from . import (
+    config,
+    task,
+    utils,
+)
 
 def get_user_config():
     """Get user configuration from environment."""
     user_config = types.SimpleNamespace()
 
-    user_config.install_home = mcscript.utils.expand_path(os.environ.get("MCSCRIPT_INSTALL_HOME", ""))
-    user_config.run_home_list = mcscript.utils.expand_path(os.environ.get("MCSCRIPT_RUN_HOME", "").split(":"))
-    user_config.work_home = mcscript.utils.expand_path(os.environ.get("MCSCRIPT_WORK_HOME", ""))
+    user_config.install_home = utils.expand_path(os.environ.get("MCSCRIPT_INSTALL_HOME", ""))
+    user_config.run_home_list = utils.expand_path(os.environ.get("MCSCRIPT_RUN_HOME", "").split(":"))
+    user_config.work_home = utils.expand_path(os.environ.get("MCSCRIPT_WORK_HOME", ""))
 
     # optional fields
-    user_config.launch_dir = mcscript.utils.expand_path(os.environ.get("MCSCRIPT_LAUNCH_DIR", ""))
-    user_config.python_executable = mcscript.utils.expand_path(os.environ.get("MCSCRIPT_PYTHON", ""))
-    user_config.env_script = mcscript.utils.expand_path(os.environ.get("MCSCRIPT_SOURCE", ""))
+    user_config.launch_dir = utils.expand_path(os.environ.get("MCSCRIPT_LAUNCH_DIR", ""))
+    user_config.python_executable = utils.expand_path(os.environ.get("MCSCRIPT_PYTHON", ""))
+    user_config.env_script = utils.expand_path(os.environ.get("MCSCRIPT_SOURCE", ""))
     user_config.run_prefix = "run"
 
     return user_config
@@ -181,7 +184,7 @@ def parse_args():
 
     # site-local options
     try:
-        mcscript.config.qsubm_arguments(parser)
+        config.qsubm_arguments(parser)
     except AttributeError:
         # local config doesn't provide arguments, ignore gracefully
         pass
@@ -289,17 +292,17 @@ def main():
         editor = os.environ.get("EDITOR", "vi")
         os.execlp(editor, editor, job_file)
     elif (args.toc):
-        task_mode = mcscript.task.TaskMode.kTOC
+        task_mode = task.TaskMode.kTOC
     elif (args.unlock):
-        task_mode = mcscript.task.TaskMode.kUnlock
+        task_mode = task.TaskMode.kUnlock
     elif (args.archive):
-        task_mode = mcscript.task.TaskMode.kArchive
+        task_mode = task.TaskMode.kArchive
     elif (args.prerun):
-        task_mode = mcscript.task.TaskMode.kPrerun
+        task_mode = task.TaskMode.kPrerun
     elif (args.offline):
-        task_mode = mcscript.task.TaskMode.kOffline
+        task_mode = task.TaskMode.kOffline
     else:
-        task_mode = mcscript.task.TaskMode.kRun
+        task_mode = task.TaskMode.kRun
 
     # environment definitions: multi-task run parameters
     environment_definitions += [
@@ -346,15 +349,15 @@ def main():
     #   in case scratch is local to the compute note
     work_dir = os.path.join(user_config.work_home, run)
     ## if ( not os.path.exists(work_dir)):
-    ##     mcscript.utils.mkdir(work_dir)
+    ##     utils.mkdir(work_dir)
     environment_definitions.append(f"MCSCRIPT_WORK_DIR={work_dir}")
 
     # set up run launch directory (for batch job output logging)
     launch_dir_parent = os.path.join(user_config.launch_home, run)
     if not os.path.exists(user_config.launch_home):
-        mcscript.utils.mkdir(user_config.launch_home)
+        utils.mkdir(user_config.launch_home)
     if not os.path.exists(launch_dir_parent):
-        mcscript.utils.mkdir(launch_dir_parent)
+        utils.mkdir(launch_dir_parent)
     if args.archive:
         # archive mode
         # launch in archive directory rather than usual batch job output directory
@@ -366,7 +369,7 @@ def main():
         # standard run mode
         launch_dir = os.path.join(user_config.launch_home, run, "batch")
     if not os.path.exists(launch_dir):
-        mcscript.utils.mkdir(launch_dir)
+        utils.mkdir(launch_dir)
     environment_definitions.append(f"MCSCRIPT_LAUNCH_DIR={launch_dir}")
 
 
@@ -378,8 +381,8 @@ def main():
     job_name = f"{run:s}"
     ##job_name += "-w%d" % args.width
     if args.pool is not None:
-        job_name += "-{args.pool:s}"
-    job_name += "-{args.phase:s}"
+        job_name += f"-{args.pool:s}"
+    job_name += f"-{args.phase:d}"
     print("  Job name:", job_name)
 
     # process environment definitions
@@ -416,7 +419,7 @@ def main():
     if (run_mode == "batch"):
 
         # set local qsub arguments
-        (submission_args, submission_input_string, repetitions) = mcscript.config.submission(job_name, job_file, environment_definitions, args)
+        (submission_args, submission_input_string, repetitions) = config.submission(job_name, job_file, environment_definitions, args)
 
         # notes: options must come before command on some platforms (e.g., Univa)
         print(" ".join(submission_args))
@@ -446,7 +449,7 @@ def main():
             popen_args = ["csh", job_file]
         print()
         print("-"*64)
-        if task_mode is mcscript.task.TaskMode.kRun:
+        if task_mode is task.TaskMode.kRun:
             print(f"\033]2;qsubm {run}\007")
         os.chdir(launch_dir)
         os.execvpe(popen_args[0], popen_args, env=job_environ)
