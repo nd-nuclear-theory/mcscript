@@ -76,6 +76,7 @@
         - Add `--edit` mode.
         - Update xterm title when running directly.
     + 09/20/22 (pjf): Use os.exec instead of subprocess for local run_mode.
+    + 07/28/23 (mac/slv): Simplify argument handling for local runs (replace "RUN" with None as default queue).
 """
 
 import argparse
@@ -92,13 +93,12 @@ import mcscript.utils
 ################################################################
 
 parser = argparse.ArgumentParser(
-    description="Queue submission for numbered run.",
+    description="Set up execution environment for run script and submit to batch system (or launch local interactive execution).",
     usage=
-    "%(prog)s [option] run queue|RUN wall [var1=val1, ...]\n",
+    "%(prog)s [option] run [queue] [wall] [var1=val1, ...]\n",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     epilog=
-    """Simply omit the queue name and leave off the wall time for a
-    local interactive run.
+    """For a local (interactive) run, simply omit the queue name (and wall time) arguments.
 
     Environment variables for qsubm are described in INSTALL.md.
 
@@ -114,7 +114,7 @@ parser = argparse.ArgumentParser(
 # general arguments
 parser.add_argument("run", help="Run number (e.g., 0000 for run0000)")
 # latter arguments are made optional to simplify bare-bones syntax for --toc, etc., calls
-parser.add_argument("queue", nargs='?', help="Submission queue, or RUN for direct interactive run", default="RUN")
+parser.add_argument("queue", nargs='?', help="Submission queue (or omit for local interactive run)", default=None)
 parser.add_argument("wall", type=int, nargs='?', help="Wall time (minutes)", default=60)
 ##parser.add_argument("vars", nargs="?", help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2, PARAM=1.0)")
 parser.add_argument("--here", action="store_true", help="Force run in current working directory")
@@ -267,14 +267,11 @@ print("  Job file:", job_file)
 
 # set queue and flag batch or local mode
 # force local run for task.py toc mode
-if ((args.queue == "RUN") or args.toc or args.unlock):
+if ((args.queue is None) or args.toc or args.unlock):
     run_mode = "local"
-    run_queue = "local"
-    print("  Mode:", run_mode)
 else:
     run_mode = "batch"
-    run_queue = args.queue
-    print("  Mode:", run_mode, "(%s)" % args.queue)
+print("  Mode: {:s}  (Queue: {:s})".format(run_mode,str(args.queue)))
 
 # set wall time
 wall_time_min = args.wall
@@ -286,7 +283,7 @@ environment_definitions = [
     "MCSCRIPT_RUN={:s}".format(run),
     "MCSCRIPT_JOB_FILE={:s}".format(job_file),
     "MCSCRIPT_RUN_MODE={:s}".format(run_mode),
-    "MCSCRIPT_RUN_QUEUE={:s}".format(run_queue),
+    "MCSCRIPT_RUN_QUEUE={:s}".format(str(args.queue)),
     "MCSCRIPT_WALL_SEC={:d}".format(wall_time_sec),
     "MCSCRIPT_WORKERS={:d}".format(args.workers),
 ]
