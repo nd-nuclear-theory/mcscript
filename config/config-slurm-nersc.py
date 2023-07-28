@@ -55,17 +55,8 @@
     + 08/05/22 (pjf): Fix job_id() for array jobs.
     + 09/20/22 (pjf): Prevent use of `--jobs` with `--time-min`.
     + 12/15/22 (mac): Revert default license to uppercase SCRATCH on Cori.
+    + 07/28/23 (mac): Remove support for Cori.
 """
-
-# Notes:
-#
-# Cori Haswell
-#
-# http://www.nersc.gov/users/computational-systems/cori/running-jobs/general-running-jobs-recommendations/
-#
-# Common options:
-#
-# --opt="--mail-type=ALL"
 
 import datetime
 import os
@@ -84,41 +75,41 @@ from . import utils
 
 
 cluster_specs = {
-    "cori": {
-        "default": os.environ.get("CRAY_CPU_TARGET"),
-        "node_types": {
-            "haswell": {
-                "constraint": "haswell",
-                "core_specialization": True,
-                "queues": ["regular", "shared", "interactive", "debug", "premium", "flex", "overrun"],
-                "cores_per_node": 32,
-                "threads_per_core": 2,
-                "domains_per_node": 2,
-                "cores_per_domain": 16,
-                "nodes_per_switch": 384,
-            },
-            "mic-knl": {
-                "core_specialization": True,
-                "constraint": "knl,quad,cache",
-                "queues": ["regular", "interactive", "debug", "premium", "low", "flex", "overrun"],
-                "cores_per_node": 68,
-                "threads_per_core": 4,
-                "domains_per_node": 4,
-                "cores_per_domain": 16,
-                "nodes_per_switch": 384,
-            },
-            "cmem": {
-                "constraint": "amd",
-                "core_specialization": True,
-                "queues": ["bigmem", "interactive", "shared"],
-                "cores_per_node": 32,
-                "threads_per_core": 2,
-                "domains_per_node": 2,
-                "cores_per_domain": 16,
-                "nodes_per_switch": 1,
-            }
-        },
-    },
+    ## "cori": {
+    ##     "default": os.environ.get("CRAY_CPU_TARGET"),
+    ##     "node_types": {
+    ##         "haswell": {
+    ##             "constraint": "haswell",
+    ##             "core_specialization": True,
+    ##             "queues": ["regular", "shared", "interactive", "debug", "premium", "flex", "overrun"],
+    ##             "cores_per_node": 32,
+    ##             "threads_per_core": 2,
+    ##             "domains_per_node": 2,
+    ##             "cores_per_domain": 16,
+    ##             "nodes_per_switch": 384,
+    ##         },
+    ##         "mic-knl": {
+    ##             "core_specialization": True,
+    ##             "constraint": "knl,quad,cache",
+    ##             "queues": ["regular", "interactive", "debug", "premium", "low", "flex", "overrun"],
+    ##             "cores_per_node": 68,
+    ##             "threads_per_core": 4,
+    ##             "domains_per_node": 4,
+    ##             "cores_per_domain": 16,
+    ##             "nodes_per_switch": 384,
+    ##         },
+    ##         "cmem": {
+    ##             "constraint": "amd",
+    ##             "core_specialization": True,
+    ##             "queues": ["bigmem", "interactive", "shared"],
+    ##             "cores_per_node": 32,
+    ##             "threads_per_core": 2,
+    ##             "domains_per_node": 2,
+    ##             "cores_per_domain": 16,
+    ##             "nodes_per_switch": 1,
+    ##         }
+    ##     },
+    ## },
     "perlmutter": {
         "default": "cpu",
         "node_types": {
@@ -240,10 +231,7 @@ def qsubm_arguments(parser):
         "--switchwaittime", type=str, default="12:00:00",
         help="maximum time to wait for switch count; 0 disables constraint"
     )
-    if nersc_host == "cori":
-        default_licenses = "SCRATCH,cfs"
-    else:
-        default_licenses = "scratch,cfs"
+    default_licenses = "scratch,cfs"
     group.add_argument(
         "--licenses", type=str, default=default_licenses,
         help="licenses to request for job"
@@ -400,9 +388,7 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     if args.jobs > 1:
         submission_invocation += ["--array={:g}-{:g}".format(0, args.jobs-1)]
 
-    if (nersc_host == "cori") and (args.queue in ["xfer", "compile"]):
-        control.module(["load", "esslurm"])
-    elif args.queue in node_spec["queues"]:
+    if args.queue in node_spec["queues"]:
         # target cpu
         submission_invocation += ["--constraint={}".format(node_constraint)]
 
@@ -546,26 +532,17 @@ def serial_invocation(base):
         # run on front end
         invocation = base
     else:
-        if (os.getenv("NERSC_HOST") == "cori") and (parameters.run.num_workers == 1):
-            # run unwrapped on Cori
-            invocation = base
-        else:
-            # run on compute node
-            invocation = [
-                "srun",
-                "--ntasks={}".format(1),
-                "--nodes={}".format(1),
-                "--cpus-per-task={}".format(parameters.run.serial_threads),
-                "--export=ALL"
-            ]
+        # run on compute node
+        invocation = [
+            "srun",
+            "--ntasks={}".format(1),
+            "--nodes={}".format(1),
+            "--cpus-per-task={}".format(parameters.run.serial_threads),
+            "--export=ALL",
+            "--cpu-bind=cores",
+        ]
 
-            # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
-            # cpu-bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
-            invocation += [
-                "--cpu-bind=cores"
-            ]
-
-            invocation += base
+        invocation += base
 
     return invocation
 
@@ -705,7 +682,7 @@ def init():
     """ Do any local setup tasks.
 
     Invoked after mcscript sets the various configuration variables
-    and changed the cwd to the scratch directory.
+    and changes the cwd to the scratch directory.
     """
 
     # attach signal handler for USR1
