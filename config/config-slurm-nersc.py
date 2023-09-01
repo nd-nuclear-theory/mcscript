@@ -335,12 +335,12 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             raise exception.ScriptError(
                 "ensure 'cmem' module is loaded when using --node-type=cmem"
             )
-        elif (node_type in ["haswell", "mic-knl"]) and (node_type != os.environ.get("CRAY_CPU_TARGET", "")):
-            raise exception.ScriptError(
-                "--node-type={:s} does not match CRAY_CPU_TARGET={:s}".format(
-                    node_type, os.environ.get("CRAY_CPU_TARGET", "")
-                )
-            )
+        ## elif (node_type in ["haswell", "mic-knl"]) and (node_type != os.environ.get("CRAY_CPU_TARGET", "")):
+        ##     raise exception.ScriptError(
+        ##         "--node-type={:s} does not match CRAY_CPU_TARGET={:s}".format(
+        ##             node_type, os.environ.get("CRAY_CPU_TARGET", "")
+        ##         )
+        ##     )
 
         # check for multiple workers with requeueable jobs
         if args.time_min and (args.workers > 1):
@@ -384,12 +384,19 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     if (node_spec["core_specialization"]) and (args.nodes > 1):
         submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
 
+    # gpu options
+    if node_type == "gpu":
+        # assumes typical configuration of single GPU per MPI rank
+        # https://docs.nersc.gov/jobs/affinity/#perlmutter
+        submission_invocation += ["--gpus-per-task=1"]
+        submission_invocation += ["--gpu-bind=none"]
+    
     # job array for repetitions
     if args.jobs > 1:
         submission_invocation += ["--array={:g}-{:g}".format(0, args.jobs-1)]
 
     if args.queue in node_spec["queues"]:
-        # target cpu
+        # target cpu/gpu
         submission_invocation += ["--constraint={}".format(node_constraint)]
 
         if slurm_time_to_seconds(args.switchwaittime) > 0:
@@ -598,14 +605,30 @@ def hybrid_invocation(base):
         "--cpus-per-task={}".format(parameters.run.hybrid_threads),
         "--export=ALL"
     ]
-    # 4/3/17 (mac): cpu-bind=cores is recommended for cori but degrades performance on edison
-    # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
+
+    # buffering
+    # recommended by pm 02/02/23
+    invocation += [
+        "--unbuffered"
+    ]
+    
+    # cpu binding
     invocation += [
         "--cpu-bind=cores"
     ]
 
-    # use local path instead
+    # executable wrapper for GPU affinity
+    gpu_enabled = os.environ.get("MPICH_GPU_SUPPORT_ENABLED")=="1"
+    if gpu_enabled:
+        executable_wrapper_path = os.path.join(os.environ["MCSCRIPT_DIR"], "config", "nersc_select_gpu_device.sh")
+        if (parameters.run.hybrid_nodes >= 128):
+            executable_wrapper_path = broadcast_executable(executable_wrapper_path)
+        invocation += [executable_wrapper_path]
+        
+    # executable
     invocation += [executable_path]
+
+    # arguments
     invocation += base[1:]
 
     return invocation
@@ -696,7 +719,7 @@ def init():
         parameters.run.install_dir, cpu_target
         )
 
-    # get extract metadata from Slurm
+    # extract metadata from Slurm
     if job_id() != "0":
         # get hostname
         parameters.run.host_name = subprocess.run(
