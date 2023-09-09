@@ -134,6 +134,17 @@ cluster_specs = {
                 "gpus_per_node": 4,
                 "nodes_per_switch": 128,
             },
+            "gpu-hbm80g": {
+                "queues": ["regular", "interactive", "debug", "preempt", "overrun"],
+                "core_specialization": False,
+                "constraint": "gpu&hbm80g",
+                "cores_per_node": 64,
+                "threads_per_core": 2,
+                "domains_per_node": 4,
+                "cores_per_domain": 16,
+                "gpus_per_node": 4,
+                "nodes_per_switch": 128,
+            },
         },
     },
 }
