@@ -77,6 +77,8 @@
         - Update xterm title when running directly.
     + 09/20/22 (pjf): Use os.exec instead of subprocess for local run_mode.
     + 07/28/23 (mac/slv): Simplify argument handling for local runs (replace "RUN" with None as default queue).
+    + 09/10/23 (mac): Provide diagnostic environment variables MCSCRIPT_QSUBM_INVOCATION
+        and MCSCRIPT_SUBMISSION_INVOCATION.
 """
 
 import argparse
@@ -300,7 +302,6 @@ environment_definitions += [
     "MCSCRIPT_HYBRID_THREADS={:d}".format(args.threads),
 ]
 
-
 # set multi-task run parameters
 if (args.edit):
     editor = os.environ.get("EDITOR", "vi")
@@ -427,7 +428,7 @@ print("Vars:", ",".join(environment_definitions))
 # for local run
 job_environ=os.environ
 environment_keyvalues = [
-    entry.split("=")
+    tuple(entry.split("=", maxsplit=1))  # maxsplit is to support values which themselves contain an equals sign
     for entry in environment_definitions
     ]
 job_environ.update(dict(environment_keyvalues))
@@ -441,12 +442,16 @@ job_environ.update(dict(environment_keyvalues))
 print()
 sys.stdout.flush()
 
+# quiet environment definitions: diagnostic
+os.environ["MCSCRIPT_QSUBM_INVOCATION"] = "{}".format(sys.argv)
+
 # handle batch run
 if (run_mode == "batch"):
 
     # set local qsub arguments
     (submission_args, submission_input_string, repetitions) = mcscript.config.submission(job_name, job_file, qsubm_path, environment_definitions, args)
-
+    os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = submission_args
+    
     # notes: options must come before command on some platforms (e.g., Univa)
     print(" ".join(submission_args))
     print(submission_input_string)
@@ -478,4 +483,5 @@ elif (run_mode == "local"):
     if task_mode is mcscript.task.TaskMode.kRun:
         print(f"\033]2;qsubm {run}\007")
     os.chdir(launch_dir)
+    os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = "{}".format(popen_args)
     os.execvpe(popen_args[0], popen_args, env=job_environ)

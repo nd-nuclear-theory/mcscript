@@ -19,6 +19,8 @@
     - Remove MCSCRIPT_HYBRID_NODESIZE.
   + 06/02/20 (pjf): Add methods get_elapsed_time() and get_remaining_time().
   + 10/11/20 (pjf): Add num_workers to parameters.
+  + 09/10/23 (mac): Support diagnostic environment variables MCSCRIPT_QSUBM_INVOCATION
+    and MCSCRIPT_SUBMISSION_INVOCATION.
 """
 
 import os
@@ -93,6 +95,10 @@ class RunParameters(object):
         self.hybrid_ranks = int(os.environ["MCSCRIPT_HYBRID_RANKS"])
         self.hybrid_threads = int(os.environ["MCSCRIPT_HYBRID_THREADS"])
 
+        # environment definitions: diagnostic
+        self.qsubm_invocation = os.getenv("MCSCRIPT_QSUBM_INVOCATION")
+        self.submission_invocation = os.getenv("MCSCRIPT_SUBMISSION_INVOCATION")
+        
         # generate local definitions
         #
         # To be provided by local configuration init.
@@ -121,15 +127,17 @@ class RunParameters(object):
 
         message = "\n".join(
             [
-            "Run: {}".format(self.name),
-            "Job file: {}".format(self.job_file),
-            "Job ID: {}".format(self.job_id),
-            "Host name: {}".format(self.host_name),
-            "Batch mode: {}".format(self.batch_mode),
-            "Batch launch directory: {}".format(self.launch_dir),
-            "Work directory: {}".format(self.work_dir),
-            "Install directory: {}".format(self.install_dir),
-                "Wall time: {} sec (={:.2f} min)".format(self.wall_time_sec,self.wall_time_sec/60)
+                "Run: {}".format(self.name),
+                "Job file: {}".format(self.job_file),
+                "Job ID: {}".format(self.job_id),
+                "Host name: {}".format(self.host_name),
+                "Batch mode: {}".format(self.batch_mode),
+                "Batch launch directory: {}".format(self.launch_dir),
+                "Work directory: {}".format(self.work_dir),
+                "Install directory: {}".format(self.install_dir),
+                "Wall time: {} sec (={:.2f} min)".format(self.wall_time_sec,self.wall_time_sec/60),
+                "Invocation (qsubm): {}".format(self.qsubm_invocation),
+                "Invocation (submission): {}".format(self.submission_invocation),
             ]
             )
 
