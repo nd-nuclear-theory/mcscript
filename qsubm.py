@@ -450,7 +450,7 @@ if (run_mode == "batch"):
 
     # set local qsub arguments
     (submission_args, submission_input_string, repetitions) = mcscript.config.submission(job_name, job_file, qsubm_path, environment_definitions, args)
-    os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = submission_args
+    os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = "{}".format(submission_args)
     
     # notes: options must come before command on some platforms (e.g., Univa)
     print(" ".join(submission_args))
