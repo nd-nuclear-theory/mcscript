@@ -76,6 +76,9 @@
         - Add `--edit` mode.
         - Update xterm title when running directly.
     + 09/20/22 (pjf): Use os.exec instead of subprocess for local run_mode.
+    + 07/28/23 (mac/slv): Simplify argument handling for local runs (replace "RUN" with None as default queue).
+    + 09/10/23 (mac): Provide diagnostic environment variables MCSCRIPT_QSUBM_INVOCATION
+        and MCSCRIPT_SUBMISSION_INVOCATION.
 """
 
 import argparse
@@ -115,12 +118,12 @@ def parse_args():
         (argparse.Namespace) parsed arguments
     """
     parser = argparse.ArgumentParser(
-        description="Queue submission for numbered run.",
-        usage="%(prog)s [option] run queue|RUN wall [var1=val1, ...]\n",
+        description="Set up execution environment for run script and submit to batch system (or launch local interactive execution).",
+        usage="%(prog)s [option] run [queue] [wall] [var1=val1, ...]\n",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         epilog=
-        """Simply omit the queue name and leave off the wall time for a
-        local interactive run.
+        """For a local (interactive) run, simply omit the queue name
+        (and wall time) arguments.
 
         Environment variables for qsubm are described in INSTALL.md.
 
@@ -137,7 +140,7 @@ def parse_args():
     parser.add_argument("run", help="Run number (e.g., 0000 for run0000)")
 
     # latter arguments are made optional to simplify bare-bones syntax for --toc, etc., calls
-    parser.add_argument("queue", nargs='?', help="Submission queue, or RUN for direct interactive run", default="RUN")
+    parser.add_argument("queue", nargs='?', help="Submission queue (or omit for local interactive run)", default=None)
     parser.add_argument("wall", type=int, nargs='?', help="Wall time (minutes)", default=60)
     ##parser.add_argument("vars", nargs="?", help="Environment variables to pass to script, with optional values, comma delimited (e.g., METHOD2, PARAM=1.0)")
     parser.add_argument("--here", action="store_true", help="Force run in current working directory")
@@ -250,14 +253,11 @@ def main():
 
     # set queue and flag batch or local mode
     # force local run for task.py toc mode
-    if ((args.queue == "RUN") or args.toc or args.unlock):
+    if ((args.queue is None) or args.toc or args.unlock):
         run_mode = "local"
-        run_queue = "local"
-        print("  Mode:", run_mode)
     else:
         run_mode = "batch"
-        run_queue = args.queue
-        print("  Mode:", run_mode, "(%s)" % args.queue)
+    print("  Mode: {:s}  (Queue: {:s})".format(run_mode,str(args.queue)))
 
     # set wall time
     wall_time_min = args.wall
@@ -269,7 +269,7 @@ def main():
         "MCSCRIPT_RUN={:s}".format(run),
         "MCSCRIPT_JOB_FILE={:s}".format(job_file),
         "MCSCRIPT_RUN_MODE={:s}".format(run_mode),
-        "MCSCRIPT_RUN_QUEUE={:s}".format(run_queue),
+        "MCSCRIPT_RUN_QUEUE={:s}".format(str(args.queue)),
         "MCSCRIPT_WALL_SEC={:d}".format(wall_time_sec),
         "MCSCRIPT_WORKERS={:d}".format(args.workers),
     ]
@@ -401,7 +401,7 @@ def main():
     # for local run
     job_environ=os.environ
     environment_keyvalues = [
-        entry.split("=")
+        tuple(entry.split("=", maxsplit=1))  # maxsplit is to support values which themselves contain an equals sign
         for entry in environment_definitions
         ]
     job_environ.update(dict(environment_keyvalues))
@@ -415,11 +415,16 @@ def main():
     print()
     sys.stdout.flush()
 
+    # quiet environment definitions: diagnostic
+    os.environ["MCSCRIPT_QSUBM_INVOCATION"] = "{}".format(sys.argv)
+
     # handle batch run
     if (run_mode == "batch"):
 
         # set local qsub arguments
         (submission_args, submission_input_string, repetitions) = config.submission(job_name, job_file, environment_definitions, args)
+
+        os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = "{}".format(submission_args)
 
         # notes: options must come before command on some platforms (e.g., Univa)
         print(" ".join(submission_args))
@@ -452,4 +457,5 @@ def main():
         if task_mode is task.TaskMode.kRun:
             print(f"\033]2;qsubm {run}\007")
         os.chdir(launch_dir)
+        os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = "{}".format(popen_args)
         os.execvpe(popen_args[0], popen_args, env=job_environ)
