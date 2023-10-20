@@ -56,6 +56,7 @@
     + 09/20/22 (pjf): Prevent use of `--jobs` with `--time-min`.
     + 12/15/22 (mac): Revert default license to uppercase SCRATCH on Cori.
     + 07/28/23 (mac): Remove support for Cori.
+    + 10/20/23 (pjf): Avoid use of srun for serial invocation.
 """
 
 import datetime
@@ -550,7 +551,11 @@ def serial_invocation(base):
     #
     #   srun --export=ALL ...
 
-    if (not os.environ.get("SLURM_JOB_ID")):
+    # NERSC machines no longer use MOM nodes; OpenMP-only executions should
+    # generally not use srun to avoid srun delays. However, if using multiple
+    # workers, srun is (unfortunately) required in order to distribute serial
+    # tasks across nodes.
+    if (not os.environ.get("SLURM_JOB_ID")) or (parameters.run.num_workers == 1):
         # run on front end
         invocation = base
     else:
@@ -565,6 +570,8 @@ def serial_invocation(base):
         ]
 
         invocation += base
+
+    invocation = base
 
     return invocation
 
