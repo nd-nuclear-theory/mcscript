@@ -103,7 +103,7 @@ def get_user_config():
     user_config.work_home = utils.expand_path(os.environ.get("MCSCRIPT_WORK_HOME", ""))
 
     # optional fields
-    user_config.launch_dir = utils.expand_path(os.environ.get("MCSCRIPT_LAUNCH_DIR", ""))
+    user_config.launch_home = utils.expand_path(os.environ.get("MCSCRIPT_LAUNCH_HOME", ""))
     user_config.python_executable = utils.expand_path(os.environ.get("MCSCRIPT_PYTHON", ""))
     user_config.env_script = utils.expand_path(os.environ.get("MCSCRIPT_SOURCE", ""))
     user_config.run_prefix = "run"
