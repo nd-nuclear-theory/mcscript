@@ -1313,7 +1313,7 @@ def do_task(task_parameters,task,phase_handlers):
         raise
     except BaseException as err:
         # on failure, flag failure and propagate exception so script terminates
-        traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__, file=sys.stdout)
+        traceback.print_exception(err, value=err, tb=err.__traceback__, file=sys.stdout)
         if task_mode is TaskMode.kRun:
             # process timing
             task_end_time = time.time()
@@ -1507,7 +1507,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
             # consider an early termination to be successful
             control.termination(success=True, complete=False)
         except BaseException as err:
-            traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__)
+            traceback.print_exception(err, value=err, tb=err.__traceback__)
             control.termination(success=False)
     else:
         raise(exception.ScriptError("Unsupported run mode: {:s}".format(task_mode)))
