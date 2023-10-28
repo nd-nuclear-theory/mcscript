@@ -326,19 +326,31 @@ def search_in_subdirectories(
     """Search for file in a list of subdirectories, beneath a given base
     path (or list of base paths).
 
+
+    Example:
+
+        >>> base_path_list = ["/base_path_1", "/base_path_2"],
+        >>> subdirectory_list = ["subdirectory_1", "subdirectory_2"],
+        >>> filename = "the_file_we_are_trying_to_find.txt"
+        >>> search_in_subdirectories(base_path_list, subdirectory_list, filename)
+            
+            "/base_path_2/subdirectory_1/the_file_we_are_trying_to_find.txt"
+
     Arguments:
-        base_path_or_list (str or list of str): base path in which to search
-            subdirectories (may alternatively be list of base paths)
-        subdirectory_path_or_list (list of str, optional, repeatable):
-            subdirectories to search
-        filenames (str or list of str): file name(s) (or base file name(s)) to match
+
+        path_or_list_1, ... (str or list[str]): path segment (or list of
+            possible values to iteratively search)
+
         base (bool, optional): whether to accept given search string
             as filename root rather than exact match (then just return
             this base in the result)
+
         fail_on_not_found (bool, optional): whether to raise exception on
             failure to match (else returns None)
+
         error_message (str, optional): custom error message to display on
             file not found
+
         verbose (bool, optional): whether to print log messages
 
 
