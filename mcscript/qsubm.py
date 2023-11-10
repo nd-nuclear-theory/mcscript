@@ -79,6 +79,8 @@
     + 07/28/23 (mac/slv): Simplify argument handling for local runs (replace "RUN" with None as default queue).
     + 09/10/23 (mac): Provide diagnostic environment variables MCSCRIPT_QSUBM_INVOCATION
         and MCSCRIPT_SUBMISSION_INVOCATION.
+    + 11/10/23 (pjf): Populate selected values in parameters.run for use by
+        config.submission().
 """
 
 import argparse
@@ -90,6 +92,7 @@ import types
 
 from . import (
     config,
+    parameters,
     task,
     utils,
 )
@@ -221,7 +224,7 @@ def main():
         user_config.launch_home = user_config.work_home
 
     if not user_config.python_executable:
-        python_executable = "python3"
+        user_config.python_executable = "python3"
 
     if not user_config.install_home:
         print("MCSCRIPT_INSTALL_HOME not found in environment")
@@ -273,6 +276,9 @@ def main():
         "MCSCRIPT_WALL_SEC={:d}".format(wall_time_sec),
         "MCSCRIPT_WORKERS={:d}".format(args.workers),
     ]
+    parameters.run.name = run
+    parameters.run.job_file = job_file
+    parameters.run.run_queue = str(args.queue)
 
     # environment definitions: serial run parameters
     environment_definitions += [
@@ -351,6 +357,7 @@ def main():
     ## if ( not os.path.exists(work_dir)):
     ##     utils.mkdir(work_dir)
     environment_definitions.append(f"MCSCRIPT_WORK_DIR={work_dir}")
+    parameters.run.work_dir = work_dir
 
     # set up run launch directory (for batch job output logging)
     launch_dir_parent = os.path.join(user_config.launch_home, run)
@@ -371,6 +378,7 @@ def main():
     if not os.path.exists(launch_dir):
         utils.mkdir(launch_dir)
     environment_definitions.append(f"MCSCRIPT_LAUNCH_DIR={launch_dir}")
+    parameters.run.launch_dir = launch_dir
 
 
     ################################################################
