@@ -13,12 +13,18 @@
       from torque OpenPBS v2.3 and mpiexec from Intel MPI Library for Linux
       Version 2017:
     + 10/11/20 (pjf): Rename `--num` to `--jobs`.
+    + 11/10/23 (pjf):
+        - Migrate from pkg_resources to importlib_resources.
+        - Copy wrapper script to launch_dir to ensure existence.
 
 """
 
 import math
 import os
-import pkg_resources
+import pathlib
+import shutil
+import stat
+import importlib_resources
 
 from .. import parameters
 
@@ -149,18 +155,23 @@ def submission(job_name, job_file, environment_definitions, args):
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
     if "csh" in os.environ.get("SHELL", ""):
-        job_wrapper = pkg_resources.resource_filename(
-            "mcscript", "job_wrappers/csh_job_wrapper.csh"
-        )
+        job_wrapper_name = "csh_job_wrapper.csh"
     elif "bash" in os.environ.get("SHELL", ""):
-        job_wrapper = pkg_resources.resource_filename(
-            "mcscript", "job_wrappers/bash_job_wrapper.sh"
-        )
+        job_wrapper_name = "bash_job_wrapper.sh"
     else:
-        job_wrapper = None
+        job_wrapper_name = None
 
-    if job_wrapper:
-        submission_invocation += [job_wrapper]
+    if job_wrapper_name:
+        # copy job wrapper to launch directory
+        job_wrapper_source = (
+            importlib_resources.files('mcscript') / "job_wrappers" / job_wrapper_name
+        )
+        job_wrapper = pathlib.Path(parameters.run.launch_dir) / job_wrapper_name
+        with importlib_resources.as_file(job_wrapper_source) as path:
+            shutil.copyfile(path, job_wrapper)
+            job_wrapper.chmod(job_wrapper.stat().st_mode | stat.S_IEXEC)
+
+        submission_invocation += [str(job_wrapper)]
 
     # standard input for submission
     submission_string = ""
