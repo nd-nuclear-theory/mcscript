@@ -81,6 +81,7 @@
         and MCSCRIPT_SUBMISSION_INVOCATION.
     + 11/10/23 (pjf): Populate selected values in parameters.run for use by
         config.submission().
+    + 01/19/24 (pjf): Ensure `MCSCRIPT_PYTHON` is always set.
 """
 
 import argparse
@@ -327,6 +328,11 @@ def main():
     # environment definitions: pass through install directory
     environment_definitions += [
         f"MCSCRIPT_INSTALL_HOME={user_config.install_home:s}"
+    ]
+
+    # environment definitions: set MCSCRIPT_PYTHON
+    environment_definitions += [
+        f"MCSCRIPT_PYTHON={user_config.python_executable:s}"
     ]
 
     # include additional environment setup if defined
