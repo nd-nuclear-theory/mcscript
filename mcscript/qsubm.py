@@ -329,7 +329,7 @@ def main():
         f"MCSCRIPT_TASK_MODE={task_mode.value:d}",
         f"MCSCRIPT_TASK_PHASE={args.phase:d}",
         f"MCSCRIPT_TASK_START_INDEX={args.start:d}",
-        f"MCSCRIPT_TASK_REDIRECT={args.redirect:s}",
+        f"MCSCRIPT_TASK_REDIRECT={args.redirect}",
     ]
     # TODO (mac): neaten up so that these arguments are always provided
     # (and simplify this code to a simple list += as above)
