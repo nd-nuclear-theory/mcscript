@@ -51,6 +51,7 @@
         + Add diagnostic output to topological_sort().
     06/29/22 (pjf): Generalize search_in_subdirectories for multiple filenames.
     12/15/22 (pjf): Add get_directory_size().
+    01/19/24 (pjf): Make expand_path() handle None gracefully.
 """
 
 import collections
@@ -333,7 +334,7 @@ def search_in_subdirectories(
         >>> subdirectory_list = ["subdirectory_1", "subdirectory_2"],
         >>> filename = "the_file_we_are_trying_to_find.txt"
         >>> search_in_subdirectories(base_path_list, subdirectory_list, filename)
-            
+
             "/base_path_2/subdirectory_1/the_file_we_are_trying_to_find.txt"
 
     Arguments:
@@ -418,12 +419,16 @@ def expand_path(path_or_list):
     This is a wrapper to various os.path functions, which expand inline
     variables and ~, and normalize nestings of separators.
 
+    Arguments which are `None` will return `None`.
+
     Arguments:
         path_or_list: (str or list of str) path (or list of paths) as string(s)
     Returns:
         (str or list of str): expanded and normalized path(s)
     """
-    if isinstance(path_or_list, (str, bytes, os.PathLike)):
+    if path_or_list is None:
+        return None
+    elif isinstance(path_or_list, (str, bytes, os.PathLike)):
         expanded_path = os.path.expanduser(os.path.expandvars(path_or_list))
         norm_path = os.path.normpath(expanded_path)
         return norm_path
