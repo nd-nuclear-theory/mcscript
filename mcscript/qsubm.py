@@ -81,7 +81,9 @@
         and MCSCRIPT_SUBMISSION_INVOCATION.
     + 11/10/23 (pjf): Populate selected values in parameters.run for use by
         config.submission().
-    + 01/19/24 (pjf): Ensure `MCSCRIPT_PYTHON` is always set.
+    + 01/19/24 (pjf):
+        - Ensure `MCSCRIPT_PYTHON` is always set.
+        - Add quiet mode.
 """
 
 import argparse
@@ -154,6 +156,7 @@ def parse_args():
     parser.add_argument("--workers", type=int, default=1, help="Number of workers to launch per job (not supported by all queues)")
     parser.add_argument("--opt", action="append", help="Additional option arguments to be passed to job submission command (e.g., --opt=\"-m ae\" or --opt=\"--mail-type=END,FAIL\"), may be repeated (e.g., --opt=\"-A acct\" --opt=\"-a 1200\"); beware the spaces may be important to the job submission command")
     parser.add_argument("--expert", action="store_true", help="Run mcscript in expert mode")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress qsubm output text")
 
     # serial run parallelization parameters
     serial_group = parser.add_argument_group("serial run options (single-node, non-MPI)")
@@ -235,9 +238,14 @@ def main():
     # argument processing
     ################################################################
 
+    # quiet modes
+    if args.edit:
+        args.quiet = True
+
     # set run name
     run = user_config.run_prefix + args.run
-    print("Run:", run)
+    if not args.quiet:
+        print("Run:", run)
 
     # ...and process run file
     script_extensions = [".py", ".csh"]
@@ -249,11 +257,13 @@ def main():
                 job_file = filename
                 job_extension = extension
                 break
-    print("  Run homes:", user_config.run_home_list)  # useful to report now, in case job file missing
+    if not args.quiet:
+        print("  Run homes:", user_config.run_home_list)  # useful to report now, in case job file missing
     if (job_file is None):
         print(f"No job file {run}.* found with an extension in the set {script_extensions}.")
         exit(1)
-    print("  Job file:", job_file)
+    if not args.quiet:
+        print("  Job file:", job_file)
 
     # set queue and flag batch or local mode
     # force local run for task.py toc mode
@@ -261,11 +271,13 @@ def main():
         run_mode = "local"
     else:
         run_mode = "batch"
-    print("  Mode: {:s}  (Queue: {:s})".format(run_mode,str(args.queue)))
+    if not args.quiet:
+        print("  Mode: {:s}  (Queue: {:s})".format(run_mode,str(args.queue)))
 
     # set wall time
     wall_time_min = args.wall
-    print("  Wall time (min): {:d}".format(wall_time_min))
+    if not args.quiet:
+        print("  Wall time (min): {:d}".format(wall_time_min))
     wall_time_sec = wall_time_min*60
 
     # environment definitions: general run parameters
@@ -347,7 +359,8 @@ def main():
         user_environment_definitions = []
     else:
         user_environment_definitions = args.vars.split(",")
-        print("  User environment definitions:", user_environment_definitions)
+        if not args.quiet:
+            print("  User environment definitions:", user_environment_definitions)
 
     environment_definitions += user_environment_definitions
 
@@ -397,7 +410,8 @@ def main():
     if args.pool is not None:
         job_name += f"-{args.pool:s}"
     job_name += f"-{args.phase:d}"
-    print("  Job name:", job_name)
+    if not args.quiet:
+        print("  Job name:", job_name)
 
     # process environment definitions
     # regularize environment definitions
@@ -410,8 +424,9 @@ def main():
     for i in range(len(environment_definitions)):
         if (not "=" in environment_definitions[i]):
             environment_definitions[i] += "="
-    print()
-    print("Vars:", ",".join(environment_definitions))
+    if not args.quiet:
+        print()
+        print("Vars:", ",".join(environment_definitions))
     # for local run
     job_environ=os.environ
     environment_keyvalues = [
@@ -426,8 +441,9 @@ def main():
     ################################################################
 
     # flush script output before invoking job
-    print()
-    sys.stdout.flush()
+    if not args.quiet:
+        print()
+        sys.stdout.flush()
 
     # quiet environment definitions: diagnostic
     os.environ["MCSCRIPT_QSUBM_INVOCATION"] = "{}".format(sys.argv)
@@ -441,10 +457,11 @@ def main():
         os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = "{}".format(submission_args)
 
         # notes: options must come before command on some platforms (e.g., Univa)
-        print(" ".join(submission_args))
-        print(submission_input_string)
-        print()
-        print("-"*64)
+        if not args.quiet:
+            print(" ".join(submission_args))
+            print(submission_input_string)
+            print()
+            print("-"*64)
         for i in range(repetitions):
             subprocess.run(
                 submission_args,
@@ -466,10 +483,12 @@ def main():
             popen_args = [user_config.python_executable, job_file]
         elif (job_extension == ".csh"):
             popen_args = ["csh", job_file]
-        print()
-        print("-"*64)
+        if not args.quiet:
+            print()
+            print("-"*64)
         if task_mode is task.TaskMode.kRun:
-            print(f"\033]2;qsubm {run}\007")
+            if not args.quiet:
+                print(f"\033]2;qsubm {run}\007")
         os.chdir(launch_dir)
         os.environ["MCSCRIPT_SUBMISSION_INVOCATION"] = "{}".format(popen_args)
         os.execvpe(popen_args[0], popen_args, env=job_environ)
