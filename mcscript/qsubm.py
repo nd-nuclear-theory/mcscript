@@ -84,6 +84,7 @@
     + 01/19/24 (pjf):
         - Ensure `MCSCRIPT_PYTHON` is always set.
         - Add quiet mode.
+        - Cosmetic improvements to argument handling.
 """
 
 import argparse
@@ -175,7 +176,7 @@ def parse_args():
     ##hybrid_group.add_argument("--undersubscription", type=int, default=1, help="undersubscription factor (e.g., spread=2 requests twice the cores needed)")
 
     # multi-task interface: invocation modes
-    task_mode_group = parser.add_mutually_exclusive_group()
+    task_mode_group = parser.add_argument_group("run modes").add_mutually_exclusive_group()
     task_mode_group.add_argument("--edit", action="store_true", help="Edit run script using EDITOR")
     task_mode_group.add_argument("--toc", action="store_true", help="Invoke run script to generate task table of contents")
     task_mode_group.add_argument("--unlock", action="store_true", help="Delete any .lock or .fail flags for tasks")
@@ -189,7 +190,7 @@ def parse_args():
     task_selection_group.add_argument("--phase", type=int, default=0, help="Set task phase for task selection")
     task_selection_group.add_argument("--start", type=int, default=0, help="Set starting task number for task selection")
     task_selection_group.add_argument("--limit", type=int, help="Set task count limit for task selection")
-    task_selection_group.add_argument("--redirect", default="True", choices=["True", "False"], help="Allow redirection of standard"
+    task_selection_group.add_argument("--redirect", default=True, action=argparse.BooleanOptionalAction, help="Redirect standard"
                         " output/error to file (may want to disable for interactive debugging)")
 
     # site-local options
