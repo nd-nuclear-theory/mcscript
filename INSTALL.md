@@ -48,8 +48,10 @@ Department of Physics, University of Notre Dame
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   Note that the `.` here means to install the Python package defined by the code
-  in the current directory. If you are actively developing `mcscript` itself, 
-  you may want to pass the `--editable` flag to `pip`.
+  in the current directory. If you are actively developing `mcscript` itself,
+  you may want to pass the `--editable` flag to `pip`.  However, beware that
+  this may result in a fragile installation, e.g., the wrong version of `qsubm`
+  may be executed if you upgrade.
   
   a. Subsequently updating source:
 
