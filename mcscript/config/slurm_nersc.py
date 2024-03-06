@@ -60,6 +60,7 @@
     + 11/10/23 (pjf):
         - Migrate from pkg_resources to importlib_resources.
         - Copy wrapper script to launch_dir to ensure existence.
+    + 03/06/24 (mac): Make 
 """
 
 import datetime
@@ -372,6 +373,9 @@ def submission(job_name,job_file,environment_definitions,args):
         else:
             raise err
 
+    # cluster-specific environment variables (to pass through to runtime script)
+    os.environ["MCSCRIPT_NODE_TYPE"] = node_type
+        
     # start accumulating command line
     submission_invocation = [ "sbatch" ]
 
@@ -402,7 +406,7 @@ def submission(job_name,job_file,environment_definitions,args):
         submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
 
     # gpu options
-    if node_type == "gpu":
+    if node_type in {"gpu", "gpu-hbm80g"}:
         # assumes typical configuration of single GPU per MPI rank
         # https://docs.nersc.gov/jobs/affinity/#perlmutter
         submission_invocation += ["--gpus-per-task=1"]
@@ -650,8 +654,8 @@ def hybrid_invocation(base):
     ]
 
     # executable wrapper for GPU affinity
-    gpu_enabled = os.environ.get("MPICH_GPU_SUPPORT_ENABLED")=="1"
-    if gpu_enabled:
+    node_type = os.environ["MCSCRIPT_NODE_TYPE"]
+    if node_type in {"gpu", "gpu-hbm80g"}:
         ##executable_wrapper_path = pkg_resources.resource_filename(
         ##    "mcscript", "job_wrappers/nersc_select_gpu_device.sh"
         ##)
