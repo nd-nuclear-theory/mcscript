@@ -55,70 +55,70 @@
     + 08/05/22 (pjf): Fix job_id() for array jobs.
     + 09/20/22 (pjf): Prevent use of `--jobs` with `--time-min`.
     + 12/15/22 (mac): Revert default license to uppercase SCRATCH on Cori.
+    + 07/28/23 (mac): Remove support for Cori.
+    + 10/20/23 (pjf): Avoid use of srun for serial invocation.
+    + 11/10/23 (pjf):
+        - Migrate from pkg_resources to importlib_resources.
+        - Copy wrapper script to launch_dir to ensure existence.
+    + 03/06/24 (mac): Make 
 """
-
-# Notes:
-#
-# Cori Haswell
-#
-# http://www.nersc.gov/users/computational-systems/cori/running-jobs/general-running-jobs-recommendations/
-#
-# Common options:
-#
-# --opt="--mail-type=ALL"
 
 import datetime
 import os
 import sys
 import math
+import pathlib
 import signal
+import stat
 import subprocess
 import shutil
 import re
-from tabnanny import verbose
+import importlib_resources
 
-from . import control
-from . import exception
-from . import parameters
-from . import utils
+from .. import (
+    control,
+    exception,
+    parameters,
+    utils,
+)
 
 
 cluster_specs = {
-    "cori": {
-        "default": os.environ.get("CRAY_CPU_TARGET"),
-        "node_types": {
-            "haswell": {
-                "constraint": "haswell",
-                "core_specialization": True,
-                "queues": ["regular", "shared", "interactive", "debug", "premium", "flex", "overrun"],
-                "cores_per_node": 32,
-                "threads_per_core": 2,
-                "domains_per_node": 2,
-                "cores_per_domain": 16,
-                "nodes_per_switch": 384,
-            },
-            "mic-knl": {
-                "core_specialization": True,
-                "constraint": "knl,quad,cache",
-                "queues": ["regular", "interactive", "debug", "premium", "low", "flex", "overrun"],
-                "cores_per_node": 68,
-                "threads_per_core": 4,
-                "domains_per_node": 4,
-                "cores_per_domain": 16,
-                "nodes_per_switch": 384,
-            },
-            "cmem": {
-                "constraint": "amd",
-                "core_specialization": True,
-                "queues": ["bigmem", "interactive", "shared"],
-                "cores_per_node": 32,
-                "threads_per_core": 2,
-                "domains_per_node": 2,
-                "cores_per_domain": 16,
-                "nodes_per_switch": 1,
-            }
-        },
-    },
+    ## "cori": {
+    ##     "default": os.environ.get("CRAY_CPU_TARGET"),
+    ##     "node_types": {
+    ##         "haswell": {
+    ##             "constraint": "haswell",
+    ##             "core_specialization": True,
+    ##             "queues": ["regular", "shared", "interactive", "debug", "premium", "flex", "overrun"],
+    ##             "cores_per_node": 32,
+    ##             "threads_per_core": 2,
+    ##             "domains_per_node": 2,
+    ##             "cores_per_domain": 16,
+    ##             "nodes_per_switch": 384,
+    ##         },
+    ##         "mic-knl": {
+    ##             "core_specialization": True,
+    ##             "constraint": "knl,quad,cache",
+    ##             "queues": ["regular", "interactive", "debug", "premium", "low", "flex", "overrun"],
+    ##             "cores_per_node": 68,
+    ##             "threads_per_core": 4,
+    ##             "domains_per_node": 4,
+    ##             "cores_per_domain": 16,
+    ##             "nodes_per_switch": 384,
+    ##         },
+    ##         "cmem": {
+    ##             "constraint": "amd",
+    ##             "core_specialization": True,
+    ##             "queues": ["bigmem", "interactive", "shared"],
+    ##             "cores_per_node": 32,
+    ##             "threads_per_core": 2,
+    ##             "domains_per_node": 2,
+    ##             "cores_per_domain": 16,
+    ##             "nodes_per_switch": 1,
+    ##         }
+    ##     },
+    ## },
     "perlmutter": {
         "default": "cpu",
         "node_types": {
@@ -136,6 +136,17 @@ cluster_specs = {
                 "queues": ["regular", "interactive", "debug", "preempt", "overrun"],
                 "core_specialization": False,
                 "constraint": "gpu",
+                "cores_per_node": 64,
+                "threads_per_core": 2,
+                "domains_per_node": 4,
+                "cores_per_domain": 16,
+                "gpus_per_node": 4,
+                "nodes_per_switch": 128,
+            },
+            "gpu-hbm80g": {
+                "queues": ["regular", "interactive", "debug", "preempt", "overrun"],
+                "core_specialization": False,
+                "constraint": "gpu&hbm80g",
                 "cores_per_node": 64,
                 "threads_per_core": 2,
                 "domains_per_node": 4,
@@ -240,10 +251,7 @@ def qsubm_arguments(parser):
         "--switchwaittime", type=str, default="12:00:00",
         help="maximum time to wait for switch count; 0 disables constraint"
     )
-    if nersc_host == "cori":
-        default_licenses = "SCRATCH,cfs"
-    else:
-        default_licenses = "scratch,cfs"
+    default_licenses = "scratch,cfs"
     group.add_argument(
         "--licenses", type=str, default=default_licenses,
         help="licenses to request for job"
@@ -254,8 +262,8 @@ def qsubm_arguments(parser):
         help="deadline for job execution (e.g., \"2022-01-19T00:06:59\"); default "
         "set by MCSCRIPT_DEADLINE"
     )
-    
-def submission(job_name,job_file,qsubm_path,environment_definitions,args):
+
+def submission(job_name,job_file,environment_definitions,args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -263,8 +271,6 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         job_name (str): job name string
 
         job_file (str): job script file
-
-        qsubm_path (str): path to qsubm files (for locating wrapper script)
 
         environment_definitions (list of str): list of environment variable definitions
         to include in queue submission arguments
@@ -347,12 +353,12 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
             raise exception.ScriptError(
                 "ensure 'cmem' module is loaded when using --node-type=cmem"
             )
-        elif (node_type in ["haswell", "mic-knl"]) and (node_type != os.environ.get("CRAY_CPU_TARGET", "")):
-            raise exception.ScriptError(
-                "--node-type={:s} does not match CRAY_CPU_TARGET={:s}".format(
-                    node_type, os.environ.get("CRAY_CPU_TARGET", "")
-                )
-            )
+        ## elif (node_type in ["haswell", "mic-knl"]) and (node_type != os.environ.get("CRAY_CPU_TARGET", "")):
+        ##     raise exception.ScriptError(
+        ##         "--node-type={:s} does not match CRAY_CPU_TARGET={:s}".format(
+        ##             node_type, os.environ.get("CRAY_CPU_TARGET", "")
+        ##         )
+        ##     )
 
         # check for multiple workers with requeueable jobs
         if args.time_min and (args.workers > 1):
@@ -367,6 +373,9 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
         else:
             raise err
 
+    # cluster-specific environment variables (to pass through to runtime script)
+    os.environ["MCSCRIPT_NODE_TYPE"] = node_type
+        
     # start accumulating command line
     submission_invocation = [ "sbatch" ]
 
@@ -396,14 +405,19 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     if (node_spec["core_specialization"]) and (args.nodes > 1):
         submission_invocation += ["--core-spec={}".format(node_cores-(domain_cores*node_domains))]
 
+    # gpu options
+    if node_type in {"gpu", "gpu-hbm80g"}:
+        # assumes typical configuration of single GPU per MPI rank
+        # https://docs.nersc.gov/jobs/affinity/#perlmutter
+        submission_invocation += ["--gpus-per-task=1"]
+        submission_invocation += ["--gpu-bind=none"]
+
     # job array for repetitions
     if args.jobs > 1:
         submission_invocation += ["--array={:g}-{:g}".format(0, args.jobs-1)]
 
-    if (nersc_host == "cori") and (args.queue in ["xfer", "compile"]):
-        control.module(["load", "esslurm"])
-    elif args.queue in node_spec["queues"]:
-        # target cpu
+    if args.queue in node_spec["queues"]:
+        # target cpu/gpu
         submission_invocation += ["--constraint={}".format(node_constraint)]
 
         if slurm_time_to_seconds(args.switchwaittime) > 0:
@@ -442,14 +456,23 @@ def submission(job_name,job_file,qsubm_path,environment_definitions,args):
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
     if "csh" in os.environ.get("SHELL", ""):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
+        job_wrapper_name = "csh_job_wrapper.csh"
     elif "bash" in os.environ.get("SHELL", ""):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+        job_wrapper_name = "bash_job_wrapper.sh"
     else:
-        job_wrapper = ""
-    submission_invocation += [
-        job_wrapper,
-    ]
+        job_wrapper_name = None
+
+    if job_wrapper_name:
+        # copy job wrapper to launch directory
+        job_wrapper_source = (
+            importlib_resources.files('mcscript') / "job_wrappers" / job_wrapper_name
+        )
+        job_wrapper = pathlib.Path(parameters.run.launch_dir) / job_wrapper_name
+        with importlib_resources.as_file(job_wrapper_source) as path:
+            shutil.copyfile(path, job_wrapper)
+            job_wrapper.chmod(job_wrapper.stat().st_mode | stat.S_IEXEC)
+
+        submission_invocation += [str(job_wrapper)]
 
     # use GNU parallel to launch multiple workers per job
     if args.workers > 1:
@@ -542,30 +565,27 @@ def serial_invocation(base):
     #
     #   srun --export=ALL ...
 
-    if (not os.environ.get("SLURM_JOB_ID")):
+    # NERSC machines no longer use MOM nodes; OpenMP-only executions should
+    # generally not use srun to avoid srun delays. However, if using multiple
+    # workers, srun is (unfortunately) required in order to distribute serial
+    # tasks across nodes.
+    if (not os.environ.get("SLURM_JOB_ID")) or (parameters.run.num_workers == 1):
         # run on front end
         invocation = base
     else:
-        if (os.getenv("NERSC_HOST") == "cori") and (parameters.run.num_workers == 1):
-            # run unwrapped on Cori
-            invocation = base
-        else:
-            # run on compute node
-            invocation = [
-                "srun",
-                "--ntasks={}".format(1),
-                "--nodes={}".format(1),
-                "--cpus-per-task={}".format(parameters.run.serial_threads),
-                "--export=ALL"
-            ]
+        # run on compute node
+        invocation = [
+            "srun",
+            "--ntasks={}".format(1),
+            "--nodes={}".format(1),
+            "--cpus-per-task={}".format(parameters.run.serial_threads),
+            "--export=ALL",
+            "--cpu-bind=cores",
+        ]
 
-            # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
-            # cpu-bind=cores is recommended for cori but degrades performance on edison (mac, 4/3/17)
-            invocation += [
-                "--cpu-bind=cores"
-            ]
+        invocation += base
 
-            invocation += base
+    invocation = base
 
     return invocation
 
@@ -621,14 +641,35 @@ def hybrid_invocation(base):
         "--cpus-per-task={}".format(parameters.run.hybrid_threads),
         "--export=ALL"
     ]
-    # 4/3/17 (mac): cpu-bind=cores is recommended for cori but degrades performance on edison
-    # 7/29/17 (mac): cpu-bind=cores is now recommended for edison as well
+
+    # buffering
+    # recommended by pm 02/02/23
+    invocation += [
+        "--unbuffered"
+    ]
+
+    # cpu binding
     invocation += [
         "--cpu-bind=cores"
     ]
 
-    # use local path instead
+    # executable wrapper for GPU affinity
+    node_type = os.environ["MCSCRIPT_NODE_TYPE"]
+    if node_type in {"gpu", "gpu-hbm80g"}:
+        ##executable_wrapper_path = pkg_resources.resource_filename(
+        ##    "mcscript", "job_wrappers/nersc_select_gpu_device.sh"
+        ##)
+        ##if (parameters.run.hybrid_nodes >= 128):
+        ##    executable_wrapper_path = broadcast_executable(executable_wrapper_path)
+        ##invocation += [executable_wrapper_path]
+        invocation += [
+            "--gpus-per-task=1"
+        ]
+
+    # executable
     invocation += [executable_path]
+
+    # arguments
     invocation += base[1:]
 
     return invocation
@@ -705,7 +746,7 @@ def init():
     """ Do any local setup tasks.
 
     Invoked after mcscript sets the various configuration variables
-    and changed the cwd to the scratch directory.
+    and changes the cwd to the scratch directory.
     """
 
     # attach signal handler for USR1
@@ -719,7 +760,7 @@ def init():
         parameters.run.install_dir, cpu_target
         )
 
-    # get extract metadata from Slurm
+    # extract metadata from Slurm
     if job_id() != "0":
         # get hostname
         parameters.run.host_name = subprocess.run(

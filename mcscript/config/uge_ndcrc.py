@@ -18,6 +18,9 @@
       - Pass entire environment.
       - Completely rewrite mapping and binding logic.
     + 10/11/20 (pjf): Rename `--num` to `--jobs`.
+    + 11/10/23 (pjf):
+        - Migrate from pkg_resources to importlib_resources.
+        - Copy wrapper script to launch_dir to ensure existence.
 
 """
 
@@ -69,8 +72,12 @@
 
 import math
 import os
+import pathlib
+import shutil
+import stat
+import importlib_resources
 
-from . import parameters
+from .. import parameters
 
 
 queues = {
@@ -91,7 +98,7 @@ queues = {
 ################################################################
 ################################################################
 
-def submission(job_name, job_file, qsubm_path, environment_definitions, args):
+def submission(job_name, job_file, environment_definitions, args):
     """Prepare submission command invocation.
 
     Arguments:
@@ -99,8 +106,6 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
         job_name (str): job name string
 
         job_file (str): job script file
-
-        qsubm_path (str): path to qsubm files (for locating wrapper script)
 
         environment_definitions (list of str): list of environment variable definitions
         to include in queue submission arguments
@@ -190,12 +195,26 @@ def submission(job_name, job_file, qsubm_path, environment_definitions, args):
     #
     # calls interpreter explicitly, so do not have to rely upon default python
     #   version or shebang line in script
-    if "csh" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "csh_job_wrapper.csh")
-    elif "bash" in os.environ.get("SHELL"):
-        job_wrapper = os.path.join(qsubm_path, "bash_job_wrapper.sh")
+    if "csh" in os.environ.get("SHELL", ""):
+        job_wrapper_name = "csh_job_wrapper.csh"
+    elif "bash" in os.environ.get("SHELL", ""):
+        job_wrapper_name = "bash_job_wrapper.sh"
+    else:
+        job_wrapper_name = None
+
+    if job_wrapper_name:
+        # copy job wrapper to launch directory
+        job_wrapper_source = (
+            importlib_resources.files('mcscript') / "job_wrappers" / job_wrapper_name
+        )
+        job_wrapper = pathlib.Path(parameters.run.launch_dir) / job_wrapper_name
+        with importlib_resources.as_file(job_wrapper_source) as path:
+            shutil.copyfile(path, job_wrapper)
+            job_wrapper.chmod(job_wrapper.stat().st_mode | stat.S_IEXEC)
+
+        submission_invocation += [str(job_wrapper)]
+
     submission_invocation += [
-        job_wrapper,
         os.environ["MCSCRIPT_PYTHON"],
         job_file
     ]

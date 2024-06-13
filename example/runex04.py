@@ -17,8 +17,9 @@
 import os
 
 import mcscript
+import mcscript.control
 
-mcscript.init()
+mcscript.control.init()
 
 print(64*"-")
 print("Python's environment (os.environ):")
@@ -28,21 +29,21 @@ print()
 
 print(64*"-")
 print("Local invocation of env:")
-mcscript.call(["env"],mode=mcscript.CallMode.kLocal)
+mcscript.control.call(["env"],mode=mcscript.control.CallMode.kLocal)
 print()
 
 print(64*"-")
 print("Invocation of env as serial compute code:")
-mcscript.call(["env"],mode=mcscript.CallMode.kSerial)
+mcscript.control.call(["env"],mode=mcscript.control.CallMode.kSerial)
 print()
 
 print(64*"-")
 print("Invocation of env as hybrid compute code:")
-mcscript.call(["env"],mode=mcscript.CallMode.kHybrid)
+mcscript.control.call(["env"],mode=mcscript.control.CallMode.kHybrid)
 print()
 
 ################################################################
 # termination
 ################################################################
 
-mcscript.termination()
+mcscript.control.termination()

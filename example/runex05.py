@@ -13,14 +13,16 @@
 """
 
 import mcscript
+import mcscript.control
+import mcscript.parameters
 
-mcscript.init()
+mcscript.control.init()
 
 ##################################################################
 # main body
 ##################################################################
 
-mcscript.call(
+mcscript.control.call(
     ["cat"],
     input_lines=[
         "",
@@ -39,4 +41,4 @@ mcscript.call(
 # termination
 ################################################################
 
-mcscript.termination()
+mcscript.control.termination()

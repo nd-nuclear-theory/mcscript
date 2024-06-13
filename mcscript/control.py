@@ -12,7 +12,7 @@
         + Reformat output from call, including adding wall time.
         + Deprecate aliases to call mode.
     - 6/28/17 (mac):
-        + Remove storage of stdout/sterr by POpen.communicate in mcscript.call.
+        + Remove storage of stdout/sterr by POpen.communicate in mcscript.control.call.
         + Remove deprecated aliases to call mode.
     - 06/07/19 (pjf):
         + Use new (Python 3.5+) subprocess interface subprocess.run.
@@ -282,10 +282,10 @@ def call(
 
     Examples:
 
-        >>> mcscript.call(["cat"],input_lines=["a","b"]) # basic
-        >>> mcscript.call(["catx"],input_lines=["a","b"]) # for execution failure
-        >>> mcscript.call(["cat","badfile"],input_lines=["a","b"]) # for nonzero return
-        >>> mcscript.call(["cat","badfile"],input_lines=["a","b"],mode=mcscript.CallMode.kSerial) # specifying run mode
+        >>> mcscript.control.call(["cat"],input_lines=["a","b"]) # basic
+        >>> mcscript.control.call(["catx"],input_lines=["a","b"]) # for execution failure
+        >>> mcscript.control.call(["cat","badfile"],input_lines=["a","b"]) # for nonzero return
+        >>> mcscript.control.call(["cat","badfile"],input_lines=["a","b"],mode=mcscript.control.CallMode.kSerial) # specifying run mode
 
     """
 

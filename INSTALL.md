@@ -13,6 +13,7 @@ Department of Physics, University of Notre Dame
 + 01/01/18 (pjf): Update for installation with `pip`.
 + 02/06/18 (pjf): Update MCSCRIPT_SOURCE file path.
 + 02/09/18 (mac): Overhaul configuration instructions.
++ 07/10/23 (pjf): Update for `MCSCRIPT_CONFIG` variable.
 
 ----------------------------------------------------------------
 
@@ -43,77 +44,74 @@ Department of Physics, University of Notre Dame
   Set up the package in your `PYTHONPATH` by running `pip`:
 
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  % python3 -m pip install --user --editable .
+  % python3 -m pip install --user .
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   Note that the `.` here means to install the Python package defined by the code
-  in the current directory.
+  in the current directory. If you are actively developing `mcscript` itself,
+  you may want to pass the `--editable` flag to `pip`.  However, beware that
+  this may result in a fragile installation, e.g., the wrong version of `qsubm`
+  may be executed if you upgrade.
   
   a. Subsequently updating source:
 
   ~~~~~~~~~~~~~~~~
   % git pull
-  % python3 -m pip install --user --editable .
+  % python3 -m pip install --user .
   ~~~~~~~~~~~~~~~~
 
-  This subsequent `pip install`, when updating the source code, is a precaution
-  in case, e.g., the package dependencies have changed.
-  
 # 2. Local configuration
 
-  The local configuration file provides functions which construct the batch
+  The local configuration module provides functions which construct the batch
   submission (qsub, sbatch, etc.) command lines and and serial/parallel
   execution launch (mpiexec, srun, etc.)  invocations appropriate to your
-  cluster and running needs.  You need to create a symbolic link `config.py` to
-  point to the correct configuration file for the system or cluster you are
-  running on.
+  cluster and running needs.  You must define the `MCSCRIPT_CONFIG` environment
+  variable to specify the correct configuration module for the system or 
+  cluster you are running on.
 
   If you are only doing *local* runs (i.e., no batch job submission) on your
-  laptop/workstation, and if you are using with OpenMPI as your MPI
-  implementation, you can use the generic configuration file config-ompi.py in
-  mcscript/config:
+  laptop/workstation, and if you are using with OpenMPI as your MPI 
+  implementation, you can use the generic configuration module 
+  `mcscript.config.ompi`:
   
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  % ln -s config/config-ompi.py config.py
+  % export MCSCRIPT_CONFIG="mcscript.config.ompi"
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Example local configuration files for Univa Grid Engine at the Notre
-  Dame Center for Research Computing and SLURM at NERSC are included
-  in the mcscript/config directory.
+  Local configuration modules for several clusters are provided as part of the
+  `mcscript` distribution:
 
-  >#### @NDCRC: ####
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  % ln -s config/config-uge-ndcrc.py config.py
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  >#### @NERSC: ####
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  % ln -s config/config-slurm-nersc.py config.py
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  - `mcscript.config.uge_ndcrc` - Univa Grid Engine at CRC (Notre Dame)
+  - `mcscript.config.slurm_nersc` - Slurm at NERSC (LBNL)
+  - `mcscript.config.torque_oak` - Torque at UBC ARC (TRIUMF)
 
   Otherwise, whenever you move to a new cluster, you will have to
-  write such a file, to take into account the pecularities of the
+  write such a module, to take into account the pecularities of the
   batch submission software and queue structure of that cluster.
-  You can use the above example files as models to define your own configuration
-  file appropriate to your own cluster and your own running needs.
+  You can use the above example modules (distributed in `mcscript/config`) as 
+  models to define your own configuration module(s) appropriate to your own 
+  cluster(s) and your own running needs. In such a case, you can set 
+  `MCSCRIPT_CONFIG` to the full path of the configuration module file:
+
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  % export MCSCRIPT_CONFIG="/home/alice/code/gadget_acme.py"
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 # 3. Environment variables
 
-  You will also need to add the `mcscript\tools` directory to your command path.
-  Furthermore, the mcscript job submission utility "qsubm" expects certain
-  environment variables to be defined at submission time:
+  The `mcscript` package expects certain environment variables to be defined
+  at both submission and run time:
 
-  > MCSCRIPT_DIR specifies the directory in which the mcscript package is
-  > installed, i.e., the directory where the file qsubm.py is found.  (Note
-  > that qsubm uses this information to locate certain auxiliary script files
-  > used as part of the job submission process.)
+  > `MCSCRIPT_CONFIG` (described above) specifies the cluster configuration
+  > module.
 
-  > MCSCRIPT_INSTALL_HOME specifies the directory in which executables are
+  > `MCSCRIPT_INSTALL_HOME` specifies the directory in which executables are
   > found.
 
-  > MCSCRIPT_RUN_HOME specifies the directory in which job files are found.
+  > `MCSCRIPT_RUN_HOME` specifies the directory in which job files are found.
 
-  > MCSCRIPT_WORK_HOME specifies the parent directory in which run scratch
+  > `MCSCRIPT_WORK_HOME` specifies the parent directory in which run scratch
   > directories should be made.  This will normally be on a fast scratch
   > filesystem.
 
@@ -126,11 +124,10 @@ Department of Physics, University of Notre Dame
   
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
-  setenv MCSCRIPT_DIR ${HOME}/code/mcscript
+  setenv MCSCRIPT_CONFIG mcscript.config.ompi
   setenv MCSCRIPT_INSTALL_HOME ${HOME}/code/install
   setenv MCSCRIPT_RUN_HOME ${HOME}/runs
   setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
-  setenv PATH ${MCSCRIPT_DIR}/tools:${PATH}
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   Alternatively, if you are a bash user, you would add something like the
@@ -138,11 +135,10 @@ Department of Physics, University of Notre Dame
   
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
-  export MCSCRIPT_DIR=${HOME}/code/mcscript
+  export MCSCRIPT_CONFIG=mcscript.config.ompi
   export MCSCRIPT_INSTALL_HOME=${HOME}/code/install
   export MCSCRIPT_RUN_HOME=${HOME}/runs
   export MCSCRIPT_WORK_HOME=${SCRATCH}/runs
-  export PATH=${MCSCRIPT_DIR}/tools:${PATH}
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   You may also need to set environment variables expected by the scripting for
@@ -152,7 +148,7 @@ Department of Physics, University of Notre Dame
   To tell mcscript about this file, make sure you set MCSCRIPT_SOURCE
   at the time you submit the job, i.e., before calling qsubm:
 
-  > MCSCRIPT_SOURCE (optional) should give the full qualified
+  > `MCSCRIPT_SOURCE` (optional) should give the full qualified
   > filename (i.e., including path) to any shell code which should
   > be "sourced" at the beginning of the batch job.  This should be
   > sh/bash-compatible code.

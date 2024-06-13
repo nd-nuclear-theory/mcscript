@@ -23,11 +23,13 @@ os.environ["MCSCRIPT_NODESIZE"] = "-1"
 os.environ["MCSCRIPT_EPAR"] = "-1"
 
 import mcscript
+import mcscript.control
+import mcscript.utils
 
-mcscript.init()
+mcscript.control.init()
 
 
 # test utils submodule
 print("Time stamp:",mcscript.utils.time_stamp())  # long form
-print("Time stamp:",mcscript.time_stamp())
+print("Time stamp:",mcscript.control.time_stamp())
 

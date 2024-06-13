@@ -551,14 +551,22 @@ def archive_handler_subarchives(archive_parameters_list):
         archive_filename = subarchive_filename(archive_parameters)
         if archive_filename is None:
             continue
-        archive_filename_list += [archive_filename]
         print("Archive: {}".format(archive_filename))
+
+        # check that at least some contents exist (else skip)
+        available_paths = []
+        for path in paths:
+            if (os.path.isdir(path)):
+                available_paths.append(path)
+        if ((len(available_paths)==0) and (not include_metadata)):
+            print("None of paths {} available and no request to save metadata.  Skipping archive...".format(paths))
+            continue
 
         # construct archive
         filename_list = [toc_filename]
         if (include_metadata):
             filename_list += ["flags","output","batch"]
-        filename_list += paths
+        filename_list += available_paths
         tar_flags = "zcvf" if compress else "cvf"
         control.call(
             [
@@ -572,6 +580,7 @@ def archive_handler_subarchives(archive_parameters_list):
             ] + filename_list,
             cwd=parameters.run.work_dir, check_return=True
             )
+        archive_filename_list += [archive_filename]
 
     return archive_filename_list
 
@@ -588,7 +597,7 @@ def archive_handler_hsi(archive_filename_list=None, split_large_archives=False, 
 
         split_large_archives (bool, optional): whether or not to split large
         archives into segments
-  
+
         max_size (int, optional): maximum size (in bytes) of an archive which will
             be store to tape without being split; defaults to 2**41 B = 2 TiB
 
@@ -669,9 +678,17 @@ def archive_handler_subarchives_hsi(archive_parameters_list, max_size=2**41, seg
         archive_filename = subarchive_filename(archive_parameters)
         if archive_filename is None:
             continue
-        archive_filename_list += [archive_filename]
         print("----------------------------------------------------------------")
         print("Archive: {}".format(archive_filename))
+
+        # check that at least some contents exist (else skip)
+        available_paths = []
+        for path in paths:
+            if (os.path.isdir(path)):
+                available_paths.append(path)
+        if ((len(available_paths)==0) and (not include_metadata)):
+            print("None of paths {} available and no request to save metadata.  Skipping archive...".format(paths))
+            continue
 
         # create named pipes for archives
         os.mkfifo(archive_filename)
@@ -727,7 +744,7 @@ def archive_handler_subarchives_hsi(archive_parameters_list, max_size=2**41, seg
         filename_list = [toc_filename]
         if (include_metadata):
             filename_list += ["flags","output","batch"]
-        filename_list += paths
+        filename_list += available_paths
         tar_flags = "zcvf" if compress else "cvf"
         try:
             control.call(
@@ -760,6 +777,8 @@ def archive_handler_subarchives_hsi(archive_parameters_list, max_size=2**41, seg
         # return (or abort)
         if returncode != 0:
             raise exception.ScriptError("nonzero return")
+
+        archive_filename_list += [archive_filename]
 
     return archive_filename_list
 
@@ -1294,7 +1313,7 @@ def do_task(task_parameters,task,phase_handlers):
         raise
     except BaseException as err:
         # on failure, flag failure and propagate exception so script terminates
-        traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__, file=sys.stdout)
+        traceback.print_exception(err, value=err, tb=err.__traceback__, file=sys.stdout)
         if task_mode is TaskMode.kRun:
             # process timing
             task_end_time = time.time()
@@ -1488,7 +1507,7 @@ def task_master(task_parameters,task_list,phase_handlers,archive_phase_handlers)
             # consider an early termination to be successful
             control.termination(success=True, complete=False)
         except BaseException as err:
-            traceback.print_exception(etype=type(err), value=err, tb=err.__traceback__)
+            traceback.print_exception(err, value=err, tb=err.__traceback__)
             control.termination(success=False)
     else:
         raise(exception.ScriptError("Unsupported run mode: {:s}".format(task_mode)))

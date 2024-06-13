@@ -37,8 +37,9 @@
 import os
 
 import mcscript
+import mcscript.control
 
-mcscript.init()
+mcscript.control.init()
 
 ##################################################################
 # main body
@@ -54,17 +55,17 @@ mcscript.init()
 #   via standard input (optional parameter input_lines), and various
 #   other possibilities depending on the optional parameters.
 #
-#   See the docstring for mcscript.call for further information.
+#   See the docstring for mcscript.control.call for further information.
 
 # running an executable "unwrapped" -- no OpenMP/MPI setup
-mcscript.call(["lscpu"])
+mcscript.control.call(["lscpu"])
 
 # running a "hybrid" exectuable -- use both OpenMP and MPI
 executable_filename = os.path.join(os.environ["MCSCRIPT_DIR"],"example","hello-hybrid")
-mcscript.call([executable_filename],mode=mcscript.CallMode.kHybrid)
+mcscript.control.call([executable_filename],mode=mcscript.control.CallMode.kHybrid)
 
 ################################################################
 # termination
 ################################################################
 
-mcscript.termination()
+mcscript.control.termination()
