@@ -14,6 +14,7 @@ Department of Physics, University of Notre Dame
 + 02/06/18 (pjf): Update MCSCRIPT_SOURCE file path.
 + 02/09/18 (mac): Overhaul configuration instructions.
 + 07/10/23 (pjf): Update for `MCSCRIPT_CONFIG` variable.
++ 07/01/24 (mac): Add note on GNU Parallel dependency.
 
 ----------------------------------------------------------------
 
@@ -176,7 +177,24 @@ Department of Physics, University of Notre Dame
   shell initialization file.  Alternatively, you may use the `MCSCRIPT_SOURCE`
   hook to ensure that a python3 module is loaded when your batch job starts.
 
-# 4. Basic tests
+
+# 4. Dependencies (optional)
+
+If you wish to use the `--workers` option to `qsubm` (to launch multiple workers
+per job), you also need to have the GNU Parallel tool installed:
+
+   https://www.gnu.org/software/parallel/
+   
+It suffices to carry out a "minimal" installation.  This consists of downloading
+the script named `parallel`, giving it execute permission, and copying it to a
+directory in your command search path (that is, specified by `PATH`).
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    wget https://git.savannah.gnu.org/cgit/parallel.git/plain/src/parallel
+    chmod u+x parallel
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# 5. Basic tests
 
   Basic test scripts may be found in `mcscript/example`.  But qsubm will be
   looking for them in your "run" directory.  So you can start by putting
