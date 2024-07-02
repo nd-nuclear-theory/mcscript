@@ -181,13 +181,20 @@ Department of Physics, University of Notre Dame
 # 4. Dependencies (optional)
 
 If you wish to use the `--workers` option to `qsubm` (to launch multiple workers
-per job), you also need to have the GNU Parallel tool installed:
+per job), you also need to have the GNU Parallel toolkit installed:
 
    https://www.gnu.org/software/parallel/
-   
-It suffices to carry out a "minimal" installation.  This consists of downloading
-the script named `parallel`, giving it execute permission, and copying it to a
-directory in your command search path (that is, specified by `PATH`).
+
+This toolkit may already be available on your system, e.g., at NERSC, through
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    module load parallel
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Otherwise, if you need to install it yourself, it suffices to carry out a
+"minimal" installation.  This consists of downloading the script named
+`parallel`, giving it execute permission, and copying it to a directory in your
+command search path (that is, specified by `PATH`).
 
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     wget https://git.savannah.gnu.org/cgit/parallel.git/plain/src/parallel
