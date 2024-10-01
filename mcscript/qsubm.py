@@ -170,7 +170,7 @@ def parse_args():
     hybrid_group = parser.add_argument_group("hybrid run options")
     hybrid_group.add_argument("--nodes", type=int, default=1, help="number of nodes")
     hybrid_group.add_argument("--ranks", type=int, default=1, help="number of MPI ranks")
-    hybrid_group.add_argument("--threads", type=int, default=1, help="OMP threads per rank)")
+    hybrid_group.add_argument("--threads", type=int, default=1, help="OMP threads per rank")
     hybrid_group.add_argument("--nodesize", type=int, default=0, help="logical threads available per node"
                             " (might instead be interpreted as physical CPUs depending on local config file)")
     ##hybrid_group.add_argument("--undersubscription", type=int, default=1, help="undersubscription factor (e.g., spread=2 requests twice the cores needed)")
