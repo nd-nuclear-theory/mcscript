@@ -1,6 +1,6 @@
 # mcscript installation guide #
 
-Mark A. Caprio, Patrick J. Fasano  
+Mark A. Caprio, Patrick J. Fasano
 Department of Physics, University of Notre Dame
 
 + 12/30/16 (mac): Created.
@@ -98,6 +98,8 @@ Department of Physics, University of Notre Dame
   % export MCSCRIPT_CONFIG="/home/alice/code/gadget_acme.py"
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+   In practice, you will want to set `MCSCRIPT_CONFIG` via your shell
+   initialization file (see section "Environment Variables" below).
 
 # 3. Environment variables
 
@@ -121,7 +123,7 @@ Department of Physics, University of Notre Dame
 
   The easiest way to ensure that these variables are defined is to define them
   in the shell initialization file for your login shell.  That is, if you are a
-  tcsh user, you would add something like the following to your .cshrc file:
+  `tcsh` user, you would add something like the following to your `.cshrc` file:
   
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
@@ -131,8 +133,8 @@ Department of Physics, University of Notre Dame
   setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Alternatively, if you are a bash user, you would add something like the
-  following to your .bashrc file:
+  Alternatively, if you are a `bash` user, you would add something like the
+  following to your `.bashrc` file:
   
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
@@ -146,7 +148,7 @@ Department of Physics, University of Notre Dame
   specific application you plan to run under mcscript.  But those should be
   defined in the documentation for the relevant scripting.
 
-  To tell mcscript about this file, make sure you set MCSCRIPT_SOURCE
+  To tell mcscript about this file, make sure you set `MCSCRIPT_SOURCE`
   at the time you submit the job, i.e., before calling qsubm:
 
   > `MCSCRIPT_SOURCE` (optional) should give the full qualified
@@ -188,7 +190,7 @@ per job), you also need to have the GNU Parallel toolkit installed:
 This toolkit may already be available on your system, e.g., at NERSC, through
 
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    module load parallel
+    % module load parallel
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Otherwise, if you need to install it yourself, it suffices to carry out a
@@ -197,8 +199,8 @@ Otherwise, if you need to install it yourself, it suffices to carry out a
 command search path (that is, specified by `PATH`).
 
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    wget https://git.savannah.gnu.org/cgit/parallel.git/plain/src/parallel
-    chmod u+x parallel
+    % wget https://git.savannah.gnu.org/cgit/parallel.git/plain/src/parallel
+    % chmod u+x parallel
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # 5. Basic tests
