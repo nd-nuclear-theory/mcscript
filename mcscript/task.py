@@ -103,6 +103,7 @@
         - Include list of pools in toc.
     + 12/15/22 (pjf): Add archive_handler_subarchives_hsi().
     + 06/06/23 (pjf): Fix archive filenames in archive_handler_subarchives*.
+    + 06/30/25 (mac): Support compress_program keyword in archive_handler_subarchives.
 """
 
 import datetime
@@ -530,6 +531,7 @@ def archive_handler_subarchives(archive_parameters_list):
               "postfix" (str): postfix to use on archive name (e.g., "", "-res", ...)
               "paths" (list): list of subdirectories with respect to results directory
               "compress" (bool,optional): whether or not to compress
+              "compression_program" (str, optional): compression command line (e.g., "gzip --fast")
               "include_metadata" (bool,optional): whether or not to include metadata directories
 
     Returns:
@@ -544,8 +546,8 @@ def archive_handler_subarchives(archive_parameters_list):
 
         # extract parameters
         paths = archive_parameters["paths"]
-        compress = archive_parameters.get("compress",False)
-        include_metadata = archive_parameters.get("include_metadata",False)
+        compress = archive_parameters.get("compress", False)
+        include_metadata = archive_parameters.get("include_metadata", False)
 
         # get archive filename
         archive_filename = subarchive_filename(archive_parameters)
@@ -567,17 +569,24 @@ def archive_handler_subarchives(archive_parameters_list):
         if (include_metadata):
             filename_list += ["flags","output","batch"]
         filename_list += available_paths
-        tar_flags = "zcvf" if compress else "cvf"
+        if compress:
+            compress_program = archive_parameters.get("compress_program", "gzip --fast")
+            compression_args = ["--use-compress-program={}".format(compress_program)]
+        else:
+            compression_args = []
         control.call(
             [
                 "tar",
-                tar_flags,
-                archive_filename,
+                "--create",
+                "--verbose",
+                "--file={}".format(archive_filename),
                 "--sort=name",
                 "--transform=s,^,{:s}/,".format(parameters.run.name),  # prepend run name as directory
                 "--show-transformed",
                 "--exclude=task-ARCH-*"   # avoid failure return code due to "tar: runxxxx/output/task-ARCH-0.out: file changed as we read it"
-            ] + filename_list,
+            ]
+            + compression_args
+            + filename_list,
             cwd=parameters.run.work_dir, check_return=True
             )
         archive_filename_list += [archive_filename]
