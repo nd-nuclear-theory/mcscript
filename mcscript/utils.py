@@ -52,6 +52,7 @@
     06/29/22 (pjf): Generalize search_in_subdirectories for multiple filenames.
     12/15/22 (pjf): Add get_directory_size().
     01/19/24 (pjf): Make expand_path() handle None gracefully.
+    06/30/25 (mac): Add append option to write_input().
 """
 
 import collections
@@ -71,20 +72,25 @@ from . import exception
 # input file generation
 ################################################################
 
-def write_input(filename,input_lines=[],verbose=True):
+def write_input(filename, input_lines=[], append=False, verbose=True):
     """ Generate text file (typically an input file for a code to be
     invoked by the script), with contents given line-by-line as list
     of strings, and log to stdout.
 
     Arguments:
-        input_lines (list of str): input lines
-        verbose (bool, optional): whether or not to provide diagnostic output
+ 
+        filename (str): Output filename.
+
+        input_lines (list[str]): Input lines.
+
+        append (bool, optional): Whether or not to append.
+
+        verbose (bool, optional): Whether or not to provide diagnostic output
           (on by default, but might want to suppress, e.g., for large sets
-           of files)
+           of files).
     """
 
     # set up input
-    ##stdin_string = "".join([s + "\n" for s in input_lines])
     stdin_string = "\n".join(input_lines) + "\n"
 
     # produce diagnotic output
@@ -95,7 +101,8 @@ def write_input(filename,input_lines=[],verbose=True):
         print("----------------------------------------------------------------")
 
     # dump contents to file
-    data_file = open(filename,"w")
+    mode = "a" if append else "w"
+    data_file = open(filename, mode)
     data_file.write(stdin_string)
     data_file.close()
 
