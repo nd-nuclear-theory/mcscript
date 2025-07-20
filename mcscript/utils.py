@@ -72,7 +72,7 @@ from . import exception
 # input file generation
 ################################################################
 
-def write_input(filename, input_lines=[], append=False, verbose=True):
+def write_input(filename, input_lines=[], *, append=False, verbose=True):
     """ Generate text file (typically an input file for a code to be
     invoked by the script), with contents given line-by-line as list
     of strings, and log to stdout.
@@ -96,7 +96,10 @@ def write_input(filename, input_lines=[], append=False, verbose=True):
     # produce diagnotic output
     if (verbose):
         print("----------------------------------------------------------------")
-        print("Generating text file %s:" % filename)
+        if append:
+            print("Appending to text file {:s}:".format(filename))
+        else:
+            print("Generating text file {:s}:".format(filename))
         print(stdin_string)
         print("----------------------------------------------------------------")
 
@@ -155,7 +158,7 @@ def write_namelist(filename, input_dict={}, verbose=True):
         lines.append("/")
 
     # write file
-    return write_input(filename, lines, verbose)
+    return write_input(filename, lines, verbose=verbose)
 
 
 ################################################################
