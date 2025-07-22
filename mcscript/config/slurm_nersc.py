@@ -60,7 +60,7 @@
     + 11/10/23 (pjf):
         - Migrate from pkg_resources to importlib_resources.
         - Copy wrapper script to launch_dir to ensure existence.
-    + 03/06/24 (mac): Make 
+    + 03/31/25 (mac): Add `--constraint=cron` for xfer queue.
 """
 
 import datetime
@@ -390,6 +390,14 @@ def submission(job_name,job_file,environment_definitions,args):
 
     # queue
     submission_invocation += ["--qos={}".format(args.queue)]
+
+    # queue-specific options
+    if args.queue=="xfer":
+        # add constraint in case xfer queue is down (NERSC INC0232116)
+        #
+        # 05/27/25 (mac): This is confirmed to solve the "architecture" error
+        # message and lead to a successful run.
+        submission_invocation += ["--constraint=cron".format(args.queue)]
 
     # wall time
     submission_invocation += ["--time={}".format(args.wall)]

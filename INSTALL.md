@@ -1,6 +1,6 @@
 # mcscript installation guide #
 
-Mark A. Caprio, Patrick J. Fasano  
+Mark A. Caprio, Patrick J. Fasano
 Department of Physics, University of Notre Dame
 
 + 12/30/16 (mac): Created.
@@ -14,6 +14,7 @@ Department of Physics, University of Notre Dame
 + 02/06/18 (pjf): Update MCSCRIPT_SOURCE file path.
 + 02/09/18 (mac): Overhaul configuration instructions.
 + 07/10/23 (pjf): Update for `MCSCRIPT_CONFIG` variable.
++ 07/01/24 (mac): Add note on GNU Parallel dependency.
 
 ----------------------------------------------------------------
 
@@ -97,6 +98,8 @@ Department of Physics, University of Notre Dame
   % export MCSCRIPT_CONFIG="/home/alice/code/gadget_acme.py"
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+   In practice, you will want to set `MCSCRIPT_CONFIG` via your shell
+   initialization file (see section "Environment Variables" below).
 
 # 3. Environment variables
 
@@ -120,7 +123,7 @@ Department of Physics, University of Notre Dame
 
   The easiest way to ensure that these variables are defined is to define them
   in the shell initialization file for your login shell.  That is, if you are a
-  tcsh user, you would add something like the following to your .cshrc file:
+  `tcsh` user, you would add something like the following to your `.cshrc` file:
   
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
@@ -130,8 +133,8 @@ Department of Physics, University of Notre Dame
   setenv MCSCRIPT_WORK_HOME ${SCRATCH}/runs
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Alternatively, if you are a bash user, you would add something like the
-  following to your .bashrc file:
+  Alternatively, if you are a `bash` user, you would add something like the
+  following to your `.bashrc` file:
   
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # mcscript
@@ -145,7 +148,7 @@ Department of Physics, University of Notre Dame
   specific application you plan to run under mcscript.  But those should be
   defined in the documentation for the relevant scripting.
 
-  To tell mcscript about this file, make sure you set MCSCRIPT_SOURCE
+  To tell mcscript about this file, make sure you set `MCSCRIPT_SOURCE`
   at the time you submit the job, i.e., before calling qsubm:
 
   > `MCSCRIPT_SOURCE` (optional) should give the full qualified
@@ -176,7 +179,31 @@ Department of Physics, University of Notre Dame
   shell initialization file.  Alternatively, you may use the `MCSCRIPT_SOURCE`
   hook to ensure that a python3 module is loaded when your batch job starts.
 
-# 4. Basic tests
+
+# 4. Dependencies (optional)
+
+If you wish to use the `--workers` option to `qsubm` (to launch multiple workers
+per job), you also need to have the GNU Parallel toolkit installed:
+
+   https://www.gnu.org/software/parallel/
+
+This toolkit may already be available on your system, e.g., at NERSC, through
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    % module load parallel
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Otherwise, if you need to install it yourself, it suffices to carry out a
+"minimal" installation.  This consists of downloading the script named
+`parallel`, giving it execute permission, and copying it to a directory in your
+command search path (that is, specified by `PATH`).
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    % wget https://git.savannah.gnu.org/cgit/parallel.git/plain/src/parallel
+    % chmod u+x parallel
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# 5. Basic tests
 
   Basic test scripts may be found in `mcscript/example`.  But qsubm will be
   looking for them in your "run" directory.  So you can start by putting
