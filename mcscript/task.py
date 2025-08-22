@@ -104,6 +104,8 @@
     + 12/15/22 (pjf): Add archive_handler_subarchives_hsi().
     + 06/06/23 (pjf): Fix archive filenames in archive_handler_subarchives*.
     + 06/30/25 (mac): Support compress_program keyword in archive_handler_subarchives.
+    + 07/22/25 (mac): Add recover_results_multi() to restore archived files to
+        working directory.
 """
 
 import datetime
@@ -277,11 +279,11 @@ def save_results_single(
 
 
 def save_results_multi(
-    task,
-    source_file_list,
-    target_directory_name=None,
-    subdirectory="",
-    command="mv"
+        task,
+        source_file_list,
+        target_directory_name=None,
+        subdirectory="",
+        command="mv",
 ):
     """Save multiple results files from task.
 
@@ -319,6 +321,61 @@ def save_results_multi(
     )
 
 
+def recover_results_multi(
+        task,
+        target_directory_name=None,
+        subdirectory="",
+        *,
+        command="cp",
+        work_dir = "work",
+):
+    """Recover results files saved by save_results_multi to work directory.
+
+    This is useful to continue work on files that have been moved out of the
+    work directory (with save_results_multi give command="mv") or which have
+    been lost, e.g., if restarting the run after recovering from archives.
+
+    The directory name options are named for consistency with
+    save_results_multi, and thus their names are not indicative of their present
+    purpose.  That is, the "target" directory refers to the target for the
+    original save, now acting as the source.
+
+    The default action is to *copy*, to do least harm to existing saved files.
+
+    Arguments:
+        task (dict): task dictionary
+        target_directory_name (str, optional): saved results directory name, default to
+            task descriptor
+        subdirectory (str, optional): destination subdirectory for results
+        command (str, optional): type of save, "mv" or "cp", defaults to "mv"
+        work_dir (str, optional): name of work directory (may need to be overridden if postfixes are active)
+
+    """
+
+    # convenience variables
+    descriptor = task["metadata"]["descriptor"]
+
+    # determine "target" (now source) results directory path
+    if results_dir is not None:
+        res_dir = os.path.join(results_dir, subdirectory)
+        if target_directory_name is not None:
+            target_directory_path = os.path.join(res_dir, target_directory_name)
+        else:
+            target_directory_path = os.path.join(res_dir, task["metadata"]["descriptor"])
+    else:
+        target_directory_path = os.path.join(parameters.run.work_dir, subdirectory)
+
+    print("Searching {}...".format(target_directory_path))
+    target_file_list = glob.glob(os.path.join(target_directory_path, "*"))  # actually source files now
+    print("Found: {}".format(target_file_list))
+    mcscript.control.call(
+        [
+            "cp",
+            "--verbose",
+            "--target-directory={}".format(work_dir)
+        ] + target_file_list
+    )
+    
 ################################################################
 # generic archiving support
 ################################################################
