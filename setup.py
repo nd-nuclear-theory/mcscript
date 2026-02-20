@@ -17,5 +17,8 @@ setup(
             "job_wrappers/*",
         ]
     },
+    install_requires=[
+        "importlib_resources",
+        ],
     classifiers=[],
 )
