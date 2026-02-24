@@ -30,6 +30,18 @@ from .. import (
 ################################################################
 ################################################################
 
+## def qsubm_arguments(parser):
+##     """Add site-specific arguments to qsubm.
+## 
+##     Arguments:
+##         parser (argparse.ArgumentParser): qsubm argument parser context
+##     """
+## 
+##     group = parser.add_argument_group("Open MPI pass-through options")
+##     # These would need to be communicated through a new environment variable, e.g., MCSCRIPT_HYBRID_PARAMETERS.
+##     task_mode_group.add_argument("--use-hwthread-cpus", action="store_true", help="Use hardware threads as independent cpus")
+##     task_mode_group.add_argument("--oversubscribe", action="store_true", help="Allow overloading of processing elements")
+
 
 def submission(job_name,job_file,environment_definitions,args):
     """Prepare submission command invocation.
@@ -121,9 +133,18 @@ def hybrid_invocation(base):
     # https://www.olcf.ornl.gov/kb_articles/task-core-affinity-on-commodity-clusters/
     # https://www.olcf.ornl.gov/kb_articles/parallel-job-execution-on-commodity-clusters/
 
+    # Under Open MPI: The number of ranks is limited by the number of available
+    # ompi "slots", which defaults to the number of processor cores, if not
+    # specified otherwise in the host configuration.  Useful overrides include
+    # `--use-hwthread-cpus` to default to the number of hardware threads or
+    # `--oversubscribe` to ignore the number of available slots.  available MPI
+    # "slots" defaults to 1, unless specified otherwise.
+    
     # for ompi
     invocation = [
         "mpiexec",
+        ## "--use-hwthread-cpus",
+        ## "--oversubscribe",
         "--n","{:d}".format(parameters.run.hybrid_ranks)
     ]
     invocation += base
