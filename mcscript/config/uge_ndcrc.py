@@ -312,23 +312,23 @@ def hybrid_invocation(base):
     # distribute among largest possible units, to ensure spread
     # if number of cores available to a rank is larger than a unit (e.g. socket)
     # then allocate at least an integer number of those units to each rank
+
     if socketsize < cores_per_rank <= nodesize:
         allocated_cores = cores_per_rank - (cores_per_rank % socketsize)
         allocated_cores = max(allocated_cores, threads)
-        map_by = "ppr:{:d}:node:PE={:d},SPAN".format(ranks_per_node, allocated_cores)
+        map_by = "ppr:{:d}:node:PE={:d}:SPAN".format(ranks_per_node, allocated_cores)
     elif numasize < cores_per_rank <= socketsize:
         allocated_cores = cores_per_rank - (cores_per_rank % numasize)
         allocated_cores = max(allocated_cores, threads)
-        map_by = "ppr:{:d}:socket:PE={:d},SPAN".format(ranks_per_socket, allocated_cores)
+        map_by = "ppr:{:d}:socket:PE={:d}:SPAN".format(ranks_per_socket, allocated_cores)
     else:  # cores_per_rank <= numasize
         allocated_cores = cores_per_rank
         allocated_cores = max(cores_per_rank, threads)
-        map_by = "ppr:{:d}:numa:SPAN,PE={:d}".format(ranks_per_numa, allocated_cores)
-
+        map_by = "ppr:{:d}:numa:SPAN:PE={:d}".format(ranks_per_numa, allocated_cores)
 
     # map_by = "ppr:{:d}:node:PE={:d},SPAN".format(ranks_per_node, allocated_cores)
 
-    rank_by = "node:SPAN"
+    rank_by = "node,SPAN"
     bind_to = "core"
 
     if (not parameters.run.batch_mode):
@@ -336,15 +336,17 @@ def hybrid_invocation(base):
         #
         # skip bindings
         invocation = [
-            "mpiexec",
+	    "mpiexec",
+	    #"-n", "{:d}".format(parameters.run.hybrid_ranks),
             "--n", "{:d}".format(parameters.run.hybrid_ranks),
         ]
     else:
         # run on compute node
         invocation = [
             "mpiexec",
-            "--display-allocation",
-            "--display-map",
+            #"-n", "{:d}".format(parameters.run.hybrid_ranks),
+	    #"--display-allocation",
+            #"--display-map",
             "--n", "{:d}".format(parameters.run.hybrid_ranks),
             "--map-by", map_by,
             "--rank-by", rank_by,
