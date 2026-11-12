@@ -11,6 +11,7 @@
       mcscript_local_ndcrc.py (originated ~7/13 and last modified
       ~12/14).
     + 02/08/22 (pjf): Add signal handling for SIGTERM.
+    + 11/12/26 (mac): Add permissive "--oversubscribe" flag to OMPI call.
 
 """
 
@@ -144,7 +145,7 @@ def hybrid_invocation(base):
     invocation = [
         "mpiexec",
         ## "--use-hwthread-cpus",
-        ## "--oversubscribe",
+        "--oversubscribe",  # to facilitate running multiple-rank test runs on small machines
         "--n","{:d}".format(parameters.run.hybrid_ranks)
     ]
     invocation += base
